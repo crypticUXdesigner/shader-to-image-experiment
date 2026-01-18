@@ -1,4 +1,4 @@
-import type { SavedConfig, Layer } from '../types';
+import type { SavedConfig, ColorMode, ColorConfig } from '../types';
 import type { VisualElement } from '../types';
 
 export class ConfigManager {
@@ -12,7 +12,12 @@ export class ConfigManager {
   }
   
   async loadConfigFromUrl(url: string): Promise<SavedConfig> {
-    const response = await fetch(url);
+    // Use Vite's BASE_URL to handle GitHub Pages base path
+    const baseUrl = import.meta.env.BASE_URL;
+    // Ensure url doesn't start with / and baseUrl handling is correct
+    const cleanUrl = url.startsWith('/') ? url.slice(1) : url;
+    const fullUrl = `${baseUrl}${cleanUrl}`;
+    const response = await fetch(fullUrl);
     if (!response.ok) {
       throw new Error(`Failed to load config: ${response.statusText}`);
     }
@@ -31,6 +36,23 @@ export class ConfigManager {
       const parts = path.split('/');
       return parts[parts.length - 1];
     }).sort();
+  }
+  
+  // Load config by name using import.meta.glob (works with Vite bundling)
+  async loadConfigByName(configName: string): Promise<SavedConfig> {
+    // Use import.meta.glob to dynamically import the config as a module
+    // This works because Vite bundles JSON files from src/ as modules
+    const configModules = import.meta.glob('/src/configs/*.json', { eager: false });
+    const configPath = `/src/configs/${configName}`;
+    
+    if (!(configPath in configModules)) {
+      throw new Error(`Config not found: ${configName}`);
+    }
+    
+    // Dynamically import the config module
+    const module = await configModules[configPath]();
+    // Vite imports JSON files as default exports
+    return (module as { default: SavedConfig }).default;
   }
   
   migrateConfig(config: SavedConfig, elementLibrary: VisualElement[]): SavedConfig {
@@ -90,13 +112,18 @@ export class ConfigManager {
     const parameters = config.parameters || {};
     
     // Get color config from old config
-    const mode = config.colorConfig?.mode === 'stops' ? 'thresholds' : (config.colorConfig?.mode || 'bezier');
-    const colorConfig = config.colorConfig ? {
+    // Handle legacy 'stops' mode (which was renamed to 'thresholds')
+    const legacyMode = (config.colorConfig?.mode as any) === 'stops' ? 'thresholds' : config.colorConfig?.mode;
+    const mode: ColorMode = (legacyMode === 'thresholds' || legacyMode === 'bezier') ? legacyMode : 'bezier';
+    
+    // Destructure to exclude mode from spread to avoid duplicate
+    const { mode: _, ...colorConfigWithoutMode } = config.colorConfig || {};
+    const colorConfig: ColorConfig = config.colorConfig ? {
       mode: mode,
       transitionWidth: config.colorConfig.transitionWidth ?? 0.005,
       ditherStrength: config.colorConfig.ditherStrength ?? 0.0,
       pixelSize: config.colorConfig.pixelSize ?? 1.0,
-      ...config.colorConfig
+      ...colorConfigWithoutMode
     } : {
       mode: 'bezier',
       startColor: { l: 0.2, c: 0.1, h: 200 },

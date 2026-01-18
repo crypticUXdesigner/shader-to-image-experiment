@@ -88,7 +88,7 @@ export class ElementComposer {
       const elements = elementsByType[type];
       if (elements.length === 0) return;
       
-      const typeInfo = typeLabels[type];
+      const typeInfo = typeLabels[type as keyof typeof typeLabels];
       
       // Category box - each category gets its own box
       const categoryBox = document.createElement('div');
@@ -286,7 +286,6 @@ export class ElementComposer {
           // Strategy: replace all elements of this type with the reordered list, maintaining relative positions
           const newOrder: string[] = [];
           const reorderedGroupIds = reorderedGroup.map(g => g.elementId);
-          const reorderedGroupSet = new Set(reorderedGroupIds);
           let groupIndex = 0;
           
           for (const elementId of this.elementOrder) {

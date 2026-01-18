@@ -627,7 +627,7 @@ export class CombinedPanel {
     return div;
   }
   
-  private startDrag(element: HTMLElement, index: number, e: MouseEvent, groupType: string): void {
+  private startDrag(element: HTMLElement, _index: number, e: MouseEvent, groupType: string): void {
     this.draggedElement = element;
     this.draggedElementId = element.dataset.elementId || null;
     this.draggedGroupType = groupType;

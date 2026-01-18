@@ -3,18 +3,18 @@ import type { Layer } from '../../types';
 export class LayerList {
   private container: HTMLElement;
   private onLayerSelect: (layerId: string) => void;
-  private onLayerUpdate: (layer: Layer) => void;
+  // Removed unused onLayerUpdate
   private layers: Layer[] = [];
   private activeLayerId: string = '';
   
   constructor(
     container: HTMLElement,
     onLayerSelect: (layerId: string) => void,
-    onLayerUpdate: (layer: Layer) => void
+    _onLayerUpdate: (layer: Layer) => void
   ) {
     this.container = container;
     this.onLayerSelect = onLayerSelect;
-    this.onLayerUpdate = onLayerUpdate;
+    // onLayerUpdate parameter kept for API compatibility but not used
   }
   
   setLayers(layers: Layer[], activeLayerId: string): void {

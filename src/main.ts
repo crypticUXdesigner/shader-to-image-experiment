@@ -8,7 +8,7 @@ import { TimelineScrubber } from './ui/components/TimelineScrubber';
 import { BlendControls } from './ui/components/BlendControls';
 import { ExportManager } from './utils/export';
 import { ConfigManager } from './utils/config';
-import type { ColorConfig, TimelineConfig, ExportConfig, SavedConfig, Layer, FXLayer } from './types';
+import type { ColorConfig, TimelineConfig, ExportConfig, SavedConfig, Layer, FXLayer, ColorMode } from './types';
 
 class App {
   private canvas: HTMLCanvasElement;
@@ -793,7 +793,8 @@ class App {
   
   private async loadConfig(configName: string): Promise<void> {
     try {
-      const config = await this.configManager.loadConfigFromUrl(`/src/configs/${configName}`);
+      // Use import.meta.glob for loading (works with Vite base path)
+      const config = await this.configManager.loadConfigByName(configName);
       this.applyConfig(config);
     } catch (error) {
       console.error('Failed to load config:', error);

@@ -3,11 +3,10 @@ import { StaticRenderer } from '../shaders/StaticRenderer';
 import { ShaderCompiler } from '../shaders/ShaderCompiler';
 import { ShaderInstance } from '../shaders/ShaderInstance';
 import { elementLibrary } from '../shaders/elements/index';
-import type { ColorConfig } from '../types';
 
 export class ExportManager {
   async exportImage(
-    renderer: StaticRenderer,
+    _renderer: StaticRenderer,
     config: ExportConfig,
     layers: Layer[],
     timelineConfig: { value: number },

@@ -3,7 +3,7 @@ import type { VisualElement, ParameterConfig } from '../../types';
 export class ParameterPanel {
   private container: HTMLElement;
   private onParameterChange: (elementId: string, paramName: string, value: number) => void;
-  private onToggle: (elementId: string, enabled: boolean) => void;
+  // Removed unused onToggle - visibility is handled by onVisibilityToggle
   private onVisibilityToggle: (elementId: string, hidden: boolean) => void;
   private elements: VisualElement[] = [];
   private activeElements: Set<string> = new Set();
@@ -16,12 +16,12 @@ export class ParameterPanel {
   constructor(
     container: HTMLElement,
     onParameterChange: (elementId: string, paramName: string, value: number) => void,
-    onToggle: (elementId: string, enabled: boolean) => void,
+    _onToggle: (elementId: string, enabled: boolean) => void,
     onVisibilityToggle: (elementId: string, hidden: boolean) => void
   ) {
     this.container = container;
     this.onParameterChange = onParameterChange;
-    this.onToggle = onToggle;
+    // onToggle parameter kept for API compatibility but not used
     this.onVisibilityToggle = onVisibilityToggle;
   }
   
@@ -63,7 +63,7 @@ export class ParameterPanel {
       );
     }
     
-    activeElements.forEach((element, index) => {
+    activeElements.forEach((element) => {
       const elementType = element.elementType || 'content-generator';
       elementsByType[elementType].push({ element, orderIndex: this.elementOrder.indexOf(element.id) });
     });
@@ -95,7 +95,7 @@ export class ParameterPanel {
       const elements = elementsByType[type];
       if (elements.length === 0) return;
       
-      const typeInfo = typeLabels[type];
+      const typeInfo = typeLabels[type as keyof typeof typeLabels];
       
       // Category box
       const categoryBox = document.createElement('div');
@@ -254,9 +254,6 @@ export class ParameterPanel {
     if (isBlockParam) {
       label.title = 'This parameter is synced from Block Displacement';
     }
-    if (config.disabled || isEffectDisabled) {
-      label.title = 'This effect is not available in the current mode';
-    }
     
     // Check if effect is unavailable based on mode
     const isEffectUnavailable = elementId === 'block-color-glitch' && paramName === 'blockGlitchEffect';
@@ -271,6 +268,10 @@ export class ParameterPanel {
       (mode === 0 && unavailableInPreMode.includes(effect)) ||
       (mode === 1 && unavailableInPostMode.includes(effect))
     );
+    
+    if (config.disabled || isEffectDisabled) {
+      label.title = 'This effect is not available in the current mode';
+    }
     
     const isReadOnly = config.readOnly || isBlockParam;
     const isDisabled = config.disabled || isEffectDisabled;
