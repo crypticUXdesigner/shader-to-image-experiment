@@ -1,0 +1,18 @@
+select {
+  padding: var(--spacing-sm);
+  background: var(--select-bg);
+  border: var(--select-border);
+  color: var(--select-color);
+  border-radius: var(--select-radius);
+  font-size: var(--text-md);
+  cursor: pointer;
+}
+
+select:hover {
+  background: var(--select-bg-hover);
+}
+
+select:focus {
+  outline: none;
+  border: var(--select-border-focus);
+}

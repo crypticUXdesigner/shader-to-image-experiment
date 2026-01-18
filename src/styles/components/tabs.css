@@ -1,0 +1,25 @@
+.tabs {
+  display: flex;
+  gap: var(--spacing-xs);
+}
+
+.tab {
+  padding: var(--spacing-sm) var(--spacing-lg);
+  cursor: pointer;
+  border-radius: var(--tab-radius);
+  user-select: none;
+  font-size: var(--text-md);
+  background: var(--tab-bg-default);
+  color: var(--tab-color-default);
+  border: none;
+}
+
+.tab:hover {
+  color: var(--tab-color-hover);
+  background: var(--tab-bg-hover);
+}
+
+.tab.active {
+  background: var(--tab-bg-active);
+  color: var(--tab-color-active);
+}

@@ -1,0 +1,35 @@
+.eye-button {
+  width: 36px;
+  height: 30px;
+  padding: 0;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  border-radius: var(--radius-xl);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--color-gray-110);
+  transition: background 0.15s ease, color 0.15s ease;
+  flex-shrink: 0;
+}
+
+.eye-button:hover {
+  background: var(--color-gray-60);
+  color: var(--color-gray-130);
+}
+
+.eye-button.is-hidden {
+  color: var(--color-gray-70);
+}
+
+.eye-button.is-hidden:hover {
+  color: var(--color-gray-90);
+}
+
+.eye-button::before {
+  content: '👁';
+  font-size: 1.3rem;
+  font-weight: 600;
+  line-height: 1;
+}

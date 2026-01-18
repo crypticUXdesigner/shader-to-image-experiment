@@ -1,0 +1,15 @@
+.step-button {
+  padding: var(--spacing-xs) 0.4rem;
+  background: var(--step-button-bg);
+  border: none;
+  color: var(--step-button-color);
+  border-radius: var(--step-button-radius);
+  cursor: pointer;
+  user-select: none;
+  font-size: var(--text-xs);
+  min-width: var(--step-button-min-width-sm);
+}
+
+.step-button:hover {
+  background: var(--step-button-bg-hover);
+}

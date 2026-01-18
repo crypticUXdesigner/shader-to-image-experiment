@@ -1,0 +1,19 @@
+input[type="number"] {
+  width: 100%;
+  padding: var(--spacing-xs);
+  background: var(--input-bg);
+  border: var(--input-border);
+  color: var(--input-color);
+  border-radius: var(--input-radius);
+  font-size: var(--text-xs);
+}
+
+input[type="color"] {
+  width: 100%;
+  height: var(--color-picker-height);
+  cursor: pointer;
+  border: var(--color-picker-border);
+  border-radius: var(--color-picker-radius);
+  background: none;
+  user-select: none;
+}

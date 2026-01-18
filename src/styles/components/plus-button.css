@@ -1,0 +1,49 @@
+.plus-button {
+  position: relative;
+  width: 36px;
+  height: 30px;
+  background: transparent;
+  border: 2px solid var(--color-gray-70);
+  border-radius: var(--radius-xl);
+  cursor: pointer;
+  transition: background 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
+  padding: 0;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--color-gray-100);
+  line-height: 1;
+  box-sizing: border-box;
+}
+
+.plus-button::before {
+  content: '+';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -68%);
+  font-size: 1.3rem;
+  font-weight: 600;
+  line-height: 1;
+  transition: transform 0.2s ease;
+}
+
+.plus-button:hover {
+  background: var(--color-gray-60);
+  border-color: var(--color-gray-70);
+}
+
+.plus-button.is-active {
+  background: #43492f;
+  border-color: #bddb5a;
+  color: #bddb5a;
+  box-shadow: 
+    0 0 8px rgba(185, 222, 74, 0.6),
+    0 0 16px rgba(205, 222, 74, 0.4),
+    inset 0 0 8px rgba(255, 255, 255, 0.3);
+}
+
+.plus-button.is-active::before {
+  color: #bddb5a;
+}

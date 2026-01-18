@@ -1,0 +1,84 @@
+:root {
+/* === BUTTON TOKENS === */
+--button-bg: var(--color-gray-50);
+--button-bg-hover: var(--color-gray-70);
+--button-bg-active: var(--color-gray-30);
+--button-color: var(--color-gray-130);
+--button-radius: var(--radius-lg);
+
+/* === STEP BUTTON TOKENS === */
+--step-button-bg: var(--color-gray-70);
+--step-button-bg-hover: var(--color-gray-80);
+--step-button-color: var(--color-gray-130);
+--step-button-radius: var(--radius-lg);
+--step-button-min-width-sm: var(--button-min-width-sm);
+--step-button-min-width-md: var(--button-min-width-md);
+
+/* === TAB TOKENS === */
+--tab-bg-default: transparent;
+--tab-bg-hover: var(--color-gray-50);
+--tab-bg-active: var(--color-gray-70);
+--tab-color-default: var(--color-gray-100);
+--tab-color-hover: var(--color-gray-130);
+--tab-color-active: var(--color-gray-130);
+--tab-radius: var(--radius-lg);
+
+/* === SELECT TOKENS === */
+--select-bg: var(--color-gray-30);
+--select-bg-hover: var(--color-gray-70);
+--select-border: 1px solid var(--color-gray-70);
+--select-border-focus: 1px solid var(--color-gray-80);
+--select-color: var(--color-gray-130);
+--select-radius: var(--radius-lg);
+
+/* === VALUE DISPLAY TOKENS === */
+--value-display-min-width: 60px;
+
+/* === INPUT TOKENS === */
+--input-bg: var(--color-gray-20);
+--input-border: 1px solid var(--color-gray-60);
+--input-color: var(--color-gray-130);
+--input-radius: var(--radius-sm);
+
+/* === LABEL TOKENS === */
+--label-color: var(--color-gray-110);
+
+/* === COLOR PICKER TOKENS === */
+--color-picker-border: 1px solid var(--color-gray-60);
+--color-picker-radius: var(--radius-lg);
+
+/* === BOX TOKENS === */
+--box-bg-primary: var(--color-gray-30);
+--box-bg-secondary: var(--color-gray-40);
+--box-bg-tertiary: var(--color-gray-10);
+--box-radius: var(--radius-lg);
+
+/* === DIVIDER TOKENS === */
+--divider: rgba(255, 255, 255, 0.07);
+
+/* === HEADER TOKENS (collapsible) === */
+--header-border-color: var(--divider);
+--header-text-weight: 600;
+
+/* === TOGGLE TOKENS === */
+--toggle-color: var(--color-gray-90);
+
+/* === TYPE ICON TOKENS === */
+--type-icon-radius: var(--radius-md);
+
+/* === TYPE TITLE TOKENS === */
+--type-title-weight: 600;
+
+/* === DRAG HANDLE TOKENS === */
+--drag-handle-color: var(--color-gray-90);
+
+/* === PARAMETER GROUP TOKENS === */
+--param-group-title-weight: 500;
+--param-group-title-color: var(--color-gray-120);
+
+/* === ELEMENT BOX TOKENS === */
+--element-box-bg: var(--color-gray-40);
+--element-box-bg-dragging: var(--color-gray-20);
+--element-box-border-highlight: 2px solid #4a9eff;
+--element-box-name-weight: 500;
+}

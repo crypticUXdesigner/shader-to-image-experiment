@@ -1,0 +1,17 @@
+.value-display {
+  width: var(--value-display-width);
+  text-align: right;
+  font-size: var(--text-sm);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  flex-shrink: 0;
+}
+
+.param-value-display {
+  width: var(--value-display-width);
+  text-align: right;
+  font-size: var(--text-sm);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  flex-shrink: 0;
+}

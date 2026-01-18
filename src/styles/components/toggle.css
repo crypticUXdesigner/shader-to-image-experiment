@@ -1,0 +1,15 @@
+.toggle {
+  color: var(--toggle-color);
+  font-size: var(--text-xs);
+}
+
+.category-toggle {
+  margin-left: auto;
+  color: var(--toggle-color);
+  font-size: var(--text-xs);
+}
+
+.param-group-toggle {
+  margin-right: var(--spacing-sm);
+  color: var(--toggle-color);
+}

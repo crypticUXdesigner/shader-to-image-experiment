@@ -1,0 +1,34 @@
+.timeline-slider-container {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+}
+
+.timeline-slider-container input[type="range"] {
+  flex: 1;
+  cursor: pointer;
+  pointer-events: auto;
+  touch-action: none;
+}
+
+.timeline-step-button {
+  padding: var(--spacing-xs) var(--spacing-sm);
+  background: var(--step-button-bg);
+  border: none;
+  color: var(--step-button-color);
+  border-radius: var(--step-button-radius);
+  cursor: pointer;
+  user-select: none;
+  font-size: var(--text-md);
+  min-width: var(--step-button-min-width-md);
+}
+
+.timeline-step-button:hover {
+  background: var(--step-button-bg-hover);
+}
+
+.timeline-value-display {
+  min-width: var(--value-display-min-width);
+  text-align: right;
+  font-size: var(--text-md);
+}

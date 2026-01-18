@@ -1,0 +1,10 @@
+.drag-handle {
+  color: var(--drag-handle-color);
+  font-size: 1.2rem;
+  cursor: grab;
+  user-select: none;
+}
+
+.drag-handle.is-dragging {
+  cursor: grabbing;
+}

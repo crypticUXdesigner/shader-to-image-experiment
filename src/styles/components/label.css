@@ -1,0 +1,13 @@
+.label {
+  display: block;
+  margin-bottom: var(--spacing-xs);
+  font-size: var(--text-sm);
+  color: var(--label-color);
+}
+
+.param-label {
+  display: block;
+  margin-bottom: var(--spacing-xs);
+  font-size: var(--text-sm);
+  color: var(--label-color);
+}

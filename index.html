@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Shader Composer</title>
+  <link rel="stylesheet" href="/src/styles/index.css">
+</head>
+<body>
+  <div id="main">
+    <canvas id="canvas"></canvas>
+    <!-- Right panel: top bar, tab content, bottom bar — same width as control panel -->
+    <div id="right-panel">
+      <div id="top-bar">
+        <div class="tabs-container">
+          <div class="tabs-row tabs-row-layer">
+            <div class="tabs tabs-layer">
+              <button type="button" class="tab active" id="tab-layer-1">Layer 1</button>
+              <button type="button" class="tab" id="tab-layer-2">Layer 2</button>
+              <button type="button" class="tab" id="tab-fx">FX</button>
+            </div>
+            <select id="config-selector"></select>
+          </div>
+          <div class="tabs-row tabs-row-mode">
+            <div class="tabs tabs-mode">
+              <button type="button" class="tab active" id="tab-combined">Edit</button>
+              <button type="button" class="tab" id="tab-color">Color</button>
+              <button type="button" class="tab" id="tab-blend" style="display: none;">Blend</button>
+            </div>
+            <div id="layer-visibility-switch-container" style="display: none; margin-left: auto; flex-shrink: 0;">
+              <button type="button" id="layer-visibility-switch" class="power-button"></button>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div id="sidebar">
+        <div class="sidebar-tab-content">
+          <div id="combined-tab-content">
+            <div id="layer-editor-container" class="list">
+              <div id="combined-panel"></div>
+            </div>
+          </div>
+          <div id="color-tab-content" style="display: none;">
+            <div id="color-system"></div>
+          </div>
+          <div id="blend-tab-content" style="display: none;">
+            <div id="blend-controls"></div>
+          </div>
+          <div id="fx-tab-content" style="display: none;">
+            <div id="fx-panel"></div>
+          </div>
+        </div>
+      </div>
+      <div id="bottom-bar">
+        <div id="timeline-scrubber"></div>
+        <div class="bottom-buttons">
+          <button id="export-btn">Export Image</button>
+          <button id="hardsave-btn">Save Config</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script type="module" src="/src/main.ts"></script>
+</body>
+</html>

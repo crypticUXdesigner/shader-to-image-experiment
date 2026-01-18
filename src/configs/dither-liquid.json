@@ -1,0 +1,100 @@
+{
+    "version": "1.0",
+    "timestamp": "2026-01-17T03:22:16.278Z",
+    "activeElements": [
+      "rings",
+      "vector-field",
+      "bayer-dither",
+      "fbm-noise",
+      "fractal"
+    ],
+    "elementOrder": [
+      "bayer-dither",
+      "fbm-noise",
+      "rings",
+      "fbm-value-noise",
+      "vector-field",
+      "fractal",
+      "sphere-raymarch"
+    ],
+    "parameters": {
+      "fbm-noise.fbmScale": 2.6,
+      "fbm-noise.fbmOctaves": 8,
+      "fbm-noise.fbmLacunarity": 1.1,
+      "fbm-noise.fbmGain": 0.1,
+      "fbm-noise.fbmTimeSpeed": 1.8,
+      "rings.ringCenterX": 1,
+      "rings.ringCenterY": -0.2,
+      "rings.ringRadius": 0.1,
+      "rings.ringFrequency": 4,
+      "rings.ringAmplitude": 0.4,
+      "vector-field.vfFrequencyX": 1.6,
+      "vector-field.vfFrequencyY": 2.3,
+      "vector-field.vfFrequencyZ": 7.7,
+      "vector-field.vfAmplitude": 2.7,
+      "vector-field.vfRadialStrength": 13.6,
+      "vector-field.vfHarmonicAmplitude": 2.5,
+      "sphere-raymarch.sphereRadius": 1,
+      "sphere-raymarch.sphereGlowIntensity": 0.5,
+      "sphere-raymarch.raymarchSteps": 40,
+      "fractal.fractalIntensity": 1.5,
+      "fractal.fractalLayers": 1.5,
+      "fractal.fractalIterations": 4,
+      "bayer-dither.pixelSize": 2,
+      "bayer-dither.ditherStrength": 4,
+      "fbm-value-noise.fbmValueScale": 1.9,
+      "fbm-value-noise.fbmValueOctaves": 3,
+      "fbm-value-noise.fbmValueLacunarity": 2.05,
+      "fbm-value-noise.fbmValueGain": 0.55,
+      "fbm-value-noise.fbmValueTimeSpeed": 2.7
+    },
+    "colorConfig": {
+      "mode": "thresholds",
+      "transitionWidth": 0.005,
+      "ditherStrength": 0,
+      "pixelSize": 1,
+      "startColor": {
+        "l": 0.44062806867081844,
+        "c": 0.2170801016599384,
+        "h": 295.96331654628676
+      },
+      "endColor": {
+        "l": 0.34705230386994007,
+        "c": 0.06762059816717209,
+        "h": 337.83644890639914
+      },
+      "stops": 6,
+      "lCurve": {
+        "x1": 0,
+        "y1": 0,
+        "x2": 1,
+        "y2": 1
+      },
+      "cCurve": {
+        "x1": 0,
+        "y1": 0,
+        "x2": 1,
+        "y2": 1
+      },
+      "hCurve": {
+        "x1": 0,
+        "y1": 0,
+        "x2": 1,
+        "y2": 1
+      }
+    },
+    "timelineConfig": {
+      "value": 46.83,
+      "min": 0,
+      "max": 100,
+      "step": 0.01
+    },
+    "exportConfig": {
+      "resolution": [
+        1600,
+        1200
+      ],
+      "format": "png",
+      "quality": 1
+    }
+  }

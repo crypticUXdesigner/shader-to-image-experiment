@@ -1,0 +1,17 @@
+.type-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 30px;
+  padding: 0;
+  width: 32px;
+  border-radius: var(--radius-xl);
+  font-size: var(--text-lg);
+  padding-bottom: 1px;
+  line-height: 1;
+}
+
+.type-title {
+  font-weight: var(--type-title-weight);
+  font-size: var(--text-md);
+}

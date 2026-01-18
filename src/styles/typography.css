@@ -1,0 +1,12 @@
+h3 {
+  margin: 0;
+  font-size: var(--text-xl);
+  font-weight: 600;
+}
+
+h4 {
+  margin: 0;
+  font-size: var(--text-md);
+  font-weight: 500;
+  color: var(--color-gray-110);
+}

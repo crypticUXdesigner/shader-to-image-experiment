@@ -1,0 +1,59 @@
+:root {
+/* === COLOR SCALES === */
+/* Grayscale palette */
+--color-gray-10: #050506;
+--color-gray-20: #080809;
+--color-gray-30: #0b0b0e;
+--color-gray-40: #0f1013;
+--color-gray-50: #15151a;
+--color-gray-60: #1b1c23;
+--color-gray-70: #24252f;
+--color-gray-80: #2f313e;
+--color-gray-90: #3f4253;
+--color-gray-100: #5a5d6e;
+--color-gray-110: #878994;
+--color-gray-120: #adaeb4;
+--color-gray-130: #c4c5c6;
+
+
+/* Element type colors */
+--color-type-coordinate: #4a5568;
+--color-type-content: #22543d;
+--color-type-postprocessor: #553c9a;
+--color-type-coordinate-text: #e2e8f0;
+--color-type-content-text: #c6f6d5;
+--color-type-postprocessor-text: #e9d5ff;
+
+/* === SIZE SCALES === */
+/* Spacing */
+--spacing-xs: 0.25rem;
+--spacing-sm: 0.5rem;
+--spacing-md: 0.75rem;
+--spacing-lg: 1rem;
+--spacing-xl: 1.5rem;
+
+/* Text sizes */
+--text-xs: 0.75rem;
+--text-sm: 0.85rem;
+--text-md: 0.9rem;
+--text-lg: 1rem;
+--text-xl: 1.1rem;
+
+/* Border radius */
+--radius-sm: 2px;
+--radius-md: 3px;
+--radius-lg: 4px;
+--radius-xl: 9px;
+
+/* Component dimensions */
+--panel-width: 400px;
+--button-min-width-sm: 36px;
+--button-min-width-md: 42px;
+--value-display-width: 70px;
+--color-picker-height: 40px;
+
+/* Z-index */
+--z-base: 0;
+--z-panel: 10;
+--z-bar: 20;
+}
