@@ -2,7 +2,7 @@
 
 A web-based tool for generating abstract art images using composable WebGL shader visual elements.
 
-🌐 **[Live Demo](https://crypticUXdesigner.github.io/shader-composer/)**
+🌐 **[Live Demo](https://crypticUXdesigner.github.io/shader-to-image-experiment/)**
 
 ## Features
 

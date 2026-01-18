@@ -1,7 +1,7 @@
 import { defineConfig } from 'vite';
 
 export default defineConfig({
-  base: '/shader-composer/',
+  base: '/shader-to-image-experiment/',
   server: {
     port: 3000,
     open: false

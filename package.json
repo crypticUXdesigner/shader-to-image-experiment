@@ -5,9 +5,9 @@
   "description": "A web-based tool for generating abstract art images using composable WebGL shader visual elements",
   "repository": {
     "type": "git",
-    "url": "https://github.com/crypticUXdesigner/shader-composer.git"
+    "url": "https://github.com/crypticUXdesigner/shader-to-image-experiment.git"
   },
-  "homepage": "https://crypticUXdesigner.github.io/shader-composer/",
+  "homepage": "https://crypticUXdesigner.github.io/shader-to-image-experiment/",
   "keywords": [
     "shader",
     "webgl",
