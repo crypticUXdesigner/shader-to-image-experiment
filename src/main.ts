@@ -19,7 +19,7 @@ class App {
   private layers: Layer[] = [];
   private activeLayerId: string = 'layer-1';
   private hiddenElements: Map<string, Set<string>> = new Map(); // layerId -> Set<elementId>
-  private fxLayer: FXLayer;
+  private fxLayer!: FXLayer;
   private fxHiddenElements: Set<string> = new Set(); // FX element IDs that are hidden
   private colorConfig: ColorConfig;
   private timelineConfig: TimelineConfig;
@@ -29,7 +29,7 @@ class App {
   private fxPanel: CombinedPanel;
   private colorSystem: ColorSystem;
   private timelineScrubber: TimelineScrubber;
-  private blendControls: BlendControls;
+  private blendControls!: BlendControls;
   private exportManager: ExportManager;
   private configManager: ConfigManager;
   private availableConfigs: string[] = [];
@@ -127,6 +127,7 @@ class App {
     // Initialize FX panel with post-processors only
     const postProcessorElements = elementLibrary.filter(el => (el.elementType || 'content-generator') === 'post-processor');
     this.fxPanel.setElements(postProcessorElements);
+    // fxLayer is initialized in initializeFXLayer() above
     this.fxPanel.setActiveElements(this.fxLayer.activeElements);
     this.fxPanel.setElementOrder(this.fxLayer.elementOrder);
     this.fxPanel.setHiddenElements(this.fxHiddenElements);
@@ -263,49 +264,6 @@ class App {
           visibilitySwitch.classList.remove('is-active');
         }
       }
-    }
-  }
-  
-  private handleLayerSelect(layerId: string): void {
-    this.activeLayerId = layerId;
-    this.updateCombinedPanelForActiveLayer();
-    
-    // Update color system with active layer's color config
-    const activeLayer = this.getActiveLayer();
-    this.colorSystem.setConfig(activeLayer.colorConfig);
-    
-    // Update Blend tab visibility
-    const tabBlend = document.getElementById('tab-blend');
-    const tabCombined = document.getElementById('tab-combined');
-    if (layerId === 'layer-1') {
-      if (tabBlend) {
-        tabBlend.style.display = 'none';
-      }
-      // Always switch to Edit tab when selecting layer 1
-      if (tabCombined) {
-        tabCombined.click();
-      }
-    } else {
-      if (tabBlend) {
-        tabBlend.style.display = 'block';
-      }
-      // Always switch to Edit tab when selecting layer 2
-      if (tabCombined) {
-        tabCombined.click();
-      }
-    }
-    
-    this.updateLayerUI();
-    
-    // Update layer tab active state
-    const tabLayer1 = document.getElementById('tab-layer-1');
-    const tabLayer2 = document.getElementById('tab-layer-2');
-    if (layerId === 'layer-1') {
-      tabLayer1?.classList.add('active');
-      tabLayer2?.classList.remove('active');
-    } else {
-      tabLayer1?.classList.remove('active');
-      tabLayer2?.classList.add('active');
     }
   }
   
@@ -919,13 +877,18 @@ class App {
     }
     
     // Apply color config to layers (per-layer colors)
-    const mode = migratedConfig.colorConfig.mode === 'stops' ? 'thresholds' : (migratedConfig.colorConfig.mode || 'bezier');
-    const defaultColorConfig = { 
+    // Handle legacy 'stops' mode (which was renamed to 'thresholds')
+    const legacyMode = (migratedConfig.colorConfig.mode as any) === 'stops' ? 'thresholds' : migratedConfig.colorConfig.mode;
+    const mode: ColorMode = (legacyMode === 'thresholds' || legacyMode === 'bezier') ? legacyMode : 'bezier';
+    
+    // Destructure to exclude mode from spread to avoid duplicate
+    const { mode: _, ...colorConfigWithoutMode } = migratedConfig.colorConfig;
+    const defaultColorConfig: ColorConfig = { 
       mode: mode,
       transitionWidth: migratedConfig.colorConfig.transitionWidth ?? 0.005,
       ditherStrength: migratedConfig.colorConfig.ditherStrength ?? 0.0,
       pixelSize: migratedConfig.colorConfig.pixelSize ?? 1.0,
-      ...migratedConfig.colorConfig 
+      ...colorConfigWithoutMode 
     };
     
     // If layers don't have colorConfig, assign the migrated one

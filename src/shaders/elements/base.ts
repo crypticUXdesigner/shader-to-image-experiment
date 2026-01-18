@@ -1,5 +1,3 @@
-import type { VisualElement, ParameterConfig, ParameterGroup } from '../../types';
-
 export const baseVertexShader = `#version 300 es
 in vec2 a_position;
 void main() {

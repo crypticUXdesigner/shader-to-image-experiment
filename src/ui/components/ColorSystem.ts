@@ -461,18 +461,6 @@ export class ColorSystem {
     return this.rgbToOklch(rgb[0], rgb[1], rgb[2]);
   }
   
-  private oklchToHex(oklch: OKLCHColor): string {
-    // Convert OKLCH to RGB using the same method as the shader
-    const rgb = this.oklchToRgb(oklch);
-    return this.rgbToHex(rgb[0], rgb[1], rgb[2]);
-  }
-  
-  private hexToOklch(hex: string): OKLCHColor {
-    // Convert hex to RGB, then to OKLCH
-    const rgb = this.hexToRgb(hex);
-    return this.rgbToOklch(rgb[0], rgb[1], rgb[2]);
-  }
-  
   private hexToRgb(hex: string): [number, number, number] {
     const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
     if (!result) return [0, 0, 0];
