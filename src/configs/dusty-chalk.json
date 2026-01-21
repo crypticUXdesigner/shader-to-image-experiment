@@ -1,22 +1,20 @@
 {
   "version": "2.0",
-  "timestamp": "2026-01-21T18:59:47.816Z",
+  "timestamp": "2026-01-21T18:48:14.480Z",
   "layers": [
     {
       "id": "layer-1",
       "activeElements": [
         "fbm-noise",
-        "vector-field",
-        "fractal",
-        "rings"
+        "fbm-value-noise"
       ],
       "elementOrder": [
         "fbm-noise",
-        "fractal",
-        "vector-field",
-        "rings",
-        "sphere-raymarch",
         "fbm-value-noise",
+        "rings",
+        "vector-field",
+        "sphere-raymarch",
+        "fractal",
         "voronoi-noise",
         "polar-coordinates",
         "wave-patterns",
@@ -45,58 +43,55 @@
       ],
       "parameters": {
         "fbm-noise.fbmScale": 2,
-        "fbm-noise.fbmOctaves": 4,
-        "fbm-noise.fbmLacunarity": 2,
-        "fbm-noise.fbmGain": 0.5,
+        "fbm-noise.fbmOctaves": 5,
+        "fbm-noise.fbmLacunarity": 1.25,
+        "fbm-noise.fbmGain": 0.26,
         "fbm-noise.fbmTimeSpeed": 1,
-        "rings.ringCenterX": 0,
-        "rings.ringCenterY": 0,
-        "rings.ringRadius": 0.1,
-        "rings.ringFrequency": 2.5,
-        "rings.ringAmplitude": 0.5,
-        "vector-field.vfFrequencyX": 2,
-        "vector-field.vfFrequencyY": 4.33,
-        "vector-field.vfFrequencyZ": 7.140000000000001,
-        "vector-field.vfAmplitude": 0.91,
-        "vector-field.vfRadialStrength": 1.56,
-        "vector-field.vfHarmonicAmplitude": 0.25,
-        "sphere-raymarch.sphereRadius": 1,
-        "sphere-raymarch.sphereGlowIntensity": 0.5,
-        "sphere-raymarch.raymarchSteps": 40,
-        "fractal.fractalIntensity": 0.56,
-        "fractal.fractalLayers": 1.3,
-        "fractal.fractalIterations": 16,
-        "fbm-noise.fbmIntensity": 0.5,
+        "fbm-noise.fbmIntensity": 1.42,
         "fbm-noise.fbmTimeOffset": 0,
-        "vector-field.vfAmplitudeX": 0.65,
-        "vector-field.vfAmplitudeY": 0.77,
-        "vector-field.vfAmplitudeZ": 0.58,
-        "vector-field.vfRadialCenterX": -1,
-        "vector-field.vfRadialCenterY": 1.1,
-        "vector-field.vfTimeOffset": 0,
-        "fractal.fractalTimeOffset": 0,
-        "rings.ringIntensity": 1,
-        "rings.ringTimeOffset": 0
+        "fbm-value-noise.fbmValueScale": 10,
+        "fbm-value-noise.fbmValueOctaves": 6,
+        "fbm-value-noise.fbmValueLacunarity": 4,
+        "fbm-value-noise.fbmValueGain": 1,
+        "fbm-value-noise.fbmValueTimeSpeed": 1,
+        "fbm-value-noise.fbmValueTimeOffset": 9.1,
+        "sphere-raymarch.sphereRadius": 4.3,
+        "sphere-raymarch.sphereGlowIntensity": 1.44,
+        "sphere-raymarch.sphereBrightness": 0.9,
+        "sphere-raymarch.raymarchSteps": 97,
+        "sphere-raymarch.vectorFieldFrequencyX": 4,
+        "sphere-raymarch.vectorFieldFrequencyY": 2,
+        "sphere-raymarch.vectorFieldFrequencyZ": 0,
+        "sphere-raymarch.vectorFieldAmplitude": 1,
+        "sphere-raymarch.vectorFieldRadialStrength": 8,
+        "sphere-raymarch.vectorFieldHarmonicAmplitude": 1,
+        "sphere-raymarch.vectorFieldComplexity": 6,
+        "sphere-raymarch.vectorFieldDistanceContribution": 0.04,
+        "sphere-raymarch.vectorFieldSpeed": 0.3,
+        "sphere-raymarch.animationSpeed": 0.3
       },
       "blendingMode": 0,
       "opacity": 1,
       "visible": true,
       "colorConfig": {
-        "mode": "bezier",
+        "mode": "thresholds",
+        "transitionWidth": 0.005,
+        "ditherStrength": 0.7000000000000001,
+        "pixelSize": 1,
         "startColor": {
-          "l": 0.17002797708577588,
-          "c": 0.06588129337520506,
-          "h": 354.6147749533054
+          "l": 0.34041250043407023,
+          "c": 0.04390917152540118,
+          "h": 263.66462609387906
         },
         "endColor": {
-          "l": 0.9517931736122357,
-          "c": 0.2142839296698186,
-          "h": 114.55703290960238
+          "l": 0.6265984136699281,
+          "c": 0.13651144162050302,
+          "h": 343.04924165820273
         },
-        "stops": 12,
+        "stops": 6,
         "lCurve": {
-          "x1": 0.9,
-          "y1": 0,
+          "x1": 0.735,
+          "y1": 0.08499999999999996,
           "x2": 1,
           "y2": 1
         },
@@ -121,7 +116,9 @@
     },
     {
       "id": "layer-2",
-      "activeElements": [],
+      "activeElements": [
+        "sphere-raymarch"
+      ],
       "elementOrder": [
         "fbm-noise",
         "fbm-value-noise",
@@ -155,38 +152,56 @@
         "scanlines",
         "rgb-separation"
       ],
-      "parameters": {},
-      "blendingMode": 0,
+      "parameters": {
+        "sphere-raymarch.sphereRadius": 2,
+        "sphere-raymarch.sphereGlowIntensity": 0.86,
+        "sphere-raymarch.sphereBrightness": 2.3000000000000003,
+        "sphere-raymarch.raymarchSteps": 200,
+        "sphere-raymarch.vectorFieldFrequencyX": 4,
+        "sphere-raymarch.vectorFieldFrequencyY": 2.4000000000000004,
+        "sphere-raymarch.vectorFieldFrequencyZ": 0.9,
+        "sphere-raymarch.vectorFieldAmplitude": 0.7000000000000001,
+        "sphere-raymarch.vectorFieldRadialStrength": 12.9,
+        "sphere-raymarch.vectorFieldHarmonicAmplitude": 1.8,
+        "sphere-raymarch.vectorFieldComplexity": 10.100000000000001,
+        "sphere-raymarch.vectorFieldDistanceContribution": 0.05,
+        "sphere-raymarch.vectorFieldSpeed": 0.3,
+        "sphere-raymarch.animationSpeed": 0.3
+      },
+      "blendingMode": 2,
       "opacity": 1,
-      "visible": false,
+      "visible": true,
       "colorConfig": {
         "mode": "bezier",
+        "transitionWidth": 0.005,
+        "ditherStrength": 0,
+        "pixelSize": 1,
         "startColor": {
-          "l": 0.17002797708577588,
-          "c": 0.06588129337520506,
-          "h": 354.6147749533054
+          "l": 0,
+          "c": 0,
+          "h": 115.66156803764817
         },
         "endColor": {
-          "l": 0.9517931736122357,
-          "c": 0.2142839296698186,
-          "h": 114.55703290960238
+          "l": 0.8254421294125294,
+          "c": 0.10479368494845213,
+          "h": 0
         },
-        "stops": 12,
+        "stops": 6,
         "lCurve": {
-          "x1": 0.9,
+          "x1": 0.6,
           "y1": 0,
           "x2": 1,
           "y2": 1
         },
         "cCurve": {
           "x1": 0,
-          "y1": 0,
+          "y1": 0.5666667175292969,
           "x2": 1,
           "y2": 1
         },
         "hCurve": {
-          "x1": 0,
-          "y1": 0,
+          "x1": 0.615,
+          "y1": 0.0033334350585937367,
           "x2": 1,
           "y2": 1
         },
@@ -224,31 +239,31 @@
     "ditherStrength": 0,
     "pixelSize": 1,
     "startColor": {
-      "l": 0.17002797708577588,
-      "c": 0.06588129337520506,
-      "h": 354.6147749533054
+      "l": 0,
+      "c": 0,
+      "h": 115.66156803764817
     },
     "endColor": {
-      "l": 0.9517931736122357,
-      "c": 0.2142839296698186,
-      "h": 114.55703290960238
+      "l": 0.8254421294125294,
+      "c": 0.10479368494845213,
+      "h": 0
     },
-    "stops": 12,
+    "stops": 6,
     "lCurve": {
-      "x1": 0.9,
+      "x1": 0.6,
       "y1": 0,
       "x2": 1,
       "y2": 1
     },
     "cCurve": {
       "x1": 0,
-      "y1": 0,
+      "y1": 0.5666667175292969,
       "x2": 1,
       "y2": 1
     },
     "hCurve": {
-      "x1": 0,
-      "y1": 0,
+      "x1": 0.615,
+      "y1": 0.0033334350585937367,
       "x2": 1,
       "y2": 1
     },
@@ -259,15 +274,15 @@
     }
   },
   "timelineConfig": {
-    "value": 0,
+    "value": 46.999999999999964,
     "min": 0,
     "max": 100,
     "step": 0.01
   },
   "exportConfig": {
     "resolution": [
-      1080,
-      1080
+      1600,
+      1600
     ],
     "format": "png",
     "quality": 1

@@ -1,183 +1,32 @@
 {
-    "version": "2.0",
-    "timestamp": "2026-01-20T22:22:23.102Z",
-    "layers": [
-      {
-        "id": "layer-1",
-        "activeElements": [
-          "sphere-raymarch"
-        ],
-        "elementOrder": [
-          "fbm-noise",
-          "fbm-value-noise",
-          "rings",
-          "vector-field",
-          "sphere-raymarch",
-          "fractal",
-          "voronoi-noise",
-          "polar-coordinates",
-          "wave-patterns",
-          "glow-bloom",
-          "twist-distortion",
-          "kaleidoscope",
-          "turbulence",
-          "gradient-mask",
-          "hexagonal-grid",
-          "simplex-noise",
-          "particle-system",
-          "plane-grid",
-          "box-torus-sdf",
-          "edge-detection",
-          "blur",
-          "normal-mapping",
-          "lighting-shading",
-          "blending-modes",
-          "chromatic-aberration",
-          "color-grading",
-          "block-displacement",
-          "block-edge-brightness",
-          "block-color-glitch",
-          "scanlines",
-          "rgb-separation"
-        ],
-        "parameters": {
-          "sphere-raymarch.sphereRadius": 3.4000000000000004,
-          "sphere-raymarch.sphereGlowIntensity": 1.07,
-          "sphere-raymarch.sphereBrightness": 1.1,
-          "sphere-raymarch.raymarchSteps": 174,
-          "sphere-raymarch.vectorFieldFrequencyX": 4,
-          "sphere-raymarch.vectorFieldFrequencyY": 2,
-          "sphere-raymarch.vectorFieldFrequencyZ": 0,
-          "sphere-raymarch.vectorFieldAmplitude": 2.1,
-          "sphere-raymarch.vectorFieldRadialStrength": 10.700000000000001,
-          "sphere-raymarch.vectorFieldHarmonicAmplitude": 1.9000000000000001,
-          "sphere-raymarch.vectorFieldComplexity": 3.4000000000000004,
-          "sphere-raymarch.vectorFieldDistanceContribution": 0.04,
-          "sphere-raymarch.vectorFieldSpeed": 0.8,
-          "sphere-raymarch.animationSpeed": 0.1
-        },
-        "blendingMode": 0,
-        "opacity": 1,
-        "visible": true,
-        "colorConfig": {
-          "mode": "thresholds",
-          "startColor": {
-            "l": 0.2,
-            "c": 0.1,
-            "h": 200
-          },
-          "endColor": {
-            "l": 0.8,
-            "c": 0.2,
-            "h": 300
-          },
-          "stops": 12,
-          "transitionWidth": 0.005,
-          "ditherStrength": 0,
-          "pixelSize": 1,
-          "lCurve": {
-            "x1": 0.625,
-            "y1": 0.19999999999999996,
-            "x2": 0.25,
-            "y2": 1
-          },
-          "cCurve": {
-            "x1": 0.585,
-            "y1": 0.18666671752929687,
-            "x2": 0.25,
-            "y2": 0.6416667175292969
-          },
-          "hCurve": {
-            "x1": 0.7,
-            "y1": 0.16333343505859377,
-            "x2": 0.395,
-            "y2": 0.9433334350585938
-          }
-        }
-      },
-      {
-        "id": "layer-2",
-        "activeElements": [],
-        "elementOrder": [
-          "fbm-noise",
-          "fbm-value-noise",
-          "rings",
-          "vector-field",
-          "sphere-raymarch",
-          "fractal",
-          "voronoi-noise",
-          "polar-coordinates",
-          "wave-patterns",
-          "glow-bloom",
-          "twist-distortion",
-          "kaleidoscope",
-          "turbulence",
-          "gradient-mask",
-          "hexagonal-grid",
-          "simplex-noise",
-          "particle-system",
-          "plane-grid",
-          "box-torus-sdf",
-          "edge-detection",
-          "blur",
-          "normal-mapping",
-          "lighting-shading",
-          "blending-modes",
-          "chromatic-aberration",
-          "color-grading",
-          "block-displacement",
-          "block-edge-brightness",
-          "block-color-glitch",
-          "scanlines",
-          "rgb-separation"
-        ],
-        "parameters": {},
-        "blendingMode": 0,
-        "opacity": 1,
-        "visible": false,
-        "colorConfig": {
-          "mode": "bezier",
-          "startColor": {
-            "l": 0.2,
-            "c": 0.1,
-            "h": 200
-          },
-          "endColor": {
-            "l": 0.8,
-            "c": 0.2,
-            "h": 300
-          },
-          "stops": 12,
-          "transitionWidth": 0.005,
-          "ditherStrength": 0,
-          "pixelSize": 1,
-          "lCurve": {
-            "x1": 0.25,
-            "y1": 0.1,
-            "x2": 0.25,
-            "y2": 1
-          },
-          "cCurve": {
-            "x1": 0.25,
-            "y1": 0.1,
-            "x2": 0.25,
-            "y2": 1
-          },
-          "hCurve": {
-            "x1": 0.25,
-            "y1": 0.1,
-            "x2": 0.25,
-            "y2": 1
-          }
-        }
-      }
-    ],
-    "fxLayer": {
-      "id": "fx",
-      "activeElements": [],
+  "version": "2.0",
+  "timestamp": "2026-01-21T18:48:14.486Z",
+  "layers": [
+    {
+      "id": "layer-1",
+      "activeElements": [
+        "sphere-raymarch"
+      ],
       "elementOrder": [
+        "fbm-noise",
+        "fbm-value-noise",
+        "rings",
+        "vector-field",
+        "sphere-raymarch",
+        "fractal",
+        "voronoi-noise",
+        "polar-coordinates",
+        "wave-patterns",
         "glow-bloom",
+        "twist-distortion",
+        "kaleidoscope",
+        "turbulence",
         "gradient-mask",
+        "hexagonal-grid",
+        "simplex-noise",
+        "particle-system",
+        "plane-grid",
+        "box-torus-sdf",
         "edge-detection",
         "blur",
         "normal-mapping",
@@ -185,60 +34,226 @@
         "blending-modes",
         "chromatic-aberration",
         "color-grading",
+        "block-displacement",
         "block-edge-brightness",
         "block-color-glitch",
         "scanlines",
         "rgb-separation"
       ],
-      "parameters": {}
-    },
-    "colorConfig": {
-      "mode": "thresholds",
-      "startColor": {
-        "l": 0.2,
-        "c": 0.1,
-        "h": 200
+      "parameters": {
+        "sphere-raymarch.sphereRadius": 3.4000000000000004,
+        "sphere-raymarch.sphereGlowIntensity": 1.07,
+        "sphere-raymarch.sphereBrightness": 1.1,
+        "sphere-raymarch.raymarchSteps": 174,
+        "sphere-raymarch.vectorFieldFrequencyX": 4,
+        "sphere-raymarch.vectorFieldFrequencyY": 2,
+        "sphere-raymarch.vectorFieldFrequencyZ": 0,
+        "sphere-raymarch.vectorFieldAmplitude": 2.1,
+        "sphere-raymarch.vectorFieldRadialStrength": 10.700000000000001,
+        "sphere-raymarch.vectorFieldHarmonicAmplitude": 1.9000000000000001,
+        "sphere-raymarch.vectorFieldComplexity": 3.4000000000000004,
+        "sphere-raymarch.vectorFieldDistanceContribution": 0.04,
+        "sphere-raymarch.vectorFieldSpeed": 0.8,
+        "sphere-raymarch.animationSpeed": 0.1
       },
-      "endColor": {
-        "l": 0.8,
-        "c": 0.2,
-        "h": 300
-      },
-      "stops": 12,
-      "transitionWidth": 0.005,
-      "ditherStrength": 0,
-      "pixelSize": 1,
-      "lCurve": {
-        "x1": 0.625,
-        "y1": 0.19999999999999996,
-        "x2": 0.25,
-        "y2": 1
-      },
-      "cCurve": {
-        "x1": 0.585,
-        "y1": 0.18666671752929687,
-        "x2": 0.25,
-        "y2": 0.6416667175292969
-      },
-      "hCurve": {
-        "x1": 0.7,
-        "y1": 0.16333343505859377,
-        "x2": 0.395,
-        "y2": 0.9433334350585938
+      "blendingMode": 0,
+      "opacity": 1,
+      "visible": true,
+      "colorConfig": {
+        "mode": "thresholds",
+        "startColor": {
+          "l": 0.2,
+          "c": 0.1,
+          "h": 200
+        },
+        "endColor": {
+          "l": 0.8,
+          "c": 0.2,
+          "h": 300
+        },
+        "stops": 12,
+        "transitionWidth": 0.005,
+        "ditherStrength": 0,
+        "pixelSize": 1,
+        "lCurve": {
+          "x1": 0.625,
+          "y1": 0.19999999999999996,
+          "x2": 0.25,
+          "y2": 1
+        },
+        "cCurve": {
+          "x1": 0.585,
+          "y1": 0.18666671752929687,
+          "x2": 0.25,
+          "y2": 0.6416667175292969
+        },
+        "hCurve": {
+          "x1": 0.7,
+          "y1": 0.16333343505859377,
+          "x2": 0.395,
+          "y2": 0.9433334350585938
+        },
+        "toneMapping": {
+          "exposure": 1,
+          "contrast": 1,
+          "saturation": 1
+        }
       }
     },
-    "timelineConfig": {
-      "value": 44.05,
-      "min": 0,
-      "max": 100,
-      "step": 0.01
-    },
-    "exportConfig": {
-      "resolution": [
-        1920,
-        1080
+    {
+      "id": "layer-2",
+      "activeElements": [],
+      "elementOrder": [
+        "fbm-noise",
+        "fbm-value-noise",
+        "rings",
+        "vector-field",
+        "sphere-raymarch",
+        "fractal",
+        "voronoi-noise",
+        "polar-coordinates",
+        "wave-patterns",
+        "glow-bloom",
+        "twist-distortion",
+        "kaleidoscope",
+        "turbulence",
+        "gradient-mask",
+        "hexagonal-grid",
+        "simplex-noise",
+        "particle-system",
+        "plane-grid",
+        "box-torus-sdf",
+        "edge-detection",
+        "blur",
+        "normal-mapping",
+        "lighting-shading",
+        "blending-modes",
+        "chromatic-aberration",
+        "color-grading",
+        "block-displacement",
+        "block-edge-brightness",
+        "block-color-glitch",
+        "scanlines",
+        "rgb-separation"
       ],
-      "format": "png",
-      "quality": 1
+      "parameters": {},
+      "blendingMode": 0,
+      "opacity": 1,
+      "visible": false,
+      "colorConfig": {
+        "mode": "bezier",
+        "startColor": {
+          "l": 0.2,
+          "c": 0.1,
+          "h": 200
+        },
+        "endColor": {
+          "l": 0.8,
+          "c": 0.2,
+          "h": 300
+        },
+        "stops": 12,
+        "transitionWidth": 0.005,
+        "ditherStrength": 0,
+        "pixelSize": 1,
+        "lCurve": {
+          "x1": 0.25,
+          "y1": 0.1,
+          "x2": 0.25,
+          "y2": 1
+        },
+        "cCurve": {
+          "x1": 0.25,
+          "y1": 0.1,
+          "x2": 0.25,
+          "y2": 1
+        },
+        "hCurve": {
+          "x1": 0.25,
+          "y1": 0.1,
+          "x2": 0.25,
+          "y2": 1
+        },
+        "toneMapping": {
+          "exposure": 1,
+          "contrast": 1,
+          "saturation": 1
+        }
+      }
     }
+  ],
+  "fxLayer": {
+    "id": "fx",
+    "activeElements": [],
+    "elementOrder": [
+      "glow-bloom",
+      "gradient-mask",
+      "edge-detection",
+      "blur",
+      "normal-mapping",
+      "lighting-shading",
+      "blending-modes",
+      "chromatic-aberration",
+      "color-grading",
+      "block-edge-brightness",
+      "block-color-glitch",
+      "scanlines",
+      "rgb-separation"
+    ],
+    "parameters": {}
+  },
+  "colorConfig": {
+    "mode": "thresholds",
+    "startColor": {
+      "l": 0.2,
+      "c": 0.1,
+      "h": 200
+    },
+    "endColor": {
+      "l": 0.8,
+      "c": 0.2,
+      "h": 300
+    },
+    "stops": 12,
+    "transitionWidth": 0.005,
+    "ditherStrength": 0,
+    "pixelSize": 1,
+    "lCurve": {
+      "x1": 0.625,
+      "y1": 0.19999999999999996,
+      "x2": 0.25,
+      "y2": 1
+    },
+    "cCurve": {
+      "x1": 0.585,
+      "y1": 0.18666671752929687,
+      "x2": 0.25,
+      "y2": 0.6416667175292969
+    },
+    "hCurve": {
+      "x1": 0.7,
+      "y1": 0.16333343505859377,
+      "x2": 0.395,
+      "y2": 0.9433334350585938
+    },
+    "toneMapping": {
+      "exposure": 1,
+      "contrast": 1,
+      "saturation": 1
+    }
+  },
+  "timelineConfig": {
+    "value": 44.05,
+    "min": 0,
+    "max": 100,
+    "step": 0.01
+  },
+  "exportConfig": {
+    "resolution": [
+      1920,
+      1080
+    ],
+    "format": "png",
+    "quality": 1
   }
+}

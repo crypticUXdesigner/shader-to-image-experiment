@@ -1,13 +1,12 @@
 {
   "version": "2.0",
-  "timestamp": "2026-01-18T05:33:24.905Z",
+  "timestamp": "2026-01-21T18:54:19.281Z",
   "layers": [
     {
       "id": "layer-1",
       "activeElements": [
         "rings",
         "vector-field",
-        "bayer-dither",
         "fbm-noise",
         "fractal",
         "block-displacement",
@@ -69,8 +68,6 @@
         "fractal.fractalIntensity": 1.4000000000000001,
         "fractal.fractalLayers": 1.6,
         "fractal.fractalIterations": 4,
-        "bayer-dither.pixelSize": 1.5,
-        "bayer-dither.ditherStrength": 10,
         "fbm-value-noise.fbmValueScale": 1.9,
         "fbm-value-noise.fbmValueOctaves": 3,
         "fbm-value-noise.fbmValueLacunarity": 2.05,
@@ -95,7 +92,6 @@
         "block-displacement.blockCount": 6,
         "block-displacement.blockMaxOffsetX": 0.26,
         "block-displacement.blockMaxOffsetY": 0.46,
-        "block-displacement.blockSpacingChaos": 0.32,
         "block-displacement.blockMinSize": 0.01,
         "block-displacement.blockMaxSize": 7.7,
         "block-displacement.blockTimeSpeed": 0,
@@ -123,7 +119,7 @@
       "colorConfig": {
         "mode": "thresholds",
         "transitionWidth": 0.005,
-        "ditherStrength": 0,
+        "ditherStrength": 1.1,
         "pixelSize": 1,
         "startColor": {
           "l": 0.24537417264911132,
@@ -143,10 +139,10 @@
           "y2": 1
         },
         "cCurve": {
-          "x1": 0,
-          "y1": 0,
-          "x2": 1,
-          "y2": 1
+          "x1": 0.41,
+          "y1": 0.0966667175292969,
+          "x2": 0.96,
+          "y2": 0.651666717529297
         },
         "hCurve": {
           "x1": 0,
@@ -271,7 +267,6 @@
         "block-displacement.blockCount": 10,
         "block-displacement.blockMaxOffsetX": 0.1,
         "block-displacement.blockMaxOffsetY": 0.12,
-        "block-displacement.blockSpacingChaos": 0.17,
         "block-displacement.blockMinSize": 1,
         "block-displacement.blockMaxSize": 6.800000000000001,
         "block-displacement.blockTimeSpeed": 0.07,
@@ -416,7 +411,7 @@
   "colorConfig": {
     "mode": "thresholds",
     "transitionWidth": 0.005,
-    "ditherStrength": 0,
+    "ditherStrength": 1.1,
     "pixelSize": 1,
     "startColor": {
       "l": 0.24537417264911132,
@@ -436,10 +431,10 @@
       "y2": 1
     },
     "cCurve": {
-      "x1": 0,
-      "y1": 0,
-      "x2": 1,
-      "y2": 1
+      "x1": 0.41,
+      "y1": 0.0966667175292969,
+      "x2": 0.96,
+      "y2": 0.651666717529297
     },
     "hCurve": {
       "x1": 0,
