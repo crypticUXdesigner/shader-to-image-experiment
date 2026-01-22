@@ -62,7 +62,7 @@ vec2 turbulence(vec2 p, float time, int iterations) {
       default: 0.5,
       min: 0.0,
       max: 2.0,
-      step: 0.001,
+      step: 0.01,
       label: 'Strength'
     },
     turbulenceIterations: {

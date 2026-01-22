@@ -201,7 +201,7 @@ float calculateGlow(vec3 ro, vec3 rd, int steps) {
       default: 0.0,
       min: -6.28,
       max: 6.28,
-      step: 0.01,
+      step: 0.05,
       label: 'Rotation X (radians)'
     },
     primitiveRotationY: {
@@ -209,7 +209,7 @@ float calculateGlow(vec3 ro, vec3 rd, int steps) {
       default: 0.0,
       min: -6.28,
       max: 6.28,
-      step: 0.01,
+      step: 0.05,
       label: 'Rotation Y (radians)'
     },
     primitiveRotationZ: {
@@ -217,7 +217,7 @@ float calculateGlow(vec3 ro, vec3 rd, int steps) {
       default: 0.0,
       min: -6.28,
       max: 6.28,
-      step: 0.01,
+      step: 0.05,
       label: 'Rotation Z (radians)'
     },
     primitiveGlowIntensity: {

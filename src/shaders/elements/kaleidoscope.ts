@@ -81,7 +81,7 @@ vec2 kaleidoscope(vec2 p, int segments, float rotation) {
       default: 0.0,
       min: 0.0,
       max: 6.28,
-      step: 0.01,
+      step: 0.05,
       label: 'Rotation'
     }
   },

@@ -8,9 +8,7 @@
 @import './reset.css';
 @import './typography.css';
 
-/* Import all component styles */
-@import './components/layout.css';
-@import './components/tabs.css';
+/* Import design component styles */
 @import './components/box.css';
 @import './components/header.css';
 @import './components/toggle.css';
@@ -25,8 +23,6 @@
 @import './components/slider.css';
 @import './components/value-display.css';
 @import './components/parameter-controls.css';
-@import './components/color-system.css';
-@import './components/timeline.css';
 @import './components/power-button.css';
 @import './components/eye-button.css';
 @import './components/plus-button.css';

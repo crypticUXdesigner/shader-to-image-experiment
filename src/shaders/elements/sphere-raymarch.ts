@@ -34,7 +34,7 @@ export const sphereRaymarchElement: VisualElement = {
   
   // Vector field speed
   float vectorFieldSpeed = uVectorFieldSpeed;
-  float vectorFieldTime = uTime * vectorFieldSpeed;
+  float vectorFieldTime = uTime * uAnimationSpeed * vectorFieldSpeed;
   
   // Sphere radius in normalized coordinate space
   float sphereRadius = uSphereRadius;
@@ -92,8 +92,13 @@ export const sphereRaymarchElement: VisualElement = {
     if (z > 100.0) break;
   }
   
-  // Normalize accumulated value to 0-1 range using tanh
-  float normalizedValue = tanh(length(o.rgb) / 1e4);
+  // Normalize accumulated value to 0-1 range
+  // Use a more appropriate divisor based on typical accumulated glow values
+  // Typical values range from tens to low hundreds, so 100-200 is more appropriate than 10000
+  // Adjust normalization based on glow multiplier to prevent overflow
+  float accumulatedGlow = length(o.rgb);
+  float normalizationDivisor = 200.0 / max(glowMultiplier, 0.1);
+  float normalizedValue = clamp(accumulatedGlow / normalizationDivisor, 0.0, 1.0);
   result += normalizedValue;
 `,
   

@@ -27,9 +27,4 @@
   color: var(--color-gray-90);
 }
 
-.eye-button::before {
-  content: '👁';
-  font-size: 1.3rem;
-  font-weight: 600;
-  line-height: 1;
-}
+/* Icon is now added programmatically via JavaScript */

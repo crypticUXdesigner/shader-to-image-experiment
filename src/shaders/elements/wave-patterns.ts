@@ -121,7 +121,7 @@ vec2 rotate(vec2 p, float angle) {
       default: 0.0,
       min: 0.0,
       max: 6.28,
-      step: 0.01,
+      step: 0.05,
       label: 'Phase Offset'
     },
     waveTimeSpeed: {

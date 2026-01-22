@@ -83,7 +83,7 @@ vec2 fromPolar(vec2 polar, vec2 center) {
       default: 0.0,
       min: -6.28,
       max: 6.28,
-      step: 0.01,
+      step: 0.05,
       label: 'Rotation'
     },
     polarEnabled: {

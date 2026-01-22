@@ -133,3 +133,109 @@ export interface SavedConfig {
   exportConfig: ExportConfig;
 }
 
+// Node-based shader system types (version 2.0)
+export type ParameterValue = 
+  | number                        // For float/int parameters
+  | string                        // For string parameters (swizzle, etc.)
+  | [number, number, number, number]  // For vec4 parameters (bezier curves)
+  | number[];                     // For array parameters (color stops)
+
+export interface NodeInstance {
+  // Identity
+  id: string;                    // Unique node ID (UUID recommended)
+  type: string;                   // Node type ID (from Node Specification)
+  
+  // Position and layout
+  position: {                     // Node position in canvas (pixels)
+    x: number;                    // Integer, can be negative
+    y: number;                    // Integer, can be negative
+  };
+  
+  // Parameters
+  parameters: Record<string, ParameterValue>;  // Parameter name → value
+  
+  // Metadata
+  label?: string;                 // Optional custom label (overrides displayName)
+  collapsed?: boolean;            // Whether node UI is collapsed (default: false)
+  color?: string;                 // Optional node color (hex, e.g., "#FF0000")
+}
+
+export interface Connection {
+  id: string;                     // Unique connection ID (UUID recommended)
+  
+  // Source (output)
+  sourceNodeId: string;            // Source node ID
+  sourcePort: string;              // Source port name (from Node Specification)
+  
+  // Target (input)
+  targetNodeId: string;            // Target node ID
+  targetPort: string;              // Target port name (from Node Specification)
+}
+
+export interface NodeGraph {
+  // Identity
+  id: string;                     // Unique graph ID (UUID recommended)
+  name: string;                   // Graph name (user-defined)
+  version: string;                // Graph format version ("2.0")
+  
+  // Graph data
+  nodes: NodeInstance[];          // All nodes in the graph
+  connections: Connection[];      // All connections in the graph
+  
+  // Metadata
+  metadata?: {
+    description?: string;         // Optional description
+    author?: string;              // Optional author
+    createdAt?: string;         // ISO 8601 timestamp
+    modifiedAt?: string;         // ISO 8601 timestamp
+    tags?: string[];             // Optional tags
+  };
+  
+  // View state (UI state, not part of graph logic)
+  viewState?: {
+    zoom: number;                 // Canvas zoom level (default: 1.0)
+    panX: number;                 // Canvas pan X (pixels, default: 0)
+    panY: number;                 // Canvas pan Y (pixels, default: 0)
+    selectedNodeIds?: string[];   // Currently selected nodes
+  };
+}
+
+// Node specification types (from Node Specification)
+// Re-export from nodeSpec.ts for compatibility (excluding types that conflict)
+export type { NodeSpec, PortSpec, PortType, ParameterSpec } from './nodeSpec';
+// Note: ParameterValue and ParameterGroup are already defined above, so we don't re-export them
+
+// Legacy types for backward compatibility
+export interface NodePort {
+  name: string;
+  type: 'float' | 'vec2' | 'vec3' | 'vec4' | 'int' | 'bool';
+}
+
+export interface NodeParameter {
+  type: 'float' | 'int' | 'string' | 'vec4' | 'array';
+  default?: number | string | [number, number, number, number] | number[];
+  min?: number;
+  max?: number;
+  step?: number;
+}
+
+// Compilation result types (from Runtime/Integration Specification)
+export interface UniformMetadata {
+  name: string;  // e.g., "uNodeN1Scale"
+  nodeId: string;  // e.g., "node-123"
+  paramName: string;  // e.g., "scale"
+  type: 'float' | 'int' | 'vec2' | 'vec3' | 'vec4';
+  defaultValue: number | [number, number] | [number, number, number] | [number, number, number, number];
+}
+
+export interface CompilationResult {
+  shaderCode: string;
+  uniforms: UniformMetadata[];
+  metadata: {
+    warnings: string[];
+    errors: string[];
+    executionOrder: string[];  // Node IDs in execution order
+    finalOutputNodeId: string | null;  // ID of final output node
+  };
+}
+

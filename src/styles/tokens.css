@@ -88,4 +88,88 @@
 --element-box-bg-dragging: var(--color-gray-20);
 --element-box-border-highlight: 2px solid #4a9eff;
 --element-box-name-weight: 500;
+
+/* === NODE EDITOR CANVAS TOKENS === */
+--canvas-bg: var(--color-gray-40);
+--canvas-grid-color: var(--color-gray-50);
+--canvas-grid-size: 50px;
+--canvas-grid-dot-radius: 1.5px;
+
+/* === NODE TOKENS === */
+--node-bg: var(--color-gray-30);
+--node-bg-selected: rgba(33, 150, 243, 0.1);
+--node-border: var(--color-gray-100);
+--node-border-selected: #2196F3;
+--node-border-width: 1px;
+--node-border-width-selected: 3px;
+--node-header-bg: #F5F5F5;
+--node-header-border: var(--color-gray-100);
+--node-title-color: #333333;
+--node-radius: var(--radius-lg);
+
+/* === NODE DELETE BUTTON TOKENS === */
+--node-delete-bg: #F44336;
+--node-delete-color: #FFFFFF;
+
+/* === NODE PORT TOKENS === */
+--port-radius: 4px;
+--port-color-float: #2196F3;
+--port-color-vec2: #4CAF50;
+--port-color-vec3: #FF9800;
+--port-color-vec4: #9C27B0;
+--port-color-default: #666666;
+
+/* === NODE PARAMETER TOKENS === */
+--node-param-label-color: var(--color-gray-100);
+--node-param-value-color: #333333;
+--node-param-separator: var(--color-gray-100);
+
+/* === CONNECTION TOKENS === */
+--connection-color: var(--color-gray-100);
+--connection-color-selected: #2196F3;
+--connection-width: 2px;
+--connection-width-selected: 3px;
+--connection-opacity: 0.8;
+--connection-opacity-selected: 1.0;
+
+/* === SEARCH DIALOG TOKENS === */
+--search-dialog-overlay: rgba(0, 0, 0, 0.5);
+--search-dialog-bg: var(--color-gray-50);
+--search-dialog-border: 1px solid var(--color-gray-70);
+--search-dialog-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+--search-dialog-radius: var(--radius-xl);
+--search-input-bg: var(--color-gray-20);
+--search-input-border: 1px solid var(--color-gray-70);
+--search-input-color: var(--color-gray-130);
+--search-result-bg: var(--color-gray-20);
+--search-result-bg-hover: var(--color-gray-70);
+--search-result-bg-selected: var(--color-gray-70);
+--search-result-border: 1px solid var(--color-gray-70);
+--search-result-border-selected: 1px solid #2196F3;
+--search-result-name-color: var(--color-gray-130);
+--search-result-desc-color: var(--color-gray-100);
+--search-category-header-bg: rgba(74, 154, 255, 0.08);
+--search-category-header-color: #4a9eff;
+--search-no-results-color: var(--color-gray-100);
+
+/* === LAYOUT TOKENS === */
+--layout-bg: var(--color-gray-20);
+--layout-divider-bg: var(--color-gray-70);
+--layout-divider-width: 4px;
+--layout-preview-bg: var(--color-gray-20);
+--layout-preview-border: 1px solid var(--color-gray-70);
+--layout-button-bg: var(--color-gray-70);
+--layout-button-bg-hover: var(--color-gray-80);
+--layout-button-color: var(--color-gray-130);
+--layout-button-border: 1px solid var(--color-gray-80);
+--layout-toast-success-bg: #2d5a2d;
+--layout-toast-success-border: #4a8a4a;
+--layout-toast-error-bg: #5a2d2d;
+--layout-toast-error-border: #8a4a4a;
+--layout-toast-color: var(--color-gray-130);
+
+/* === PARAMETER INPUT TOKENS === */
+--param-input-bg: #FFFFFF;
+--param-input-border: 2px solid #2196F3;
+--param-input-color: #333333;
 }

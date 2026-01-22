@@ -111,7 +111,7 @@ float fbm(vec2 p, float time) {
       default: 1.0,
       min: 0.0,
       max: 5.0,
-      step: 0.001,
+      step: 0.01,
       label: 'Time Speed'
     },
     fbmIntensity: {

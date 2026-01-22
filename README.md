@@ -1,17 +1,19 @@
 # Shader Composer
 
-A web-based tool for generating abstract art images using composable WebGL shader visual elements.
+A web-based node-based shader editor for creating procedural shader art using WebGL. Build complex shader graphs by connecting nodes visually.
 
 🌐 **[Live Demo](https://crypticUXdesigner.github.io/shader-composer/)**
 
 ## Features
 
-- **Modular Visual Elements**: Compose custom shaders by selecting and combining visual elements (fBm noise, rings, vector field distortion, raymarched sphere, fractal deformation, pixelation)
-- **Real-time Preview**: See changes instantly as you adjust parameters
-- **OKLCH Color System**: Gradient-based colors with cubic-bezier curve interpolation
-- **Timeline Scrubber**: Control time snapshot for static rendering
+- **Node-Based Editor**: Visual node graph editor for composing shaders
+- **Real-time Preview**: Live preview of shader output as you build
+- **Rich Node Library**: 90+ nodes including noise generators, transforms, blending modes, post-processing effects, and more
+- **Preset System**: Save and load shader graphs as presets
 - **Export System**: Export images at custom resolutions (PNG, JPEG, WebP)
-- **Config Hardsave**: Export complete configurations as JSON files
+- **Undo/Redo**: Full undo/redo support for all operations
+- **Copy/Paste**: Copy and paste nodes between graphs
+- **Parameter Controls**: Intuitive draggable parameter controls with real-time updates
 
 ## Getting Started
 
@@ -29,27 +31,41 @@ npm run dev
 
 ## Usage
 
-1. **Select Elements**: Check the boxes next to visual elements you want to include
-2. **Reorder Elements**: Use ↑/↓ buttons to change the application order
-3. **Adjust Parameters**: Expand parameter groups and adjust sliders
-4. **Configure Colors**: Set start/end OKLCH colors and cubic-bezier curves
-5. **Scrub Time**: Use the timeline slider to find the perfect frame
-6. **Export**: Click "Export Image" to save your creation
-7. **Hardsave**: Click "Hardsave Config" to copy configuration JSON
+### Creating a Shader
+
+1. **Add Nodes**: Right-click on the canvas or press `Space` to open the node search dialog
+2. **Connect Nodes**: Drag from output ports to input ports to create connections
+3. **Adjust Parameters**: Click on nodes to expand parameter controls, then drag sliders to adjust values
+4. **Preview**: The shader preview updates in real-time as you make changes
+5. **Save Preset**: Use "Copy Preset" to copy your graph as JSON, then save it in `src/presets/`
+6. **Export Image**: Click "Export Image" to save your creation at custom resolutions
+
+### Keyboard Shortcuts
+
+- `Space` - Open node search dialog
+- `Delete` / `Backspace` - Delete selected nodes
+- `Ctrl/Cmd + Z` - Undo
+- `Ctrl/Cmd + Shift + Z` - Redo
+- `Ctrl/Cmd + C` - Copy selected nodes
+- `Ctrl/Cmd + V` - Paste nodes
+- `Ctrl/Cmd + A` - Select all nodes
+- `Ctrl/Cmd + D` - Duplicate selected nodes
 
 ## Project Structure
 
 ```
 src/
+├── data-model/            # Graph data structures, validation, serialization
 ├── shaders/
-│   ├── elements/          # Visual element definitions
-│   ├── ShaderCompiler.ts  # Combines elements into GLSL
-│   ├── ShaderInstance.ts  # WebGL shader instance
-│   └── StaticRenderer.ts  # Static rendering system
+│   ├── elements/          # Visual element node definitions
+│   ├── nodes/             # System nodes (math, blending, transforms, etc.)
+│   └── NodeShaderCompiler.ts  # Compiles node graphs to GLSL
+├── runtime/               # WebGL runtime, shader execution, uniform management
 ├── ui/
-│   └── components/        # UI components
-├── utils/                 # Export and config utilities
-└── main.ts                # Main application
+│   └── components/        # Node editor UI components
+├── presets/               # Preset shader graphs
+├── utils/                 # Utilities (export, presets, serialization)
+└── main.ts                # Main application entry point
 ```
 
 ## Building

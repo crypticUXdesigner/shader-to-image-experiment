@@ -43,7 +43,7 @@ float edgeEffect(float value, float threshold, float width) {
       default: 0.01,
       min: 0.0,
       max: 0.1,
-      step: 0.001,
+      step: 0.01,
       label: 'Width'
     },
     edgeIntensity: {

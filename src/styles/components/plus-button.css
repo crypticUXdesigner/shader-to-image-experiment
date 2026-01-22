@@ -17,17 +17,7 @@
   box-sizing: border-box;
 }
 
-.plus-button::before {
-  content: '+';
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -68%);
-  font-size: 1.3rem;
-  font-weight: 600;
-  line-height: 1;
-  transition: transform 0.2s ease;
-}
+/* Icon is now added programmatically via JavaScript */
 
 .plus-button:hover {
   background: var(--color-gray-60);
@@ -44,6 +34,4 @@
     inset 0 0 8px rgba(255, 255, 255, 0.3);
 }
 
-.plus-button.is-active::before {
-  color: #bddb5a;
-}
+/* Icon color is handled by the SVG element */
