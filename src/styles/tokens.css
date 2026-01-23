@@ -119,10 +119,24 @@
 --port-color-vec4: #9C27B0;
 --port-color-default: #666666;
 
+/* === NODE CATEGORY COLOR TOKENS === */
+--category-color-inputs: #E3F2FD;
+--category-color-patterns: #E8F5E9;
+--category-color-shapes: #FFF3E0;
+--category-color-math: #FFF9C4;
+--category-color-utilities: #E1F5FE;
+--category-color-distort: #F5F5F5;
+--category-color-blend: #F3E5F5;
+--category-color-mask: #FFF3E0;
+--category-color-effects: #FCE4EC;
+--category-color-output: #FFEBEE;
+--category-color-default: #F5F5F5;
+
 /* === NODE PARAMETER TOKENS === */
 --node-param-label-color: var(--color-gray-100);
 --node-param-value-color: #333333;
 --node-param-separator: var(--color-gray-100);
+--node-param-group-header-color: var(--color-gray-110);
 
 /* === CONNECTION TOKENS === */
 --connection-color: var(--color-gray-100);
@@ -134,14 +148,14 @@
 
 /* === SEARCH DIALOG TOKENS === */
 --search-dialog-overlay: rgba(0, 0, 0, 0.5);
---search-dialog-bg: var(--color-gray-50);
---search-dialog-border: 1px solid var(--color-gray-70);
+--search-dialog-bg: var(--color-gray-40);
+--search-dialog-border: var(--color-gray-20);
 --search-dialog-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
 --search-dialog-radius: var(--radius-xl);
 --search-input-bg: var(--color-gray-20);
 --search-input-border: 1px solid var(--color-gray-70);
 --search-input-color: var(--color-gray-130);
---search-result-bg: var(--color-gray-20);
+--search-result-bg: var(--color-gray-50);
 --search-result-bg-hover: var(--color-gray-70);
 --search-result-bg-selected: var(--color-gray-70);
 --search-result-border: 1px solid var(--color-gray-70);
@@ -172,4 +186,45 @@
 --param-input-bg: #FFFFFF;
 --param-input-border: 2px solid #2196F3;
 --param-input-color: #333333;
+
+/* === PARAMETER CONTROL TOKENS === */
+--param-control-label-color: var(--label-color);
+--param-control-bg: var(--input-bg);
+--param-control-border: var(--input-border);
+--param-control-border-active: var(--node-border-selected);
+--param-control-value-color: var(--input-color);
+--param-control-drag-area-bg: var(--color-gray-30);
+--param-control-drag-area-border: var(--input-border);
+--param-control-drag-area-border-active: var(--param-control-border-active);
+
+/* === FILTER TAG TOKENS === */
+--filter-tag-padding: 2px 6px;
+--filter-tag-font-size: var(--text-xs);
+--filter-tag-radius: 6px;
+--filter-tag-border: var(--color-gray-70);
+--filter-tag-bg: var(--color-gray-70);
+--filter-tag-bg-selected: transparent;
+--filter-tag-color: var(--color-gray-130);
+--filter-tag-color-selected: var(--search-result-name-color);
+
+/* === TOAST NOTIFICATION TOKENS === */
+--toast-padding: 12px 20px;
+--toast-font-size: 13px;
+--toast-radius: 6px;
+--toast-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+--toast-z-index: 1000;
+--toast-max-width: 400px;
+
+/* === CONTEXT MENU TOKENS === */
+--context-menu-bg: var(--search-dialog-bg);
+--context-menu-border: var(--search-dialog-border);
+--context-menu-radius: var(--radius-lg);
+--context-menu-shadow: var(--search-dialog-shadow);
+--context-menu-min-width: 300px;
+--context-menu-max-width: 500px;
+--context-menu-max-height: 600px;
+--context-menu-item-padding: 8px 12px;
+--context-menu-item-bg-hover: var(--search-result-bg-hover);
+--context-menu-item-color: var(--search-result-name-color);
+--context-menu-separator-color: var(--color-gray-70);
 }

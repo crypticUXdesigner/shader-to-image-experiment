@@ -2,20 +2,10 @@
 // Search dialog for creating nodes
 
 import type { NodeSpec } from '../../types/nodeSpec';
-import { getNodeColorByCategory } from '../../utils/nodeSpecAdapter';
-import { getCSSColor, getCSSVariable } from '../../utils/cssTokens';
 
 export interface SearchDialogCallbacks {
   onCreateNode?: (nodeType: string, canvasX: number, canvasY: number) => void;
 }
-
-// Type colors - consistent with NodeRenderer
-const TYPE_COLORS: Record<string, string> = {
-  'float': '#2196F3',  // Blue
-  'vec2': '#4CAF50',   // Green
-  'vec3': '#FF9800',   // Orange
-  'vec4': '#9C27B0'    // Purple
-};
 
 interface GroupedNodeSpec {
   category: string;
@@ -42,6 +32,40 @@ export class NodeSearchDialog {
   private allCategories: string[] = [];
   private allTypes: string[] = [];
   
+  // Category order: workflow-based (Inputs → Content Creation → Processing → Output)
+  private static readonly CATEGORY_ORDER: string[] = [
+    'Inputs',      // Start here - data sources
+    'Patterns',     // Create patterns and noise
+    'Shapes',      // Create shapes and geometry
+    'Math',        // Mathematical operations
+    'Utilities',   // Helper operations
+    'Distort',     // Transform and distort
+    'Blend',       // Combine and blend
+    'Mask',        // Masking and control
+    'Effects',     // Post-processing effects
+    'Output'       // Final output
+  ];
+  
+  /**
+   * Sort categories with custom order: Inputs first, Output last, rest by workflow
+   */
+  private sortCategories(categories: string[]): string[] {
+    return categories.sort((a, b) => {
+      const aIndex = NodeSearchDialog.CATEGORY_ORDER.indexOf(a);
+      const bIndex = NodeSearchDialog.CATEGORY_ORDER.indexOf(b);
+      
+      // If both are in the order list, use their position
+      if (aIndex !== -1 && bIndex !== -1) {
+        return aIndex - bIndex;
+      }
+      // If only one is in the list, prioritize it
+      if (aIndex !== -1) return -1;
+      if (bIndex !== -1) return 1;
+      // If neither is in the list, sort alphabetically
+      return a.localeCompare(b);
+    });
+  }
+  
   constructor(nodeSpecs: NodeSpec[], callbacks: SearchDialogCallbacks = {}) {
     this.nodeSpecs = nodeSpecs;
     this.callbacks = callbacks;
@@ -59,7 +83,8 @@ export class NodeSearchDialog {
         typeSet.add(output.type);
       }
     }
-    this.allCategories = Array.from(categorySet).sort();
+    // Sort categories with workflow-based order
+    this.allCategories = this.sortCategories(Array.from(categorySet));
     this.allTypes = Array.from(typeSet).sort();
     
     // Debug: log node count
@@ -67,95 +92,31 @@ export class NodeSearchDialog {
     
     // Create overlay
     this.overlay = document.createElement('div');
-    const overlayBg = getCSSVariable('search-dialog-overlay', 'rgba(0, 0, 0, 0.5)');
-    this.overlay.style.cssText = `
-      position: fixed;
-      top: 0;
-      left: 0;
-      width: 100%;
-      height: 100%;
-      background: ${overlayBg};
-      z-index: 1000;
-      display: none;
-    `;
+    this.overlay.className = 'search-dialog-overlay';
     
     // Create dialog
     this.dialog = document.createElement('div');
-    const dialogBg = getCSSColor('search-dialog-bg', '#2a2a2a');
-    const dialogBorder = getCSSVariable('search-dialog-border', '1px solid #3a3a3a');
-    const dialogRadius = getCSSVariable('search-dialog-radius', '6px');
-    const dialogShadow = getCSSVariable('search-dialog-shadow', '0 8px 24px rgba(0, 0, 0, 0.5)');
-    this.dialog.style.cssText = `
-      position: fixed;
-      top: 50%;
-      left: 50%;
-      transform: translate(-50%, -50%);
-      width: 450px;
-      max-height: 500px;
-      background: ${dialogBg};
-      border: ${dialogBorder};
-      border-radius: ${dialogRadius};
-      box-shadow: ${dialogShadow};
-      z-index: 1001;
-      display: flex;
-      flex-direction: column;
-    `;
+    this.dialog.className = 'search-dialog';
     
     // Search input (at the top)
     this.input = document.createElement('input');
     this.input.type = 'text';
     this.input.placeholder = 'Search nodes...';
-    const inputBg = getCSSColor('search-input-bg', '#1a1a1a');
-    const inputBorder = getCSSVariable('search-input-border', '1px solid #3a3a3a');
-    const inputColor = getCSSColor('search-input-color', '#e0e0e0');
-    const inputRadius = getCSSVariable('input-radius', '4px');
-    this.input.style.cssText = `
-      margin: 10px;
-      padding: 8px 10px;
-      background: ${inputBg};
-      border: ${inputBorder};
-      border-radius: ${inputRadius};
-      color: ${inputColor};
-      font-size: 13px;
-      outline: none;
-    `;
+    this.input.className = 'search-dialog-input';
     this.input.addEventListener('input', () => this.filterResults());
     this.input.addEventListener('keydown', (e) => this.handleInputKeyDown(e));
     this.dialog.appendChild(this.input);
     
     // Filter tags container
     this.filterTags = document.createElement('div');
-    this.filterTags.style.cssText = `
-      padding: 0 10px 8px;
-      display: flex;
-      flex-wrap: wrap;
-      gap: 4px;
-    `;
+    this.filterTags.className = 'search-dialog-filter-tags';
     this.renderFilterTags();
     this.dialog.appendChild(this.filterTags);
     
     // Results container
     this.results = document.createElement('div');
     this.results.tabIndex = -1; // Make focusable for keyboard navigation
-    const resultsId = `node-search-results-${Date.now()}`;
-    this.results.id = resultsId;
-    this.results.style.cssText = `
-      flex: 1;
-      overflow-y: auto;
-      padding: 0 10px 10px;
-      outline: none;
-      /* Hide scrollbar but keep functionality */
-      scrollbar-width: none; /* Firefox */
-      -ms-overflow-style: none; /* IE and Edge */
-    `;
-    // Hide scrollbar for WebKit browsers (Chrome, Safari)
-    const style = document.createElement('style');
-    style.textContent = `
-      #${resultsId}::-webkit-scrollbar {
-        display: none;
-      }
-    `;
-    document.head.appendChild(style);
+    this.results.className = 'search-dialog-results';
     this.results.addEventListener('keydown', (e) => {
       this.handleResultsKeyDown(e);
     });
@@ -173,29 +134,17 @@ export class NodeSearchDialog {
     
     // Category tags
     const categoryContainer = document.createElement('div');
-    categoryContainer.style.cssText = 'display: flex; flex-wrap: wrap; gap: 4px; width: 100%;';
+    categoryContainer.className = 'filter-tag-container';
     
     for (const category of this.allCategories) {
       const tag = document.createElement('button');
       tag.textContent = category;
+      tag.className = 'filter-tag';
+      tag.setAttribute('data-category', category);
       const isSelected = this.selectedCategory === category;
-      const categoryColor = getNodeColorByCategory(category);
-      
-      const defaultBorder = getCSSVariable('search-result-border', '1px solid #3a3a3a');
-      const defaultBg = getCSSColor('search-result-bg', '#1a1a1a');
-      const defaultColor = getCSSColor('search-result-desc-color', '#999');
-      tag.style.cssText = `
-        padding: 3px 8px;
-        border: 1px solid ${isSelected ? categoryColor : defaultBorder.split(' ').slice(2).join(' ')};
-        border-radius: 10px;
-        background: ${isSelected ? categoryColor + '40' : defaultBg};
-        color: ${isSelected ? categoryColor : defaultColor};
-        font-size: 10px;
-        cursor: pointer;
-        outline: none;
-        transition: all 0.15s;
-        font-weight: ${isSelected ? '600' : '400'};
-      `;
+      if (isSelected) {
+        tag.classList.add('is-selected');
+      }
       
       tag.addEventListener('click', (e) => {
         e.stopPropagation();
@@ -210,28 +159,17 @@ export class NodeSearchDialog {
     
     // Type tags
     const typeContainer = document.createElement('div');
-    typeContainer.style.cssText = 'display: flex; flex-wrap: wrap; gap: 4px; width: 100%; margin-top: 6px;';
+    typeContainer.className = 'filter-tag-container';
     
     for (const type of this.allTypes) {
       const tag = document.createElement('button');
       tag.textContent = type;
+      tag.className = 'filter-tag';
+      tag.setAttribute('data-type', type);
       const isSelected = this.selectedTypes.has(type);
-      const typeColor = TYPE_COLORS[type] || '#666666';
-      
-      const defaultBorder = getCSSVariable('search-result-border', '1px solid #3a3a3a');
-      const defaultBg = getCSSColor('search-result-bg', '#1a1a1a');
-      tag.style.cssText = `
-        padding: 3px 8px;
-        border: 1px solid ${isSelected ? typeColor : defaultBorder.split(' ').slice(2).join(' ')};
-        border-radius: 10px;
-        background: ${isSelected ? typeColor + '40' : defaultBg};
-        color: ${isSelected ? typeColor : typeColor + 'CC'};
-        font-size: 10px;
-        cursor: pointer;
-        outline: none;
-        transition: all 0.15s;
-        font-weight: ${isSelected ? '600' : '400'};
-      `;
+      if (isSelected) {
+        tag.classList.add('is-selected');
+      }
       
       tag.addEventListener('click', (e) => {
         e.stopPropagation();
@@ -306,8 +244,8 @@ export class NodeSearchDialog {
       categoryMap.get(spec.category)!.push(spec);
     }
     
-    // Sort categories and create groups
-    const sortedCategories = Array.from(categoryMap.keys()).sort();
+    // Sort categories with workflow-based order
+    const sortedCategories = this.sortCategories(Array.from(categoryMap.keys()));
     for (const category of sortedCategories) {
       this.groupedSpecs.push({
         category,
@@ -337,8 +275,7 @@ export class NodeSearchDialog {
     if (this.groupedSpecs.length === 0) {
       const noResults = document.createElement('div');
       noResults.textContent = 'No nodes found';
-      const noResultsColor = getCSSColor('search-no-results-color', '#999');
-      noResults.style.cssText = `padding: 12px; color: ${noResultsColor}; text-align: center; font-size: 12px;`;
+      noResults.className = 'search-no-results';
       this.results.appendChild(noResults);
       return;
     }
@@ -348,22 +285,8 @@ export class NodeSearchDialog {
       // Category header - more subtle
       const categoryHeader = document.createElement('div');
       categoryHeader.textContent = group.category;
-      const categoryColor = getNodeColorByCategory(group.category);
-      // const categoryHeaderBg = getCSSVariable('search-category-header-bg', 'rgba(74, 154, 255, 0.08)');
-      // const categoryHeaderColor = getCSSColor('search-category-header-color', '#4a9eff');
-      
-      categoryHeader.style.cssText = `
-        padding: 4px 8px;
-        margin: 6px 0 2px 0;
-        background: ${categoryColor}15;
-        color: ${categoryColor};
-        font-size: 10px;
-        font-weight: 600;
-        border-radius: 3px;
-        text-transform: uppercase;
-        letter-spacing: 0.5px;
-        border-left: 2px solid ${categoryColor};
-      `;
+      categoryHeader.className = 'search-category-header';
+      categoryHeader.setAttribute('data-category', group.category);
       categoryHeader.setAttribute('data-category-header', 'true');
       this.results.appendChild(categoryHeader);
       
@@ -371,46 +294,25 @@ export class NodeSearchDialog {
       for (const spec of group.nodes) {
         const item = document.createElement('div');
         item.tabIndex = -1;
-        
-        const categoryColor = getNodeColorByCategory(spec.category);
-        const itemBgDefault = getCSSColor('search-result-bg', '#1a1a1a');
-        const itemBgSelected = getCSSColor('search-result-bg-selected', '#3a3a3a');
-        const itemBg = itemIndex === this.selectedIndex ? itemBgSelected : itemBgDefault;
-        const borderDefault = getCSSVariable('search-result-border', '1px solid #3a3a3a');
-        const borderSelected = getCSSVariable('search-result-border-selected', '1px solid #2196F3');
-        const borderColor = itemIndex === this.selectedIndex 
-          ? borderSelected.split(' ').slice(2).join(' ')
-          : borderDefault.split(' ').slice(2).join(' ');
-        
-        item.style.cssText = `
-          padding: 6px 8px;
-          margin-bottom: 2px;
-          background: ${itemBg};
-          border: 1px solid ${borderColor};
-          border-left: 3px solid ${categoryColor};
-          border-radius: 3px;
-          cursor: pointer;
-          outline: none;
-          display: flex;
-          align-items: center;
-          gap: 6px;
-        `;
+        item.className = 'search-result-item';
+        item.setAttribute('data-category', spec.category);
+        if (itemIndex === this.selectedIndex) {
+          item.classList.add('is-selected');
+        }
         
         // Node name and description
         const content = document.createElement('div');
-        content.style.cssText = 'flex: 1; min-width: 0;';
+        content.className = 'search-result-item-content';
         
         const name = document.createElement('div');
         name.textContent = spec.displayName;
-        const nameColor = getCSSColor('search-result-name-color', '#e0e0e0');
-        name.style.cssText = `font-size: 12px; font-weight: 600; color: ${nameColor}; margin-bottom: 1px;`;
+        name.className = 'search-result-item-name';
         content.appendChild(name);
         
         if (spec.description) {
           const desc = document.createElement('div');
           desc.textContent = spec.description;
-          const descColor = getCSSColor('search-result-desc-color', '#999');
-          desc.style.cssText = `font-size: 10px; color: ${descColor}; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;`;
+          desc.className = 'search-result-item-desc';
           content.appendChild(desc);
         }
         
@@ -418,23 +320,15 @@ export class NodeSearchDialog {
         
         // Type tags for outputs
         const typeTags = document.createElement('div');
-        typeTags.style.cssText = 'display: flex; gap: 3px; flex-wrap: wrap; flex-shrink: 0;';
+        typeTags.className = 'search-result-item-type-tags';
         
         // Show output types
         const uniqueOutputTypes = new Set(spec.outputs.map(o => o.type));
         for (const type of Array.from(uniqueOutputTypes).slice(0, 2)) {
           const typeTag = document.createElement('span');
           typeTag.textContent = type;
-          const typeColor = TYPE_COLORS[type] || '#666666';
-          typeTag.style.cssText = `
-            padding: 1px 5px;
-            border-radius: 6px;
-            background: ${typeColor}25;
-            color: ${typeColor};
-            font-size: 9px;
-            font-weight: 600;
-            border: 1px solid ${typeColor}50;
-          `;
+          typeTag.className = 'search-result-item-type-tag';
+          typeTag.setAttribute('data-type', type);
           typeTags.appendChild(typeTag);
         }
         
@@ -482,22 +376,14 @@ export class NodeSearchDialog {
       const spec = this.filteredSpecs[itemIndex];
       if (!spec) continue;
       
-      const categoryColor = getNodeColorByCategory(spec.category);
-      
-      const itemBgSelected = getCSSColor('search-result-bg-selected', '#3a3a3a');
-      const itemBgDefault = getCSSColor('search-result-bg', '#1a1a1a');
-      const borderSelected = getCSSVariable('search-result-border-selected', '1px solid #2196F3');
-      const borderDefault = getCSSVariable('search-result-border', '1px solid #3a3a3a');
+      // Ensure data-category attribute is set (should already be set, but ensure it)
+      item.setAttribute('data-category', spec.category);
       
       if (itemIndex === this.selectedIndex) {
-        item.style.background = itemBgSelected;
-        item.style.borderColor = borderSelected.split(' ').slice(2).join(' ');
-        item.style.borderLeftColor = categoryColor;
+        item.classList.add('is-selected');
         item.scrollIntoView({ block: 'nearest' });
       } else {
-        item.style.background = itemBgDefault;
-        item.style.borderColor = borderDefault.split(' ').slice(2).join(' ');
-        item.style.borderLeftColor = categoryColor;
+        item.classList.remove('is-selected');
       }
       itemIndex++;
     }
@@ -605,7 +491,7 @@ export class NodeSearchDialog {
       this.canvasX = screenX;
       this.canvasY = screenY;
     }
-    this.overlay.style.display = 'block';
+    this.overlay.classList.add('is-visible');
     
     if (center) {
       // Center the dialog
@@ -613,24 +499,37 @@ export class NodeSearchDialog {
       this.dialog.style.left = '50%';
       this.dialog.style.transform = 'translate(-50%, -50%)';
     } else {
-      // Position at click location (screen coordinates)
-      // Adjust to ensure dialog stays within viewport
+      // Position dialog with cursor horizontally centered and at 15% from top
+      // Get dialog dimensions (it's already in the DOM and overlay is shown)
       const dialogRect = this.dialog.getBoundingClientRect();
+      const dialogWidth = dialogRect.width || this.dialog.offsetWidth;
+      const dialogHeight = dialogRect.height || this.dialog.offsetHeight;
+      
       const viewportWidth = window.innerWidth;
       const viewportHeight = window.innerHeight;
+      const safeMargin = 16; // Safe distance from viewport edges
       
-      let left = screenX;
-      let top = screenY;
+      // Calculate ideal position: cursor centered horizontally and at 15% from top
+      let left = screenX - (dialogWidth / 2);
+      let top = screenY - (dialogHeight * 0.05);
       
-      // Adjust if dialog would go off screen
-      if (left + dialogRect.width > viewportWidth) {
-        left = viewportWidth - dialogRect.width - 16;
+      // Constrain to viewport with safe margins
+      // Ensure dialog doesn't go beyond right edge
+      if (left + dialogWidth > viewportWidth - safeMargin) {
+        left = viewportWidth - dialogWidth - safeMargin;
       }
-      if (top + dialogRect.height > viewportHeight) {
-        top = viewportHeight - dialogRect.height - 16;
+      // Ensure dialog doesn't go beyond left edge
+      if (left < safeMargin) {
+        left = safeMargin;
       }
-      if (left < 16) left = 16;
-      if (top < 16) top = 16;
+      // Ensure dialog doesn't go beyond bottom edge
+      if (top + dialogHeight > viewportHeight - safeMargin) {
+        top = viewportHeight - dialogHeight - safeMargin;
+      }
+      // Ensure dialog doesn't go beyond top edge
+      if (top < safeMargin) {
+        top = safeMargin;
+      }
       
       this.dialog.style.top = `${top}px`;
       this.dialog.style.left = `${left}px`;
@@ -649,7 +548,7 @@ export class NodeSearchDialog {
   }
   
   hide(): void {
-    this.overlay.style.display = 'none';
+    this.overlay.classList.remove('is-visible');
     this.input.value = '';
     this.selectedCategory = null;
     this.selectedTypes.clear();
@@ -658,7 +557,7 @@ export class NodeSearchDialog {
   }
   
   isVisible(): boolean {
-    return this.overlay.style.display === 'block';
+    return this.overlay.classList.contains('is-visible');
   }
   
   destroy(): void {

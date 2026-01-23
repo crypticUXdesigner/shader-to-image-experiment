@@ -109,7 +109,8 @@ export const sphereRaymarchElement: VisualElement = {
       min: 0.1,
       max: 10.0,
       step: 0.1,
-      label: 'Radius'
+      label: 'Radius',
+      inputMode: 'override'
     },
     sphereGlowIntensity: {
       type: 'float',
@@ -117,7 +118,8 @@ export const sphereRaymarchElement: VisualElement = {
       min: 0.0,
       max: 2.0,
       step: 0.01,
-      label: 'Glow Intensity'
+      label: 'Glow Intensity',
+      inputMode: 'override'
     },
     sphereBrightness: {
       type: 'float',
@@ -205,7 +207,8 @@ export const sphereRaymarchElement: VisualElement = {
       min: 0.0,
       max: 2.0,
       step: 0.1,
-      label: 'Vector Field Speed'
+      label: 'Vector Field Speed',
+      inputMode: 'override'
     },
     animationSpeed: {
       type: 'float',
@@ -221,7 +224,7 @@ export const sphereRaymarchElement: VisualElement = {
     {
       id: 'sphere-main',
       label: 'Sphere',
-      parameters: ['sphereRadius', 'sphereGlowIntensity', 'sphereBrightness', 'raymarchSteps'],
+      parameters: ['sphereRadius', 'sphereGlowIntensity', 'sphereBrightness'],
       collapsible: true,
       defaultCollapsed: false
     },
@@ -232,21 +235,12 @@ export const sphereRaymarchElement: VisualElement = {
         'vectorFieldFrequencyX',
         'vectorFieldFrequencyY',
         'vectorFieldFrequencyZ',
-        'vectorFieldAmplitude',
-        'vectorFieldRadialStrength',
-        'vectorFieldHarmonicAmplitude',
         'vectorFieldComplexity',
-        'vectorFieldDistanceContribution'
+        'vectorFieldDistanceContribution',
+        'vectorFieldSpeed'
       ],
       collapsible: true,
-      defaultCollapsed: true
-    },
-    {
-      id: 'animation',
-      label: 'Animation',
-      parameters: ['vectorFieldSpeed', 'animationSpeed'],
-      collapsible: true,
-      defaultCollapsed: true
+      defaultCollapsed: false
     }
   ]
 };

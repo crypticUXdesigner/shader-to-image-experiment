@@ -95,6 +95,11 @@ import {
   oklchColorMapThresholdNodeSpec,
   toneMappingNodeSpec
 } from './color-system-nodes';
+import {
+  audioFileInputNodeSpec,
+  audioAnalyzerNodeSpec,
+  audioRemapNodeSpec
+} from './audio-nodes';
 
 export const nodeSystemSpecs: NodeSpec[] = [
   // Input nodes
@@ -195,5 +200,10 @@ export const nodeSystemSpecs: NodeSpec[] = [
   colorMapNodeSpec,
   
   // Output nodes
-  finalOutputNodeSpec
+  finalOutputNodeSpec,
+  
+  // Audio nodes
+  audioFileInputNodeSpec,
+  audioAnalyzerNodeSpec,
+  audioRemapNodeSpec
 ];

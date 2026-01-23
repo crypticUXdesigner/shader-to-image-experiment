@@ -7,7 +7,7 @@ import type { NodeSpec } from '../../types';
 
 export const glowBloomNodeSpec: NodeSpec = {
   id: 'glow-bloom',
-  category: 'Post-Process',
+  category: 'Effects',
   displayName: 'Glow Bloom',
   description: 'Applies glow/bloom effect',
   inputs: [
@@ -56,7 +56,7 @@ export const glowBloomNodeSpec: NodeSpec = {
 
 export const blurNodeSpec: NodeSpec = {
   id: 'blur',
-  category: 'Post-Process',
+  category: 'Effects',
   displayName: 'Blur',
   description: 'Applies blur effect (simplified - full blur requires multi-pass)',
   inputs: [
@@ -92,7 +92,7 @@ export const blurNodeSpec: NodeSpec = {
 
 export const edgeDetectionNodeSpec: NodeSpec = {
   id: 'edge-detection',
-  category: 'Post-Process',
+  category: 'Effects',
   displayName: 'Edge Detection',
   description: 'Detects edges in image',
   inputs: [
@@ -128,7 +128,7 @@ export const edgeDetectionNodeSpec: NodeSpec = {
 
 export const chromaticAberrationNodeSpec: NodeSpec = {
   id: 'chromatic-aberration',
-  category: 'Post-Process',
+  category: 'Effects',
   displayName: 'Chromatic Aberration',
   description: 'Applies chromatic aberration effect',
   inputs: [
@@ -167,7 +167,7 @@ export const chromaticAberrationNodeSpec: NodeSpec = {
 
 export const colorGradingNodeSpec: NodeSpec = {
   id: 'color-grading',
-  category: 'Post-Process',
+  category: 'Effects',
   displayName: 'Color Grading',
   description: 'Applies color grading adjustments',
   inputs: [
@@ -228,7 +228,7 @@ export const colorGradingNodeSpec: NodeSpec = {
 
 export const rgbSeparationNodeSpec: NodeSpec = {
   id: 'rgb-separation',
-  category: 'Post-Process',
+  category: 'Effects',
   displayName: 'RGB Separation',
   description: 'Separates RGB channels with offset',
   inputs: [
@@ -267,7 +267,7 @@ export const rgbSeparationNodeSpec: NodeSpec = {
 
 export const scanlinesNodeSpec: NodeSpec = {
   id: 'scanlines',
-  category: 'Post-Process',
+  category: 'Effects',
   displayName: 'Scanlines',
   description: 'Applies scanline effect',
   inputs: [
@@ -306,7 +306,7 @@ export const scanlinesNodeSpec: NodeSpec = {
 
 export const blockEdgeBrightnessNodeSpec: NodeSpec = {
   id: 'block-edge-brightness',
-  category: 'Post-Process',
+  category: 'Effects',
   displayName: 'Block Edge Brightness',
   description: 'Variable-size block edge brightness effect',
   inputs: [
@@ -362,7 +362,7 @@ export const blockEdgeBrightnessNodeSpec: NodeSpec = {
 
 export const blockColorGlitchNodeSpec: NodeSpec = {
   id: 'block-color-glitch',
-  category: 'Post-Process',
+  category: 'Effects',
   displayName: 'Block Color Glitch',
   description: 'Variable-size block color glitch effect',
   inputs: [
@@ -436,7 +436,7 @@ export const blockColorGlitchNodeSpec: NodeSpec = {
 
 export const normalMappingNodeSpec: NodeSpec = {
   id: 'normal-mapping',
-  category: 'Post-Process',
+  category: 'Effects',
   displayName: 'Normal Mapping',
   description: 'Applies normal mapping effect',
   inputs: [
@@ -477,7 +477,7 @@ export const normalMappingNodeSpec: NodeSpec = {
 
 export const lightingShadingNodeSpec: NodeSpec = {
   id: 'lighting-shading',
-  category: 'Post-Process',
+  category: 'Effects',
   displayName: 'Lighting Shading',
   description: 'Applies lighting and shading',
   inputs: [

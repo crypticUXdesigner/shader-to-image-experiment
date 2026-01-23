@@ -6,7 +6,7 @@ import type { NodeSpec } from '../../types';
 
 export const compareNodeSpec: NodeSpec = {
   id: 'compare',
-  category: 'Operation',
+  category: 'Mask',
   displayName: 'Compare',
   description: 'Compares two values and outputs 0.0 or 1.0',
   inputs: [
@@ -43,7 +43,7 @@ export const compareNodeSpec: NodeSpec = {
 
 export const selectNodeSpec: NodeSpec = {
   id: 'select',
-  category: 'Operation',
+  category: 'Mask',
   displayName: 'Select',
   description: 'Selects between two values based on condition',
   inputs: [

@@ -1,0 +1,41 @@
+/* Parameter Control Container */
+.param-control {
+  display: flex;
+  align-items: center;
+  padding: var(--spacing-xs) var(--spacing-sm);
+  gap: var(--spacing-sm);
+}
+
+/* Parameter Control Label */
+.param-control-label {
+  font-size: var(--text-sm);
+  color: var(--param-control-label-color);
+  min-width: 80px;
+}
+
+/* Parameter Control Drag Area */
+.param-control-drag-area {
+  flex: 1;
+  height: 24px;
+  background: var(--param-control-drag-area-bg);
+  border: var(--param-control-drag-area-border);
+  border-radius: var(--input-radius);
+  cursor: ns-resize;
+  position: relative;
+  transition: border-color 0.15s;
+}
+
+.param-control-drag-area.is-dragging {
+  border-color: var(--param-control-drag-area-border-active);
+  cursor: grabbing;
+}
+
+/* Parameter Control Value Display */
+.param-control-value {
+  min-width: var(--value-display-min-width);
+  text-align: right;
+  font-size: var(--text-sm);
+  font-family: monospace;
+  color: var(--param-control-value-color);
+  padding: 0 var(--spacing-sm);
+}

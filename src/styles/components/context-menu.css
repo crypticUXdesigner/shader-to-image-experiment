@@ -1,0 +1,88 @@
+/* Context Menu Container */
+.context-menu {
+  position: fixed;
+  background: var(--context-menu-bg);
+  border: var(--context-menu-border);
+  border-radius: var(--context-menu-radius);
+  min-width: var(--context-menu-min-width);
+  max-width: var(--context-menu-max-width);
+  max-height: var(--context-menu-max-height);
+  z-index: var(--toast-z-index);
+  display: none;
+  box-shadow: var(--context-menu-shadow);
+  flex-direction: column;
+}
+
+.context-menu.is-visible {
+  display: flex;
+}
+
+/* Context Menu Input */
+.context-menu-input {
+  margin: var(--spacing-sm);
+  padding: var(--spacing-sm);
+  background: var(--search-input-bg);
+  border: var(--search-input-border);
+  border-radius: var(--input-radius);
+  color: var(--search-input-color);
+  font-size: var(--text-md);
+  outline: none;
+  font-family: inherit;
+}
+
+.context-menu-input::placeholder {
+  color: var(--search-result-desc-color);
+}
+
+/* Context Menu Results Container */
+.context-menu-results {
+  flex: 1;
+  overflow-y: auto;
+  padding: var(--spacing-xs) 0;
+  max-height: 500px;
+  scrollbar-width: none; /* Firefox */
+  -ms-overflow-style: none; /* IE and Edge */
+}
+
+.context-menu-results::-webkit-scrollbar {
+  display: none; /* Chrome, Safari, Opera */
+}
+
+/* Context Menu Item */
+.context-menu-item {
+  padding: var(--context-menu-item-padding);
+  color: var(--context-menu-item-color);
+  cursor: pointer;
+  font-size: var(--text-md);
+  outline: none;
+  transition: background 0.15s;
+}
+
+.context-menu-item:hover,
+.context-menu-item.is-selected {
+  background: var(--context-menu-item-bg-hover);
+}
+
+.context-menu-item-name {
+  font-weight: bold;
+  margin-bottom: var(--spacing-xs);
+}
+
+.context-menu-item-desc {
+  font-size: var(--text-sm);
+  color: var(--search-result-desc-color);
+}
+
+/* Context Menu Separator */
+.context-menu-separator {
+  height: 1px;
+  background: var(--context-menu-separator-color);
+  margin: var(--spacing-xs) 0;
+}
+
+/* Context Menu No Results */
+.context-menu-no-results {
+  padding: var(--spacing-lg);
+  color: var(--search-no-results-color);
+  text-align: center;
+}

@@ -83,7 +83,7 @@ float fbm(vec2 p, float time) {
       label: 'Scale'
     },
     fbmOctaves: {
-      type: 'int',
+      type: 'float',
       default: 4.0,
       min: 1.0,
       max: 8.0,

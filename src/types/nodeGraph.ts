@@ -1,6 +1,8 @@
 // Node Graph Data Model Types
 // Based on DATA_MODEL_SPECIFICATION.md
 
+import type { ParameterInputMode } from './nodeSpec';
+
 export type ParameterValue = 
   | number                        // For float/int parameters
   | string                        // For string parameters (swizzle, etc.)
@@ -20,6 +22,7 @@ export interface NodeInstance {
   
   // Parameters
   parameters: Record<string, ParameterValue>;  // Parameter name → value
+  parameterInputModes?: Record<string, ParameterInputMode>;  // Parameter name → input mode (overrides spec default)
   
   // Metadata
   label?: string;                 // Optional custom label (overrides displayName)
@@ -36,7 +39,8 @@ export interface Connection {
   
   // Target (input)
   targetNodeId: string;            // Target node ID
-  targetPort: string;              // Target port name (from Node Specification)
+  targetPort?: string;             // Target port name (from Node Specification) - optional if targetParameter is set
+  targetParameter?: string;        // Target parameter name (for parameter input connections)
 }
 
 export interface NodeGraph {

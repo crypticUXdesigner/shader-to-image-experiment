@@ -6,7 +6,7 @@ import type { NodeSpec } from '../../types';
 
 export const oneMinusNodeSpec: NodeSpec = {
   id: 'one-minus',
-  category: 'Operation',
+  category: 'Utilities',
   displayName: 'One Minus',
   description: 'Subtracts input from 1.0 (invert for 0-1 range)',
   inputs: [
@@ -23,7 +23,7 @@ export const oneMinusNodeSpec: NodeSpec = {
 
 export const negateNodeSpec: NodeSpec = {
   id: 'negate',
-  category: 'Operation',
+  category: 'Utilities',
   displayName: 'Negate',
   description: 'Negates input value',
   inputs: [
@@ -40,7 +40,7 @@ export const negateNodeSpec: NodeSpec = {
 
 export const reciprocalNodeSpec: NodeSpec = {
   id: 'reciprocal',
-  category: 'Operation',
+  category: 'Utilities',
   displayName: 'Reciprocal',
   description: 'Reciprocal (1.0 / input)',
   inputs: [
@@ -57,7 +57,7 @@ export const reciprocalNodeSpec: NodeSpec = {
 
 export const remapNodeSpec: NodeSpec = {
   id: 'remap',
-  category: 'Operation',
+  category: 'Utilities',
   displayName: 'Remap',
   description: 'Remaps value from one range to another',
   inputs: [
@@ -79,7 +79,7 @@ export const remapNodeSpec: NodeSpec = {
 
 export const clamp01NodeSpec: NodeSpec = {
   id: 'clamp-01',
-  category: 'Operation',
+  category: 'Utilities',
   displayName: 'Clamp 01',
   description: 'Clamps value to 0.0-1.0 range',
   inputs: [
@@ -96,7 +96,7 @@ export const clamp01NodeSpec: NodeSpec = {
 
 export const saturateNodeSpec: NodeSpec = {
   id: 'saturate',
-  category: 'Operation',
+  category: 'Utilities',
   displayName: 'Saturate',
   description: 'Same as Clamp 01 (common shader term)',
   inputs: [
@@ -113,7 +113,7 @@ export const saturateNodeSpec: NodeSpec = {
 
 export const signNodeSpec: NodeSpec = {
   id: 'sign',
-  category: 'Operation',
+  category: 'Utilities',
   displayName: 'Sign',
   description: 'Returns sign of value (-1.0, 0.0, or 1.0)',
   inputs: [
@@ -130,7 +130,7 @@ export const signNodeSpec: NodeSpec = {
 
 export const roundNodeSpec: NodeSpec = {
   id: 'round',
-  category: 'Operation',
+  category: 'Utilities',
   displayName: 'Round',
   description: 'Rounds to nearest integer',
   inputs: [
@@ -147,7 +147,7 @@ export const roundNodeSpec: NodeSpec = {
 
 export const truncateNodeSpec: NodeSpec = {
   id: 'truncate',
-  category: 'Operation',
+  category: 'Utilities',
   displayName: 'Truncate',
   description: 'Truncates (removes fractional part)',
   inputs: [
@@ -164,7 +164,7 @@ export const truncateNodeSpec: NodeSpec = {
 
 export const lerpNodeSpec: NodeSpec = {
   id: 'lerp',
-  category: 'Operation',
+  category: 'Utilities',
   displayName: 'Lerp',
   description: 'Linear interpolation (alias for Mix)',
   inputs: [
@@ -183,7 +183,7 @@ export const lerpNodeSpec: NodeSpec = {
 
 export const swizzleNodeSpec: NodeSpec = {
   id: 'swizzle',
-  category: 'Operation',
+  category: 'Utilities',
   displayName: 'Swizzle',
   description: 'Reorders/swizzles vector components (supports common patterns)',
   inputs: [
@@ -226,7 +226,7 @@ export const swizzleNodeSpec: NodeSpec = {
 
 export const splitVectorNodeSpec: NodeSpec = {
   id: 'split-vector',
-  category: 'Operation',
+  category: 'Utilities',
   displayName: 'Split Vector',
   description: 'Splits vector into components',
   inputs: [
@@ -249,7 +249,7 @@ export const splitVectorNodeSpec: NodeSpec = {
 
 export const combineVectorNodeSpec: NodeSpec = {
   id: 'combine-vector',
-  category: 'Operation',
+  category: 'Utilities',
   displayName: 'Combine Vector',
   description: 'Combines floats into vector',
   inputs: [

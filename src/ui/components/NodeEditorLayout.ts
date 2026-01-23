@@ -35,6 +35,10 @@ export class NodeEditorLayout {
   private resizeStartHeight: number = 0;
   private resizeObserver: ResizeObserver | null = null;
   
+  // Track which corner the widget is snapped to (null if not snapped)
+  // Format: 'top-left' | 'top-right' | 'bottom-left' | 'bottom-right' | null
+  private snappedCorner: 'top-left' | 'top-right' | 'bottom-left' | 'bottom-right' | null = null;
+  
   // Edge snapping configuration
   private readonly SNAP_DISTANCE = 20; // pixels
   private readonly SAFE_DISTANCE = 16; // pixels from edges
@@ -44,7 +48,15 @@ export class NodeEditorLayout {
   private onCopyPreset?: () => Promise<void> | void;
   private onExport?: () => Promise<void> | void;
   private onLoadPreset?: (presetName: string) => Promise<void> | void;
+  private onGlobalAudioPlayToggle?: () => void;
+  private onGlobalAudioTimeChange?: (time: number) => void;
+  private getGlobalAudioState?: () => { isPlaying: boolean; currentTime: number; duration: number } | null;
   private buttonHideTimeout: number | null = null;
+  private globalPlayButton!: HTMLElement;
+  private globalTimeSlider!: HTMLInputElement;
+  private globalTimeDisplay!: HTMLElement;
+  private audioUpdateInterval: number | null = null;
+  private isDraggingTimeSlider: boolean = false;
   
   constructor(container: HTMLElement) {
     this.container = container;
@@ -55,6 +67,9 @@ export class NodeEditorLayout {
     const containerRect = container.getBoundingClientRect();
     const initialX = containerRect.width - initialWidth - this.SAFE_DISTANCE;
     const initialY = this.SAFE_DISTANCE; // Top-right corner
+    
+    // Initialize as snapped to top-right corner
+    this.snappedCorner = 'top-right';
     
     this.state = {
       previewState: 'collapsed',
@@ -154,6 +169,92 @@ export class NodeEditorLayout {
   }
   
   /**
+   * Set callbacks for global audio controls
+   */
+  setGlobalAudioCallbacks(callbacks: {
+    onPlayToggle?: () => void;
+    onTimeChange?: (time: number) => void;
+    getState?: () => { isPlaying: boolean; currentTime: number; duration: number } | null;
+  }): void {
+    this.onGlobalAudioPlayToggle = callbacks.onPlayToggle;
+    this.onGlobalAudioTimeChange = callbacks.onTimeChange;
+    this.getGlobalAudioState = callbacks.getState;
+    
+    // Start updating UI if we have a state getter
+    if (this.getGlobalAudioState) {
+      this.startAudioUIUpdates();
+    }
+  }
+  
+  /**
+   * Start periodic updates for audio UI
+   */
+  private startAudioUIUpdates(): void {
+    if (this.audioUpdateInterval) {
+      clearInterval(this.audioUpdateInterval);
+    }
+    
+    this.audioUpdateInterval = window.setInterval(() => {
+      if (this.getGlobalAudioState) {
+        const state = this.getGlobalAudioState();
+        if (state) {
+          this.updatePlayButtonIcon(state.isPlaying);
+          this.updateTimeDisplay(state.currentTime, state.duration);
+          this.updateTimeSlider(state.currentTime, state.duration);
+        } else {
+          // No audio loaded
+          this.updatePlayButtonIcon(false);
+          this.globalTimeDisplay.textContent = '0:00 / 0:00';
+          this.globalTimeSlider.value = '0';
+          this.globalTimeSlider.max = '100';
+        }
+      }
+    }, 100); // Update every 100ms
+  }
+  
+  /**
+   * Update play button icon
+   */
+  private updatePlayButtonIcon(isPlaying: boolean): void {
+    this.globalPlayButton.innerHTML = '';
+    const iconName = isPlaying ? 'pause' : 'play';
+    const iconColor = getCSSColor('layout-button-color', '#e0e0e0');
+    const icon = createIconElement(iconName, 16, iconColor);
+    this.globalPlayButton.appendChild(icon);
+  }
+  
+  /**
+   * Update time display
+   */
+  private updateTimeDisplay(currentTime: number, duration: number): void {
+    const formatTime = (seconds: number): string => {
+      const mins = Math.floor(seconds / 60);
+      const secs = Math.floor(seconds % 60);
+      return `${mins}:${secs.toString().padStart(2, '0')}`;
+    };
+    this.globalTimeDisplay.textContent = `${formatTime(currentTime)} / ${formatTime(duration)}`;
+  }
+  
+  /**
+   * Update time slider
+   */
+  private updateTimeSlider(currentTime: number, duration: number): void {
+    // Don't update slider while user is dragging
+    if (this.isDraggingTimeSlider) {
+      return;
+    }
+    
+    if (duration > 0) {
+      const percent = (currentTime / duration) * 100;
+      this.globalTimeSlider.value = percent.toString();
+      this.globalTimeSlider.max = '100';
+    } else {
+      this.globalTimeSlider.value = '0';
+      this.globalTimeSlider.max = '100';
+    }
+  }
+
+  /**
    * Set callback for preset selection
    */
   setLoadPresetCallback(callback: (presetName: string) => Promise<void> | void): void {
@@ -199,52 +300,21 @@ export class NodeEditorLayout {
     
     // Create toast element
     const toast = document.createElement('div');
-    toast.className = 'toast-notification';
+    toast.className = `toast-notification is-${type}`;
     toast.textContent = message;
-    
-    const bgColor = type === 'success' 
-      ? getCSSColor('layout-toast-success-bg', '#2d5a2d')
-      : getCSSColor('layout-toast-error-bg', '#5a2d2d');
-    const borderColor = type === 'success'
-      ? getCSSColor('layout-toast-success-border', '#4a8a4a')
-      : getCSSColor('layout-toast-error-border', '#8a4a4a');
-    const textColor = getCSSColor('layout-toast-color', '#e0e0e0');
-    
-    toast.style.cssText = `
-      position: fixed;
-      top: 8px;
-      left: 50%;
-      transform: translateX(-50%) translateY(-100px);
-      padding: 12px 20px;
-      background: ${bgColor};
-      color: ${textColor};
-      border: 1px solid ${borderColor};
-      border-radius: 6px;
-      font-size: 13px;
-      font-family: inherit;
-      z-index: 1000;
-      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
-      transition: transform 0.3s ease-out, opacity 0.3s ease-out;
-      opacity: 0;
-      pointer-events: none;
-      max-width: 400px;
-      text-align: center;
-    `;
     
     document.body.appendChild(toast);
     
     // Animate in
     requestAnimationFrame(() => {
       requestAnimationFrame(() => {
-        toast.style.transform = 'translateX(-50%) translateY(0)';
-        toast.style.opacity = '1';
+        toast.classList.add('is-visible');
       });
     });
     
     // Auto-dismiss after 3 seconds
     setTimeout(() => {
-      toast.style.transform = 'translateX(-50%) translateY(-100px)';
-      toast.style.opacity = '0';
+      toast.classList.remove('is-visible');
       setTimeout(() => {
         if (toast.parentNode) {
           toast.remove();
@@ -256,42 +326,14 @@ export class NodeEditorLayout {
   private createLayout(): void {
     // Create button container for top-left controls
     const buttonContainer = document.createElement('div');
-    buttonContainer.style.cssText = `
-      position: absolute;
-      left: 8px;
-      top: 8px;
-      display: flex;
-      gap: 8px;
-      align-items: center;
-      z-index: 100;
-    `;
+    buttonContainer.className = 'layout-button-container';
     this.container.appendChild(buttonContainer);
     
     // Save as default button
     this.saveAsDefaultBtn = document.createElement('button');
     this.saveAsDefaultBtn.textContent = 'Save as Default';
     this.saveAsDefaultBtn.title = 'Save current state as the new starting point';
-    const buttonBg = getCSSColor('layout-button-bg', '#3a3a3a');
-    const buttonBgHover = getCSSColor('layout-button-bg-hover', '#4a4a4a');
-    const buttonColor = getCSSColor('layout-button-color', '#e0e0e0');
-    const buttonBorder = getCSSVariable('layout-button-border', '1px solid #4a4a4a');
-    const buttonRadius = getCSSVariable('button-radius', '4px');
-    this.saveAsDefaultBtn.style.cssText = `
-      padding: 4px 12px;
-      background: ${buttonBg};
-      color: ${buttonColor};
-      border: ${buttonBorder};
-      border-radius: ${buttonRadius};
-      cursor: pointer;
-      font-size: 12px;
-      font-family: inherit;
-    `;
-    this.saveAsDefaultBtn.addEventListener('mouseenter', () => {
-      this.saveAsDefaultBtn.style.background = buttonBgHover;
-    });
-    this.saveAsDefaultBtn.addEventListener('mouseleave', () => {
-      this.saveAsDefaultBtn.style.background = buttonBg;
-    });
+    this.saveAsDefaultBtn.className = 'layout-button';
     this.saveAsDefaultBtn.addEventListener('click', async () => {
       if (this.onSaveAsDefault) {
         await this.onSaveAsDefault();
@@ -304,22 +346,7 @@ export class NodeEditorLayout {
     (this.copyPresetBtn as HTMLButtonElement).type = 'button';
     this.copyPresetBtn.textContent = 'Copy Preset';
     this.copyPresetBtn.title = 'Copy current graph as JSON to clipboard';
-    this.copyPresetBtn.style.cssText = `
-      padding: 4px 12px;
-      background: ${buttonBg};
-      color: ${buttonColor};
-      border: ${buttonBorder};
-      border-radius: ${buttonRadius};
-      cursor: pointer;
-      font-size: 12px;
-      font-family: inherit;
-    `;
-    this.copyPresetBtn.addEventListener('mouseenter', () => {
-      this.copyPresetBtn.style.background = buttonBgHover;
-    });
-    this.copyPresetBtn.addEventListener('mouseleave', () => {
-      this.copyPresetBtn.style.background = buttonBg;
-    });
+    this.copyPresetBtn.className = 'layout-button';
     this.copyPresetBtn.addEventListener('click', async (e) => {
       e.preventDefault();
       e.stopPropagation();
@@ -337,22 +364,7 @@ export class NodeEditorLayout {
     (this.exportBtn as HTMLButtonElement).type = 'button';
     this.exportBtn.textContent = 'Export Image';
     this.exportBtn.title = 'Export current shader as image';
-    this.exportBtn.style.cssText = `
-      padding: 4px 12px;
-      background: ${buttonBg};
-      color: ${buttonColor};
-      border: ${buttonBorder};
-      border-radius: ${buttonRadius};
-      cursor: pointer;
-      font-size: 12px;
-      font-family: inherit;
-    `;
-    this.exportBtn.addEventListener('mouseenter', () => {
-      this.exportBtn.style.background = buttonBgHover;
-    });
-    this.exportBtn.addEventListener('mouseleave', () => {
-      this.exportBtn.style.background = buttonBg;
-    });
+    this.exportBtn.className = 'layout-button';
     this.exportBtn.addEventListener('click', async (e) => {
       e.preventDefault();
       e.stopPropagation();
@@ -368,21 +380,7 @@ export class NodeEditorLayout {
     // Preset select dropdown
     this.presetSelect = document.createElement('select');
     this.presetSelect.title = 'Load a preset';
-    const selectBg = getCSSColor('select-bg', '#3a3a3a');
-    const selectColor = getCSSColor('select-color', '#e0e0e0');
-    const selectBorder = getCSSVariable('select-border', '1px solid #4a4a4a');
-    const selectRadius = getCSSVariable('select-radius', '4px');
-    this.presetSelect.style.cssText = `
-      padding: 4px 12px;
-      background: ${selectBg};
-      color: ${selectColor};
-      border: ${selectBorder};
-      border-radius: ${selectRadius};
-      cursor: pointer;
-      font-size: 12px;
-      font-family: inherit;
-      min-width: 150px;
-    `;
+    this.presetSelect.className = 'layout-select';
     // Add default option
     const defaultOption = document.createElement('option');
     defaultOption.value = '';
@@ -400,6 +398,80 @@ export class NodeEditorLayout {
       }
     });
     buttonContainer.appendChild(this.presetSelect);
+    
+    // Global audio controls container
+    const audioControlsContainer = document.createElement('div');
+    audioControlsContainer.className = 'layout-audio-controls';
+    audioControlsContainer.style.cssText = `
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-left: 16px;
+    `;
+    
+    // Global play/pause button
+    this.globalPlayButton = document.createElement('button');
+    this.globalPlayButton.className = 'layout-button layout-audio-play-button';
+    this.globalPlayButton.title = 'Play/Pause all audio';
+    this.globalPlayButton.style.cssText = `
+      width: 32px;
+      height: 32px;
+      padding: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    `;
+    this.updatePlayButtonIcon(false);
+    this.globalPlayButton.addEventListener('click', () => {
+      this.onGlobalAudioPlayToggle?.();
+    });
+    audioControlsContainer.appendChild(this.globalPlayButton);
+    
+    // Time display
+    this.globalTimeDisplay = document.createElement('div');
+    this.globalTimeDisplay.className = 'layout-audio-time';
+    this.globalTimeDisplay.style.cssText = `
+      font-family: monospace;
+      font-size: 12px;
+      color: ${getCSSColor('layout-button-color', '#e0e0e0')};
+      min-width: 80px;
+      text-align: right;
+    `;
+    this.globalTimeDisplay.textContent = '0:00 / 0:00';
+    audioControlsContainer.appendChild(this.globalTimeDisplay);
+    
+    // Time scrubber slider
+    this.globalTimeSlider = document.createElement('input');
+    this.globalTimeSlider.type = 'range';
+    this.globalTimeSlider.min = '0';
+    this.globalTimeSlider.max = '100';
+    this.globalTimeSlider.value = '0';
+    this.globalTimeSlider.className = 'layout-audio-slider';
+    this.globalTimeSlider.style.cssText = `
+      flex: 1;
+      min-width: 200px;
+      max-width: 400px;
+    `;
+    this.globalTimeSlider.addEventListener('mousedown', () => {
+      this.isDraggingTimeSlider = true;
+    });
+    this.globalTimeSlider.addEventListener('mouseup', () => {
+      this.isDraggingTimeSlider = false;
+    });
+    this.globalTimeSlider.addEventListener('input', (e) => {
+      const target = e.target as HTMLInputElement;
+      const percent = parseFloat(target.value);
+      if (this.getGlobalAudioState) {
+        const state = this.getGlobalAudioState();
+        if (state) {
+          const time = (percent / 100) * state.duration;
+          this.onGlobalAudioTimeChange?.(time);
+        }
+      }
+    });
+    audioControlsContainer.appendChild(this.globalTimeSlider);
+    
+    buttonContainer.appendChild(audioControlsContainer);
     
     // Node editor container (left)
     this.nodeEditorContainer = document.createElement('div');
@@ -442,25 +514,7 @@ export class NodeEditorLayout {
     
     // Expand/Collapse button
     const toggleButton = document.createElement('button');
-    const toggleButtonBg = getCSSColor('layout-button-bg', '#3a3a3a');
-    const toggleButtonColor = getCSSColor('layout-button-color', '#e0e0e0');
-    toggleButton.style.cssText = `
-      position: absolute;
-      top: 8px;
-      right: 8px;
-      width: 24px;
-      height: 24px;
-      border: none;
-      background: ${toggleButtonBg};
-      color: ${toggleButtonColor};
-      cursor: pointer;
-      border-radius: ${buttonRadius};
-      z-index: 20;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      transition: opacity 0.2s ease-out;
-    `;
+    toggleButton.className = 'layout-toggle-button';
     toggleButton.addEventListener('click', () => this.togglePreview());
     this.previewContainer.appendChild(toggleButton);
     
@@ -512,8 +566,7 @@ export class NodeEditorLayout {
     this.clearButtonHideTimeout();
     
     // Show button
-    toggleButton.style.opacity = '1';
-    toggleButton.style.pointerEvents = 'auto';
+    toggleButton.classList.remove('is-hidden');
   }
   
   private hideToggleButton(): void {
@@ -521,8 +574,7 @@ export class NodeEditorLayout {
     if (!toggleButton) return;
     
     // Hide button
-    toggleButton.style.opacity = '0';
-    toggleButton.style.pointerEvents = 'none';
+    toggleButton.classList.add('is-hidden');
   }
   
   private scheduleButtonHide(): void {
@@ -571,6 +623,28 @@ export class NodeEditorLayout {
       if (this.state.cornerWidgetPosition.x === 0 && this.state.cornerWidgetPosition.y === 0) {
         this.state.cornerWidgetPosition.x = containerRect.width - widgetWidth - this.SAFE_DISTANCE;
         this.state.cornerWidgetPosition.y = this.SAFE_DISTANCE; // Top-right corner
+        this.snappedCorner = 'top-right';
+      } else {
+        // Check if the current position is at a corner and update snappedCorner
+        const safeDist = this.SAFE_DISTANCE;
+        const widgetHeight = this.state.cornerWidgetSize.height;
+        const x = this.state.cornerWidgetPosition.x;
+        const y = this.state.cornerWidgetPosition.y;
+        const maxX = containerRect.width - widgetWidth - safeDist;
+        const maxY = containerRect.height - widgetHeight - safeDist;
+        
+        // Check if at a corner
+        if (Math.abs(x - safeDist) < this.SNAP_DISTANCE && Math.abs(y - safeDist) < this.SNAP_DISTANCE) {
+          this.snappedCorner = 'top-left';
+        } else if (Math.abs(x - maxX) < this.SNAP_DISTANCE && Math.abs(y - safeDist) < this.SNAP_DISTANCE) {
+          this.snappedCorner = 'top-right';
+        } else if (Math.abs(x - safeDist) < this.SNAP_DISTANCE && Math.abs(y - maxY) < this.SNAP_DISTANCE) {
+          this.snappedCorner = 'bottom-left';
+        } else if (Math.abs(x - maxX) < this.SNAP_DISTANCE && Math.abs(y - maxY) < this.SNAP_DISTANCE) {
+          this.snappedCorner = 'bottom-right';
+        } else {
+          this.snappedCorner = null;
+        }
       }
     }
     
@@ -630,17 +704,42 @@ export class NodeEditorLayout {
       
       this.divider.style.display = 'none';
       
-      // Position corner widget - constrain to viewport bounds
+      // Position corner widget - maintain relative position when snapped
       const widgetWidth = this.state.cornerWidgetSize.width;
       const widgetHeight = this.state.cornerWidgetSize.height;
       let widgetX = this.state.cornerWidgetPosition.x;
       let widgetY = this.state.cornerWidgetPosition.y;
       
-      // Constrain position to viewport with safe distance
-      const maxX = width - widgetWidth - this.SAFE_DISTANCE;
-      const maxY = height - widgetHeight - this.SAFE_DISTANCE;
-      widgetX = Math.max(this.SAFE_DISTANCE, Math.min(maxX, widgetX));
-      widgetY = Math.max(this.SAFE_DISTANCE, Math.min(maxY, widgetY));
+      // If snapped to a corner, recalculate position based on that corner
+      if (this.snappedCorner) {
+        const maxX = width - widgetWidth - this.SAFE_DISTANCE;
+        const maxY = height - widgetHeight - this.SAFE_DISTANCE;
+        
+        switch (this.snappedCorner) {
+          case 'top-left':
+            widgetX = this.SAFE_DISTANCE;
+            widgetY = this.SAFE_DISTANCE;
+            break;
+          case 'top-right':
+            widgetX = maxX;
+            widgetY = this.SAFE_DISTANCE;
+            break;
+          case 'bottom-left':
+            widgetX = this.SAFE_DISTANCE;
+            widgetY = maxY;
+            break;
+          case 'bottom-right':
+            widgetX = maxX;
+            widgetY = maxY;
+            break;
+        }
+      } else {
+        // Not snapped - constrain position to viewport with safe distance
+        const maxX = width - widgetWidth - this.SAFE_DISTANCE;
+        const maxY = height - widgetHeight - this.SAFE_DISTANCE;
+        widgetX = Math.max(this.SAFE_DISTANCE, Math.min(maxX, widgetX));
+        widgetY = Math.max(this.SAFE_DISTANCE, Math.min(maxY, widgetY));
+      }
       
       // Update state with constrained position
       this.state.cornerWidgetPosition.x = widgetX;
@@ -788,6 +887,42 @@ export class NodeEditorLayout {
     let newX = this.dragStartWidgetX + deltaX;
     let newY = this.dragStartWidgetY + deltaY;
     
+    // Check if we're moving away from a snapped corner
+    // If moved more than snap distance, clear the snap
+    if (this.snappedCorner) {
+      const safeDist = this.SAFE_DISTANCE;
+      const snapDist = this.SNAP_DISTANCE;
+      const widgetWidth = this.state.cornerWidgetSize.width;
+      const widgetHeight = this.state.cornerWidgetSize.height;
+      
+      let expectedX = 0;
+      let expectedY = 0;
+      
+      switch (this.snappedCorner) {
+        case 'top-left':
+          expectedX = safeDist;
+          expectedY = safeDist;
+          break;
+        case 'top-right':
+          expectedX = containerRect.width - widgetWidth - safeDist;
+          expectedY = safeDist;
+          break;
+        case 'bottom-left':
+          expectedX = safeDist;
+          expectedY = containerRect.height - widgetHeight - safeDist;
+          break;
+        case 'bottom-right':
+          expectedX = containerRect.width - widgetWidth - safeDist;
+          expectedY = containerRect.height - widgetHeight - safeDist;
+          break;
+      }
+      
+      // If moved away from snapped position, clear the snap
+      if (Math.abs(newX - expectedX) > snapDist || Math.abs(newY - expectedY) > snapDist) {
+        this.snappedCorner = null;
+      }
+    }
+    
     // Apply edge snapping with safe distance
     const snapped = this.snapToEdges(
       newX,
@@ -893,6 +1028,8 @@ export class NodeEditorLayout {
     this.state.cornerWidgetPosition.y = newY;
     
     // After resize, snap position to edges if needed
+    // Note: During resize, we want to maintain the corner snap if it exists
+    // So we check if we're still at a corner position
     const snapped = this.snapToEdges(
       newX,
       newY,
@@ -919,6 +1056,7 @@ export class NodeEditorLayout {
   
   /**
    * Snap widget position to edges with safe distance
+   * Returns the snapped position and updates the snappedCorner tracking
    */
   private snapToEdges(
     x: number,
@@ -939,23 +1077,45 @@ export class NodeEditorLayout {
     
     let snappedX = x;
     let snappedY = y;
+    let snappedToLeft = false;
+    let snappedToRight = false;
+    let snappedToTop = false;
+    let snappedToBottom = false;
     
     // Snap to left edge
     if (Math.abs(distToLeft) < snapDist) {
       snappedX = safeDist;
+      snappedToLeft = true;
     }
     // Snap to right edge
     else if (Math.abs(distToRight) < snapDist) {
       snappedX = viewportWidth - width - safeDist;
+      snappedToRight = true;
     }
     
     // Snap to top edge
     if (Math.abs(distToTop) < snapDist) {
       snappedY = safeDist;
+      snappedToTop = true;
     }
     // Snap to bottom edge
     else if (Math.abs(distToBottom) < snapDist) {
       snappedY = viewportHeight - height - safeDist;
+      snappedToBottom = true;
+    }
+    
+    // Update snapped corner tracking
+    if (snappedToTop && snappedToLeft) {
+      this.snappedCorner = 'top-left';
+    } else if (snappedToTop && snappedToRight) {
+      this.snappedCorner = 'top-right';
+    } else if (snappedToBottom && snappedToLeft) {
+      this.snappedCorner = 'bottom-left';
+    } else if (snappedToBottom && snappedToRight) {
+      this.snappedCorner = 'bottom-right';
+    } else {
+      // Not snapped to a corner (might be snapped to one edge only, or not snapped at all)
+      this.snappedCorner = null;
     }
     
     // Constrain to viewport bounds

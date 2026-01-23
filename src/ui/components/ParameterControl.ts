@@ -2,6 +2,7 @@
 // Draggable numeric input for node parameters
 
 import type { ParameterSpec } from '../../types/nodeSpec';
+import { getCSSColor, getCSSVariable, getCSSVariableAsNumber } from '../../utils/cssTokens';
 
 export interface ParameterControlCallbacks {
   onValueChange?: (value: number) => void;
@@ -37,46 +38,22 @@ export class ParameterControl {
   
   private createUI(): void {
     // Container
-    this.container.style.cssText = `
-      display: flex;
-      align-items: center;
-      padding: 4px 8px;
-      gap: 8px;
-    `;
+    this.container.className = 'param-control';
     
     // Label
     this.label = document.createElement('div');
     this.label.textContent = this.spec.label || 'Parameter';
-    this.label.style.cssText = `
-      font-size: 12px;
-      color: #999;
-      min-width: 80px;
-    `;
+    this.label.className = 'param-control-label';
     this.container.appendChild(this.label);
     
     // Drag area
     this.dragArea = document.createElement('div');
-    this.dragArea.style.cssText = `
-      flex: 1;
-      height: 24px;
-      background: #F5F5F5;
-      border: 1px solid #CCCCCC;
-      border-radius: 4px;
-      cursor: ns-resize;
-      position: relative;
-    `;
+    this.dragArea.className = 'param-control-drag-area';
     this.container.appendChild(this.dragArea);
     
     // Value display
     this.valueDisplay = document.createElement('div');
-    this.valueDisplay.style.cssText = `
-      min-width: 60px;
-      text-align: right;
-      font-size: 12px;
-      font-family: monospace;
-      color: #333;
-      padding: 0 8px;
-    `;
+    this.valueDisplay.className = 'param-control-value';
     this.updateValueDisplay();
     this.container.appendChild(this.valueDisplay);
   }
@@ -86,8 +63,7 @@ export class ParameterControl {
       this.isDragging = true;
       this.dragStartY = e.clientY;
       this.dragStartValue = this.value;
-      this.dragArea.style.borderColor = '#2196F3';
-      this.dragArea.style.cursor = 'grabbing';
+      this.dragArea.classList.add('is-dragging');
       
       document.addEventListener('mousemove', this.handleDrag);
       document.addEventListener('mouseup', this.handleDragEnd);
@@ -112,8 +88,7 @@ export class ParameterControl {
   
   private handleDragEnd = (): void => {
     this.isDragging = false;
-    this.dragArea.style.borderColor = '#CCCCCC';
-    this.dragArea.style.cursor = 'ns-resize';
+    this.dragArea.classList.remove('is-dragging');
     document.removeEventListener('mousemove', this.handleDrag);
     document.removeEventListener('mouseup', this.handleDragEnd);
   };
@@ -146,14 +121,24 @@ export class ParameterControl {
     const input = document.createElement('input');
     input.type = 'text';
     input.value = this.value.toString();
+    
+    const inputBg = getCSSColor('param-input-bg', '#FFFFFF');
+    const inputBorder = getCSSVariable('param-input-border', '2px solid #2196F3');
+    const inputColor = getCSSColor('param-input-color', '#333333');
+    const inputRadius = getCSSVariable('input-radius', '2px');
+    const textSm = getCSSVariable('text-sm', '0.85rem');
+    const spacingXs = getCSSVariable('spacing-xs', '0.25rem');
+    
     input.style.cssText = `
       position: absolute;
       width: 60px;
-      padding: 2px 4px;
-      font-size: 12px;
+      padding: ${spacingXs} ${getCSSVariable('spacing-sm', '0.5rem')};
+      font-size: ${textSm};
       font-family: monospace;
-      border: 1px solid #2196F3;
-      border-radius: 2px;
+      border: ${inputBorder};
+      border-radius: ${inputRadius};
+      background: ${inputBg};
+      color: ${inputColor};
     `;
     
     const rect = this.valueDisplay.getBoundingClientRect();

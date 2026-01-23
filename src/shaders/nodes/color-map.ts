@@ -6,7 +6,7 @@ import type { NodeSpec } from '../../types';
  */
 export const colorMapNodeSpec: NodeSpec = {
   id: 'color-map',
-  category: 'Operation',
+  category: 'Blend',
   displayName: 'Color Map',
   description: 'Converts float value to vec3 color (grayscale)',
   inputs: [

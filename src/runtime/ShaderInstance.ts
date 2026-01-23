@@ -124,7 +124,8 @@ export class ShaderInstance {
         // Initialize with default value
         this.setUniformValue(uniform.name, uniform.type, uniform.defaultValue);
       } else {
-        console.warn(`Uniform ${uniform.name} not found in shader (may be optimized out)`);
+        // Uniform was optimized out by WebGL - this is expected for unused uniforms
+        // No need to log a warning since we now only declare uniforms that are actually used
       }
     }
     
@@ -192,9 +193,8 @@ export class ShaderInstance {
     const uniformName = getUniformName(nodeId, paramName);
     const uniformType = this.uniformTypes.get(uniformName);
     
+    // Silently skip if uniform doesn't exist (was optimized out by WebGL)
     if (!uniformType) {
-      console.warn(`Uniform type not found for ${uniformName} (nodeId: ${nodeId}, paramName: ${paramName})`);
-      console.warn(`Available uniforms:`, Array.from(this.uniformTypes.keys()));
       return;
     }
     
@@ -221,6 +221,15 @@ export class ShaderInstance {
         this.setUniformValue(uniformName, uniformType, update.value);
       }
     }
+  }
+
+  /**
+   * Set audio uniform (for audio node outputs that are uniforms)
+   */
+  setAudioUniform(nodeId: string, outputName: string, value: number): void {
+    const uniformName = getUniformName(nodeId, outputName);
+    const uniformType = this.uniformTypes.get(uniformName) || 'float';
+    this.setUniformValue(uniformName, uniformType, value);
   }
   
   /**

@@ -28,6 +28,8 @@ export interface NodeSpec {
   functions?: string;             // Optional GLSL functions
 }
 
+export type ParameterInputMode = 'override' | 'add' | 'subtract' | 'multiply';
+
 export interface ParameterSpec {
   type: 'float' | 'int' | 'string' | 'vec4' | 'array';
   default: ParameterValue;
@@ -35,6 +37,7 @@ export interface ParameterSpec {
   max?: number;
   step?: number;
   label?: string;
+  inputMode?: ParameterInputMode;  // How to combine input with config value (default: 'override')
 }
 
 export type ParameterValue = 

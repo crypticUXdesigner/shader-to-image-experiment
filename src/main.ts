@@ -149,14 +149,30 @@ class App {
       initialGraph,
       this.nodeSpecs,
       {
-        onGraphChanged: (graph) => {
-          this.runtimeManager.setGraph(graph);
+        onGraphChanged: async (graph) => {
+          await this.runtimeManager.setGraph(graph);
         },
         onParameterChanged: (nodeId, paramName, value) => {
           this.runtimeManager.updateParameter(nodeId, paramName, value);
+        },
+        onFileParameterChanged: async (nodeId, paramName, file) => {
+          await this.runtimeManager.onAudioFileParameterChange(nodeId, paramName, file);
         }
       }
     );
+    
+    // Setup global audio controls
+    this.layout.setGlobalAudioCallbacks({
+      onPlayToggle: () => {
+        this.runtimeManager.toggleGlobalAudioPlayback();
+      },
+      onTimeChange: (time) => {
+        this.runtimeManager.seekGlobalAudio(time);
+      },
+      getState: () => {
+        return this.runtimeManager.getGlobalAudioState();
+      }
+    });
     
     // Setup save as default callback
     this.layout.setSaveAsDefaultCallback(() => {
@@ -220,7 +236,7 @@ class App {
         
         // Load the graph into the editor
         this.nodeEditor.setGraph(presetGraph);
-        this.runtimeManager.setGraph(presetGraph);
+        await this.runtimeManager.setGraph(presetGraph);
       } else {
         throw new Error(`Failed to load preset: ${presetName}`);
       }
@@ -229,8 +245,8 @@ class App {
     // Load and populate preset list
     this.loadPresetList();
     
-    // Set initial graph in runtime
-    this.runtimeManager.setGraph(initialGraph);
+    // Set initial graph in runtime (await to ensure audio files load)
+    await this.runtimeManager.setGraph(initialGraph);
     
     // Start animation loop
     this.startAnimation();

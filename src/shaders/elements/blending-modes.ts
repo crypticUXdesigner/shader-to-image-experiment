@@ -100,7 +100,7 @@ float blendExclusion(float base, float blend) {
   return base + blend - 2.0 * base * blend;
 }
 
-// Apply blending mode
+// Apply blending mode (float version)
 float applyBlendMode(float base, float blend, int mode) {
   if (mode == 0) return blendMultiply(base, blend);
   else if (mode == 1) return blendScreen(base, blend);
@@ -114,6 +114,16 @@ float applyBlendMode(float base, float blend, int mode) {
   else if (mode == 9) return blendDifference(base, blend);
   else if (mode == 10) return blendExclusion(base, blend);
   else return base; // Normal (no blend)
+}
+
+// Apply blending mode (vec4 version - applies to RGB channels, preserves alpha)
+vec4 applyBlendMode(vec4 base, float blend, int mode) {
+  vec3 blended = vec3(
+    applyBlendMode(base.r, blend, mode),
+    applyBlendMode(base.g, blend, mode),
+    applyBlendMode(base.b, blend, mode)
+  );
+  return vec4(blended, base.a);
 }
 `,
   
@@ -131,7 +141,7 @@ float applyBlendMode(float base, float blend, int mode) {
     blendValue = sin(p.x * uBlendFrequency + blendTime) * 0.5 + 0.5;
   }
   
-  // Apply blending mode
+  // Apply blending mode (per-channel for vec4)
   result = mix(result, applyBlendMode(result, blendValue, uBlendMode), uBlendOpacity);
 `,
   

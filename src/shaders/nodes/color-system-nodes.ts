@@ -7,7 +7,7 @@ import type { NodeSpec } from '../../types';
 
 export const oklchColorNodeSpec: NodeSpec = {
   id: 'oklch-color',
-  category: 'Input',
+  category: 'Inputs',
   displayName: 'OKLCH Color',
   description: 'Defines an OKLCH color value',
   inputs: [],
@@ -44,7 +44,7 @@ export const oklchColorNodeSpec: NodeSpec = {
 
 export const bezierCurveNodeSpec: NodeSpec = {
   id: 'bezier-curve',
-  category: 'Input',
+  category: 'Inputs',
   displayName: 'Bezier Curve',
   description: 'Defines a cubic bezier curve for color interpolation',
   inputs: [],
@@ -88,7 +88,7 @@ export const bezierCurveNodeSpec: NodeSpec = {
 
 export const bayerDitherNodeSpec: NodeSpec = {
   id: 'bayer-dither',
-  category: 'Operation',
+  category: 'Effects',
   displayName: 'Bayer Dither',
   description: 'Applies Bayer dithering to a float value using fragment coordinates',
   inputs: [
@@ -138,7 +138,7 @@ export const bayerDitherNodeSpec: NodeSpec = {
 
 export const oklchColorMapBezierNodeSpec: NodeSpec = {
   id: 'oklch-color-map-bezier',
-  category: 'Operation',
+  category: 'Blend',
   displayName: 'OKLCH Color Map (Bezier Mode)',
   description: 'Converts float value to RGB color using OKLCH color space with cubic bezier curve interpolation',
   inputs: [
@@ -241,7 +241,7 @@ export const oklchColorMapBezierNodeSpec: NodeSpec = {
 
 export const oklchColorMapThresholdNodeSpec: NodeSpec = {
   id: 'oklch-color-map-threshold',
-  category: 'Operation',
+  category: 'Blend',
   displayName: 'OKLCH Color Map (Threshold Mode)',
   description: 'Converts float value to RGB color using OKLCH color space with threshold-based color stops and optional dithering',
   inputs: [
@@ -438,7 +438,7 @@ export const oklchColorMapThresholdNodeSpec: NodeSpec = {
 
 export const toneMappingNodeSpec: NodeSpec = {
   id: 'tone-mapping',
-  category: 'Post-Process',
+  category: 'Effects',
   displayName: 'Tone Mapping',
   description: 'Applies tone mapping adjustments (exposure, contrast, saturation) to color',
   inputs: [

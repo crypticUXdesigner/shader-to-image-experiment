@@ -1,0 +1,77 @@
+/* Layout Button Container */
+.layout-button-container {
+  position: absolute;
+  left: var(--spacing-sm);
+  top: var(--spacing-sm);
+  display: flex;
+  gap: var(--spacing-sm);
+  align-items: center;
+  z-index: 100;
+}
+
+/* Layout Button */
+.layout-button {
+  padding: var(--spacing-xs) var(--spacing-lg);
+  background: var(--layout-button-bg);
+  color: var(--layout-button-color);
+  border: var(--layout-button-border);
+  border-radius: var(--button-radius);
+  cursor: pointer;
+  font-size: var(--text-sm);
+  font-family: inherit;
+  transition: background 0.15s;
+}
+
+.layout-button:hover {
+  background: var(--layout-button-bg-hover);
+}
+
+/* Layout Select */
+.layout-select {
+  padding: var(--spacing-xs) var(--spacing-lg);
+  background: var(--select-bg);
+  color: var(--select-color);
+  border: var(--select-border);
+  border-radius: var(--select-radius);
+  cursor: pointer;
+  font-size: var(--text-sm);
+  font-family: inherit;
+  min-width: 150px;
+}
+
+.layout-select:hover {
+  background: var(--select-bg-hover);
+}
+
+.layout-select:focus {
+  outline: none;
+  border: var(--select-border-focus);
+}
+
+/* Layout Toggle Button */
+.layout-toggle-button {
+  position: absolute;
+  top: var(--spacing-sm);
+  right: var(--spacing-sm);
+  width: 24px;
+  height: 24px;
+  border: none;
+  background: var(--layout-button-bg);
+  color: var(--layout-button-color);
+  cursor: pointer;
+  border-radius: var(--button-radius);
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: opacity 0.2s ease-out;
+}
+
+.layout-toggle-button:hover {
+  background: var(--layout-button-bg-hover);
+}
+
+.layout-toggle-button.is-hidden {
+  opacity: 0;
+  pointer-events: none;
+}

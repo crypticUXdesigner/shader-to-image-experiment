@@ -15,7 +15,9 @@ import {
   ChevronRight,
   ChevronLeft,
   Maximize2,
-  Minimize2
+  Minimize2,
+  Play,
+  Pause
 } from 'lucide';
 
 export type IconName = 
@@ -31,7 +33,9 @@ export type IconName =
   | 'chevron-right'
   | 'chevron-left'
   | 'maximize-2'
-  | 'minimize-2';
+  | 'minimize-2'
+  | 'play'
+  | 'pause';
 
 const iconMap: Record<IconName, any> = {
   'grip-vertical': GripVertical,
@@ -47,6 +51,8 @@ const iconMap: Record<IconName, any> = {
   'chevron-left': ChevronLeft,
   'maximize-2': Maximize2,
   'minimize-2': Minimize2,
+  'play': Play,
+  'pause': Pause,
 };
 
 /**

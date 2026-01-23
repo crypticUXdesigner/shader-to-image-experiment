@@ -1,0 +1,223 @@
+/* Search Dialog Overlay */
+.search-dialog-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: var(--search-dialog-overlay);
+  z-index: 1000;
+  display: none;
+}
+
+.search-dialog-overlay.is-visible {
+  display: block;
+}
+
+/* Search Dialog Container */
+.search-dialog {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 450px;
+  max-height: 500px;
+  background: var(--search-dialog-bg);
+  box-shadow: 0 0 0 6px var(--search-dialog-border);
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  border-radius: var(--search-dialog-radius);
+  z-index: 1001;
+  display: flex;
+  flex-direction: column;
+  box-sizing: border-box;
+}
+
+/* Search Input */
+.search-dialog-input {
+  margin: var(--spacing-lg);
+  padding: var(--spacing-sm) var(--spacing-lg);
+  background: var(--search-input-bg);
+  border: var(--search-input-border);
+  border-radius: var(--input-radius);
+  color: var(--search-input-color);
+  font-size: var(--text-md);
+  outline: none;
+  font-family: inherit;
+}
+
+.search-dialog-input::placeholder {
+  color: var(--search-result-desc-color);
+}
+
+/* Filter Tags Container */
+.search-dialog-filter-tags {
+  padding: 0 var(--spacing-lg) var(--spacing-sm);
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-sm);
+}
+
+/* Results Container */
+.search-dialog-results {
+  flex: 1;
+  overflow-y: auto;
+  padding: var(--spacing-lg) var(--spacing-lg);
+  outline: none;
+  scrollbar-width: none; /* Firefox */
+  -ms-overflow-style: none; /* IE and Edge */
+  background: var(--color-gray-30);
+  border-top: 1px solid rgba(255, 255, 255, 0.07);
+}
+
+.search-dialog-results::-webkit-scrollbar {
+  display: none; /* Chrome, Safari, Opera */
+}
+
+/* Category-specific colors via data attributes */
+.search-category-header[data-category="Inputs"],
+.search-result-item[data-category="Inputs"] {
+  --category-color: var(--category-color-inputs);
+}
+
+.search-category-header[data-category="Patterns"],
+.search-result-item[data-category="Patterns"] {
+  --category-color: var(--category-color-patterns);
+}
+
+.search-category-header[data-category="Shapes"],
+.search-result-item[data-category="Shapes"] {
+  --category-color: var(--category-color-shapes);
+}
+
+.search-category-header[data-category="Math"],
+.search-result-item[data-category="Math"] {
+  --category-color: var(--category-color-math);
+}
+
+.search-category-header[data-category="Utilities"],
+.search-result-item[data-category="Utilities"] {
+  --category-color: var(--category-color-utilities);
+}
+
+.search-category-header[data-category="Distort"],
+.search-result-item[data-category="Distort"] {
+  --category-color: var(--category-color-distort);
+}
+
+.search-category-header[data-category="Blend"],
+.search-result-item[data-category="Blend"] {
+  --category-color: var(--category-color-blend);
+}
+
+.search-category-header[data-category="Mask"],
+.search-result-item[data-category="Mask"] {
+  --category-color: var(--category-color-mask);
+}
+
+.search-category-header[data-category="Effects"],
+.search-result-item[data-category="Effects"] {
+  --category-color: var(--category-color-effects);
+}
+
+.search-category-header[data-category="Output"],
+.search-result-item[data-category="Output"] {
+  --category-color: var(--category-color-output);
+}
+
+/* Category Header */
+.search-category-header {
+  padding: var(--spacing-xs) 0;
+  margin: var(--spacing-sm) 0 var(--spacing-xs) 0;
+  font-size: var(--text-xs);
+  font-weight: 600;
+  border-radius: var(--radius-md);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--category-color, var(--search-category-header-color, var(--category-color-default)));
+}
+
+/* Search Result Item */
+.search-result-item {
+  padding: var(--spacing-sm);
+  margin-bottom: var(--spacing-xs);
+  border: var(--search-result-border);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  outline: none;
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  background: var(--search-result-bg);
+  transition: background 0.15s, border-color 0.15s;
+}
+
+.search-result-item:hover {
+  background: var(--search-result-bg-hover);
+}
+
+.search-result-item.is-selected {
+  background: var(--search-result-bg-selected);
+  border-color: var(--search-result-border-selected);
+}
+
+.search-result-item-content {
+  flex: 1;
+  min-width: 0;
+}
+
+.search-result-item-name {
+  font-size: var(--text-sm);
+  font-weight: 600;
+  color: var(--search-result-name-color);
+  margin-bottom: var(--spacing-xs);
+}
+
+.search-result-item-desc {
+  font-size: var(--text-xs);
+  color: var(--search-result-desc-color);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.search-result-item-type-tags {
+  display: flex;
+  gap: var(--spacing-xs);
+  flex-wrap: wrap;
+  flex-shrink: 0;
+}
+
+.search-result-item-type-tag {
+  padding: 1px 5px;
+  border-radius: var(--radius-md);
+  font-size: var(--text-xs);
+  font-weight: 600;
+  border: 1px solid color-mix(in srgb, var(--type-color, var(--port-color-default)) 50%, transparent);
+  background: color-mix(in srgb, var(--type-color, var(--port-color-default)) 25%, transparent);
+  color: var(--type-color, var(--port-color-default));
+}
+
+/* Type-specific colors via data attributes */
+.search-result-item-type-tag[data-type="float"] {
+  --type-color: var(--port-color-float);
+}
+
+.search-result-item-type-tag[data-type="vec2"] {
+  --type-color: var(--port-color-vec2);
+}
+
+.search-result-item-type-tag[data-type="vec3"] {
+  --type-color: var(--port-color-vec3);
+}
+
+.search-result-item-type-tag[data-type="vec4"] {
+  --type-color: var(--port-color-vec4);
+}
+
+/* No Results */
+.search-no-results {
+  padding: var(--spacing-lg);
+  color: var(--search-no-results-color);
+  text-align: center;
+  font-size: var(--text-sm);
+}

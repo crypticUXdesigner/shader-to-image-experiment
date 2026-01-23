@@ -6,20 +6,23 @@ import type { NodeSpec, PortSpec, ParameterSpec } from '../types/nodeSpec';
 
 // Map element categories to node categories
 const categoryMap: Record<string, string> = {
-  'Background': 'Generator',
-  'Transform': 'Transform',
-  'Generator': 'Generator',
-  'Operation': 'Operation',
-  'Blend': 'Blend',
-  'Mask': 'Mask',
-  'Post-Process': 'Post-Process',
+  'Background': 'Patterns',      // Noise generators → Patterns
+  'Pattern': 'Patterns',          // Pattern generators → Patterns
+  'Geometry': 'Shapes',           // Geometry and 3D → Shapes
+  'Transform': 'Distort',         // Coordinate transforms → Distort
+  'Distortion': 'Distort',        // Distortions → Distort
+  'Compositing': 'Blend',         // Compositing → Blend
+  'Masking': 'Mask',               // Masking → Mask
+  'Post-Processing': 'Effects',   // Post-processing → Effects
+  'Glitch': 'Effects',           // Glitch effects → Effects
+  'Effect': 'Effects',           // General effects → Effects
   'Output': 'Output'
 };
 
 // Default: most elements take vec2 input and output float
 export function visualElementToNodeSpec(element: VisualElement): NodeSpec {
   // Determine node category
-  const nodeCategory = categoryMap[element.category] || 'Generator';
+  const nodeCategory = categoryMap[element.category] || 'Patterns';
   
   // Create input ports (most elements take a vec2 coordinate input)
   const inputs: PortSpec[] = [];
@@ -72,7 +75,9 @@ export function visualElementToNodeSpec(element: VisualElement): NodeSpec {
       default: paramConfig.default,
       min: paramConfig.min,
       max: paramConfig.max,
-      step: paramConfig.step
+      step: paramConfig.step,
+      // Preserve inputMode if it exists (for elements that support it)
+      inputMode: (paramConfig as any).inputMode
     };
   }
   
@@ -119,6 +124,10 @@ export function visualElementToNodeSpec(element: VisualElement): NodeSpec {
     // Then replace remaining result (used as values in expressions)
     mainCode = mainCode.replace(/\bresult\b/g, '$output.out');
   } else if (element.elementType === 'post-processor') {
+    // For post-processors, p typically refers to normalized screen space coordinates
+    // Replace p with the same calculation used in base shader: (uv * 2.0 - 1.0) * vec2(uResolution.x / uResolution.y, 1.0)
+    // where uv = gl_FragCoord.xy / uResolution.xy
+    mainCode = mainCode.replace(/\bp\b/g, '((gl_FragCoord.xy / $resolution.xy * 2.0 - 1.0) * vec2($resolution.x / $resolution.y, 1.0))');
     mainCode = mainCode.replace(/\bresult\s*\+=\s*/g, '$output.out += ');
     mainCode = mainCode.replace(/\bresult\s*=\s*/g, '$output.out = ');
     // Then replace remaining result (used as values in expressions)
@@ -165,22 +174,50 @@ export function visualElementToNodeSpec(element: VisualElement): NodeSpec {
     inputs,
     outputs,
     parameters,
+    parameterGroups: element.parameterGroups,
     mainCode,
     functions: functions || undefined
   };
 }
 
 // Get node color by category (from UI/UX spec)
+// Uses design tokens for consistency
 export function getNodeColorByCategory(category: string): string {
-  const colors: Record<string, string> = {
-    'Input': '#E3F2FD',      // Light blue
-    'Transform': '#F5F5F5',  // Light gray
-    'Generator': '#E8F5E9',  // Light green
-    'Operation': '#FFF9C4',   // Light yellow
-    'Blend': '#F3E5F5',      // Light purple
-    'Mask': '#FFF3E0',       // Light orange
-    'Post-Process': '#FCE4EC', // Light pink
-    'Output': '#FFEBEE'       // Light red
+  const tokenMap: Record<string, string> = {
+    'Inputs': '--category-color-inputs',
+    'Patterns': '--category-color-patterns',
+    'Shapes': '--category-color-shapes',
+    'Math': '--category-color-math',
+    'Utilities': '--category-color-utilities',
+    'Distort': '--category-color-distort',
+    'Blend': '--category-color-blend',
+    'Mask': '--category-color-mask',
+    'Effects': '--category-color-effects',
+    'Output': '--category-color-output'
   };
-  return colors[category] || '#F5F5F5';
+  
+  const tokenName = tokenMap[category] || '--category-color-default';
+  
+  // Get the CSS variable value
+  if (typeof document !== 'undefined') {
+    const value = getComputedStyle(document.documentElement).getPropertyValue(tokenName).trim();
+    if (value) {
+      return value;
+    }
+  }
+  
+  // Fallback to hardcoded values if CSS variables aren't available (e.g., SSR)
+  const fallbackColors: Record<string, string> = {
+    'Inputs': '#E3F2FD',
+    'Patterns': '#E8F5E9',
+    'Shapes': '#FFF3E0',
+    'Math': '#FFF9C4',
+    'Utilities': '#E1F5FE',
+    'Distort': '#F5F5F5',
+    'Blend': '#F3E5F5',
+    'Mask': '#FFF3E0',
+    'Effects': '#FCE4EC',
+    'Output': '#FFEBEE'
+  };
+  return fallbackColors[category] || '#F5F5F5';
 }

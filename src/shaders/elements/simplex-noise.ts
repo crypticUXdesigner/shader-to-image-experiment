@@ -70,7 +70,7 @@ float simplexFbm(vec2 p, float time) {
   float frequency = 1.0;
   
   for (int i = 0; i < 8; i++) {
-    if (float(i) >= uSimplexOctaves) break;
+    if (float(i) >= float(uSimplexOctaves)) break;
     float octaveTime = time * (0.5 + float(i) * 0.2);
     value += amplitude * simplexNoise(p * frequency + vec2(octaveTime * 0.1, octaveTime * 0.15), octaveTime);
     frequency *= uSimplexLacunarity;

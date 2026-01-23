@@ -7,7 +7,7 @@ import type { NodeSpec } from '../../types';
 
 export const translateNodeSpec: NodeSpec = {
   id: 'translate',
-  category: 'Transform',
+  category: 'Distort',
   displayName: 'Translate',
   description: 'Translates coordinates by x and y offsets',
   inputs: [
@@ -45,7 +45,7 @@ export const translateNodeSpec: NodeSpec = {
 
 export const rotateNodeSpec: NodeSpec = {
   id: 'rotate',
-  category: 'Transform',
+  category: 'Distort',
   displayName: 'Rotate',
   description: 'Rotates coordinates around a center point',
   inputs: [
@@ -94,7 +94,7 @@ export const rotateNodeSpec: NodeSpec = {
 
 export const scaleNodeSpec: NodeSpec = {
   id: 'scale',
-  category: 'Transform',
+  category: 'Distort',
   displayName: 'Scale',
   description: 'Scales coordinates around a center point',
   inputs: [

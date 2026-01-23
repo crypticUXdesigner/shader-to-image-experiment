@@ -55,15 +55,22 @@ export class NodeEditorCanvas {
   private backgroundDragStartY: number = 0;
   private backgroundDragThreshold: number = 5; // pixels
   private potentialBackgroundPan: boolean = false;
+  private nodeDragStartX: number = 0;
+  private nodeDragStartY: number = 0;
+  private nodeDragThreshold: number = 5; // pixels
+  private potentialNodeDrag: boolean = false;
+  private potentialNodeDragId: string | null = null;
   
   // Callbacks
   private onNodeMoved?: (nodeId: string, x: number, y: number) => void;
   private onNodeSelected?: (nodeId: string | null, multiSelect: boolean) => void;
-  private onConnectionCreated?: (sourceNodeId: string, sourcePort: string, targetNodeId: string, targetPort: string) => void;
+  private onConnectionCreated?: (sourceNodeId: string, sourcePort: string, targetNodeId: string, targetPort?: string, targetParameter?: string) => void;
   private onConnectionSelected?: (connectionId: string | null, multiSelect: boolean) => void;
   private onNodeDeleted?: (nodeId: string) => void;
   private onConnectionDeleted?: (connectionId: string) => void;
   private onParameterChanged?: (nodeId: string, paramName: string, value: number) => void;
+  private onFileParameterChanged?: (nodeId: string, paramName: string, file: File) => void;
+  private onParameterInputModeChanged?: (nodeId: string, paramName: string, mode: import('../../types/nodeSpec').ParameterInputMode) => void;
   private isDialogVisible?: () => boolean;
   
   constructor(canvas: HTMLCanvasElement, graph: NodeGraph, nodeSpecs: NodeSpec[] = []) {
@@ -201,7 +208,7 @@ export class NodeEditorCanvas {
     return null;
   }
   
-  private hitTestPort(mouseX: number, mouseY: number): { nodeId: string, port: string, isOutput: boolean } | null {
+  private hitTestPort(mouseX: number, mouseY: number): { nodeId: string, port: string, isOutput: boolean, parameter?: string } | null {
     const canvasPos = this.screenToCanvas(mouseX, mouseY);
     const portRadius = 4;
     const hitMargin = 4;
@@ -211,6 +218,21 @@ export class NodeEditorCanvas {
       const spec = this.nodeSpecs.get(node.type);
       const metrics = this.nodeMetrics.get(node.id);
       if (!spec || !metrics) continue;
+      
+      // Check parameter input ports (for float/int parameters)
+      if (!node.collapsed) {
+        for (const [paramName, paramPortPos] of metrics.parameterInputPortPositions.entries()) {
+          const paramSpec = spec.parameters[paramName];
+          if (paramSpec && paramSpec.type === 'float') {
+            const dx = canvasPos.x - paramPortPos.x;
+            const dy = canvasPos.y - paramPortPos.y;
+            const distance = Math.sqrt(dx * dx + dy * dy);
+            if (distance < hitRadius) {
+              return { nodeId: node.id, port: '', isOutput: false, parameter: paramName };
+            }
+          }
+        }
+      }
       
       // Check input ports
       for (const port of spec.inputs) {
@@ -261,7 +283,14 @@ export class NodeEditorCanvas {
       if (!sourceSpec || !targetSpec || !sourceMetrics || !targetMetrics) continue;
       
       const sourcePortPos = sourceMetrics.portPositions.get(`output:${conn.sourcePort}`);
-      const targetPortPos = targetMetrics.portPositions.get(`input:${conn.targetPort}`);
+      
+      // Handle parameter connections
+      let targetPortPos: { x: number; y: number } | undefined;
+      if (conn.targetParameter) {
+        targetPortPos = targetMetrics.parameterInputPortPositions.get(conn.targetParameter);
+      } else {
+        targetPortPos = targetMetrics.portPositions.get(`input:${conn.targetPort}`);
+      }
       
       if (!sourcePortPos || !targetPortPos) continue;
       
@@ -306,7 +335,7 @@ export class NodeEditorCanvas {
     return null;
   }
   
-  private hitTestParameter(mouseX: number, mouseY: number): { nodeId: string, paramName: string } | null {
+  private hitTestParameter(mouseX: number, mouseY: number): { nodeId: string, paramName: string, isString?: boolean } | null {
     const canvasPos = this.screenToCanvas(mouseX, mouseY);
     
     for (const node of this.graph.nodes) {
@@ -316,22 +345,68 @@ export class NodeEditorCanvas {
       
       for (const [paramName, paramPos] of metrics.parameterPositions.entries()) {
         const paramSpec = spec.parameters[paramName];
-        if (!paramSpec || (paramSpec.type !== 'float' && paramSpec.type !== 'int')) continue;
+        if (!paramSpec) continue;
         
-        // Check if click is in parameter value area (right side)
+        // Check if click is in parameter button/value area (right side)
         const padding = 8;
-        const valueWidth = 80;
-        const valueX = paramPos.x + paramPos.width - valueWidth - padding;
-        const valueY = paramPos.y;
-        const valueHeight = paramPos.height;
+        const buttonWidth = paramSpec.type === 'string' ? 100 : 80;
+        const buttonX = paramPos.x + paramPos.width - buttonWidth - padding;
+        const buttonY = paramPos.y;
+        const buttonHeight = paramPos.height;
         
         if (
-          canvasPos.x >= valueX &&
-          canvasPos.x <= valueX + valueWidth &&
-          canvasPos.y >= valueY &&
-          canvasPos.y <= valueY + valueHeight
+          canvasPos.x >= buttonX &&
+          canvasPos.x <= buttonX + buttonWidth &&
+          canvasPos.y >= buttonY &&
+          canvasPos.y <= buttonY + buttonHeight
         ) {
-          return { nodeId: node.id, paramName };
+          return { 
+            nodeId: node.id, 
+            paramName,
+            isString: paramSpec.type === 'string'
+          };
+        }
+      }
+    }
+    
+    return null;
+  }
+  
+  private hitTestParameterMode(mouseX: number, mouseY: number): { nodeId: string, paramName: string } | null {
+    const canvasPos = this.screenToCanvas(mouseX, mouseY);
+    
+    for (const node of this.graph.nodes) {
+      const spec = this.nodeSpecs.get(node.type);
+      const metrics = this.nodeMetrics.get(node.id);
+      if (!spec || !metrics || node.collapsed) continue;
+      
+      for (const [paramName, paramPos] of metrics.parameterPositions.entries()) {
+        const paramSpec = spec.parameters[paramName];
+        if (!paramSpec) continue;
+        
+        // Only check mode selector for float/int parameters (they can have input connections)
+        if (paramSpec.type !== 'float' && paramSpec.type !== 'int') continue;
+        
+        // Check if click is in mode selector area (right before value display, very close)
+        const padding = 8;
+        const valueWidth = 50;
+        const modeWidth = 20; // Reduced width to match rendering
+        const modeGap = 1; // Small gap to keep it visually distinct but close
+        const valueX = paramPos.x + paramPos.width - valueWidth - padding;
+        const modeX = valueX - modeWidth - modeGap;
+        const modeY = paramPos.y;
+        const modeHeight = paramPos.height;
+        
+        if (
+          canvasPos.x >= modeX &&
+          canvasPos.x <= modeX + modeWidth &&
+          canvasPos.y >= modeY &&
+          canvasPos.y <= modeY + modeHeight
+        ) {
+          return { 
+            nodeId: node.id, 
+            paramName
+          };
         }
       }
     }
@@ -366,7 +441,7 @@ export class NodeEditorCanvas {
     
     // Calculate screen position for input
     const padding = 8;
-    const valueWidth = 80;
+    const valueWidth = 50;
     const valueX = paramPos.x + paramPos.width - valueWidth - padding;
     const valueY = paramPos.y;
     
@@ -562,9 +637,45 @@ export class NodeEditorCanvas {
       return;
     }
     
-    // Check for parameter hit (for dragging)
+    // Check for parameter mode selector hit (highest priority for parameter area)
+    const modeHit = this.hitTestParameterMode(mouseX, mouseY);
+    if (modeHit && !this.isSpacePressed) {
+      const node = this.graph.nodes.find(n => n.id === modeHit.nodeId);
+      const spec = this.nodeSpecs.get(node?.type || '');
+      if (node && spec) {
+        const paramSpec = spec.parameters[modeHit.paramName];
+        if (paramSpec && (paramSpec.type === 'float' || paramSpec.type === 'int')) {
+          // Cycle through modes: override -> add -> subtract -> multiply -> override
+          const modes: import('../../types/nodeSpec').ParameterInputMode[] = ['override', 'add', 'subtract', 'multiply'];
+          const currentMode = node.parameterInputModes?.[modeHit.paramName] || paramSpec.inputMode || 'override';
+          const currentIndex = modes.indexOf(currentMode);
+          const nextIndex = (currentIndex + 1) % modes.length;
+          const nextMode = modes[nextIndex];
+          
+          // Update the node's parameter input mode
+          if (!node.parameterInputModes) {
+            node.parameterInputModes = {};
+          }
+          node.parameterInputModes[modeHit.paramName] = nextMode;
+          
+          // Notify callback
+          this.onParameterInputModeChanged?.(modeHit.nodeId, modeHit.paramName, nextMode);
+          
+          this.render();
+          return;
+        }
+      }
+    }
+    
+    // Check for parameter hit (for dragging or file input)
     const paramHit = this.hitTestParameter(mouseX, mouseY);
     if (paramHit && !this.isSpacePressed) {
+      // Handle string parameters (file inputs) specially
+      if (paramHit.isString) {
+        this.handleFileParameterClick(paramHit.nodeId, paramHit.paramName, mouseX, mouseY);
+        return;
+      }
+      
       const node = this.graph.nodes.find(n => n.id === paramHit.nodeId);
       const spec = this.nodeSpecs.get(node?.type || '');
       if (node && spec) {
@@ -606,13 +717,15 @@ export class NodeEditorCanvas {
       const headerHeight = metrics.headerHeight;
       
       if (canvasPos.y - node.position.y < headerHeight) {
-        // Clicked on header - start dragging
-        this.isDraggingNode = true;
-        this.draggingNodeId = nodeHit;
+        // Clicked on header - prepare for potential drag (with threshold)
+        this.potentialNodeDrag = true;
+        this.potentialNodeDragId = nodeHit;
+        this.nodeDragStartX = mouseX;
+        this.nodeDragStartY = mouseY;
         const nodeScreenPos = this.canvasToScreen(node.position.x, node.position.y);
         this.dragOffsetX = mouseX - nodeScreenPos.x;
         this.dragOffsetY = mouseY - nodeScreenPos.y;
-        this.canvas.style.cursor = 'grabbing';
+        this.canvas.style.cursor = 'grab';
       } else {
         // Clicked on node body - select node
         const multiSelect = e.shiftKey;
@@ -696,16 +809,37 @@ export class NodeEditorCanvas {
       }
     }
     
+    // Check if we should start node dragging
+    if (this.potentialNodeDrag && !this.isDraggingNode && this.potentialNodeDragId) {
+      const dx = mouseX - this.nodeDragStartX;
+      const dy = mouseY - this.nodeDragStartY;
+      const distance = Math.sqrt(dx * dx + dy * dy);
+      
+      if (distance > this.nodeDragThreshold) {
+        // Start dragging
+        this.isDraggingNode = true;
+        this.draggingNodeId = this.potentialNodeDragId;
+        this.potentialNodeDrag = false;
+        this.canvas.style.cursor = 'grabbing';
+      }
+    }
+    
     // Update cursor based on hover state (when not actively dragging)
-    if (!this.isPanning && !this.isDraggingNode && !this.isConnecting && !this.isDraggingParameter && !this.potentialBackgroundPan) {
-      // Check for parameter value hover
-      const paramHit = this.hitTestParameter(mouseX, mouseY);
-      if (paramHit) {
-        this.canvas.style.cursor = 'ns-resize';
-      } else if (this.isSpacePressed) {
-        this.canvas.style.cursor = 'grab';
+    if (!this.isPanning && !this.isDraggingNode && !this.isConnecting && !this.isDraggingParameter && !this.potentialBackgroundPan && !this.potentialNodeDrag) {
+      // Check for parameter mode selector hover (highest priority)
+      const modeHit = this.hitTestParameterMode(mouseX, mouseY);
+      if (modeHit) {
+        this.canvas.style.cursor = 'pointer';
       } else {
-        this.canvas.style.cursor = 'default';
+        // Check for parameter value hover
+        const paramHit = this.hitTestParameter(mouseX, mouseY);
+        if (paramHit) {
+          this.canvas.style.cursor = 'ns-resize';
+        } else if (this.isSpacePressed) {
+          this.canvas.style.cursor = 'grab';
+        } else {
+          this.canvas.style.cursor = 'default';
+        }
       }
     }
     
@@ -763,15 +897,27 @@ export class NodeEditorCanvas {
       if (portHit && portHit.nodeId !== this.connectionStartNodeId) {
         // Valid connection
         if (this.connectionStartIsOutput && !portHit.isOutput) {
-          // Output to input
-          this.onConnectionCreated?.(
-            this.connectionStartNodeId!,
-            this.connectionStartPort!,
-            portHit.nodeId,
-            portHit.port
-          );
+          // Output to input or parameter
+          if (portHit.parameter) {
+            // Connecting to parameter input
+            this.onConnectionCreated?.(
+              this.connectionStartNodeId!,
+              this.connectionStartPort!,
+              portHit.nodeId,
+              undefined,
+              portHit.parameter
+            );
+          } else {
+            // Output to input port
+            this.onConnectionCreated?.(
+              this.connectionStartNodeId!,
+              this.connectionStartPort!,
+              portHit.nodeId,
+              portHit.port
+            );
+          }
         } else if (!this.connectionStartIsOutput && portHit.isOutput) {
-          // Input to output (reverse)
+          // Input to output (reverse) - not applicable for parameter inputs
           this.onConnectionCreated?.(
             portHit.nodeId,
             portHit.port,
@@ -784,6 +930,22 @@ export class NodeEditorCanvas {
       this.connectionStartNodeId = null;
       this.connectionStartPort = null;
       this.canvas.style.cursor = this.isSpacePressed ? 'grab' : 'default';
+      this.render();
+    }
+    
+    // If we had a potential node drag but didn't actually drag, select the node
+    if (this.potentialNodeDrag && !this.isDraggingNode && this.potentialNodeDragId) {
+      const multiSelect = e.shiftKey;
+      if (!multiSelect) {
+        this.state.selectedNodeIds.clear();
+        this.state.selectedConnectionIds.clear();
+      }
+      if (this.state.selectedNodeIds.has(this.potentialNodeDragId)) {
+        this.state.selectedNodeIds.delete(this.potentialNodeDragId);
+      } else {
+        this.state.selectedNodeIds.add(this.potentialNodeDragId);
+      }
+      this.onNodeSelected?.(this.potentialNodeDragId, multiSelect);
       this.render();
     }
     
@@ -803,6 +965,8 @@ export class NodeEditorCanvas {
     this.draggingParameterNodeId = null;
     this.draggingParameterName = null;
     this.potentialBackgroundPan = false;
+    this.potentialNodeDrag = false;
+    this.potentialNodeDragId = null;
     // Reset cursor based on spacebar state
     this.canvas.style.cursor = this.isSpacePressed ? 'grab' : 'default';
   }
@@ -884,7 +1048,7 @@ export class NodeEditorCanvas {
   }
   
   // Rendering
-  private render(): void {
+  public render(): void {
     const { width, height } = this.canvas;
     this.ctx.clearRect(0, 0, width, height);
     
@@ -988,7 +1152,14 @@ export class NodeEditorCanvas {
     
     // Get actual port positions
     const sourcePortPos = sourceMetrics.portPositions.get(`output:${conn.sourcePort}`);
-    const targetPortPos = targetMetrics.portPositions.get(`input:${conn.targetPort}`);
+    
+    // Handle parameter connections
+    let targetPortPos: { x: number; y: number } | undefined;
+    if (conn.targetParameter) {
+      targetPortPos = targetMetrics.parameterInputPortPositions.get(conn.targetParameter);
+    } else {
+      targetPortPos = targetMetrics.portPositions.get(`input:${conn.targetPort}`);
+    }
     
     if (!sourcePortPos || !targetPortPos) return;
     
@@ -1160,11 +1331,13 @@ export class NodeEditorCanvas {
   setCallbacks(callbacks: {
     onNodeMoved?: (nodeId: string, x: number, y: number) => void;
     onNodeSelected?: (nodeId: string | null, multiSelect: boolean) => void;
-    onConnectionCreated?: (sourceNodeId: string, sourcePort: string, targetNodeId: string, targetPort: string) => void;
+    onConnectionCreated?: (sourceNodeId: string, sourcePort: string, targetNodeId: string, targetPort?: string, targetParameter?: string) => void;
     onConnectionSelected?: (connectionId: string | null, multiSelect: boolean) => void;
     onNodeDeleted?: (nodeId: string) => void;
     onConnectionDeleted?: (connectionId: string) => void;
     onParameterChanged?: (nodeId: string, paramName: string, value: number) => void;
+    onFileParameterChanged?: (nodeId: string, paramName: string, file: File) => void;
+    onParameterInputModeChanged?: (nodeId: string, paramName: string, mode: import('../../types/nodeSpec').ParameterInputMode) => void;
     isDialogVisible?: () => boolean;
   }): void {
     this.onNodeMoved = callbacks.onNodeMoved;
@@ -1174,6 +1347,31 @@ export class NodeEditorCanvas {
     this.onNodeDeleted = callbacks.onNodeDeleted;
     this.onConnectionDeleted = callbacks.onConnectionDeleted;
     this.onParameterChanged = callbacks.onParameterChanged;
+    this.onFileParameterChanged = callbacks.onFileParameterChanged;
+    this.onParameterInputModeChanged = callbacks.onParameterInputModeChanged;
     this.isDialogVisible = callbacks.isDialogVisible;
+  }
+
+  /**
+   * Handle file parameter click - show file input dialog
+   */
+  private handleFileParameterClick(nodeId: string, paramName: string, screenX: number, screenY: number): void {
+    // Create hidden file input
+    const fileInput = document.createElement('input');
+    fileInput.type = 'file';
+    fileInput.accept = 'audio/mpeg,audio/mp3,.mp3';
+    fileInput.style.display = 'none';
+    
+    fileInput.addEventListener('change', (e) => {
+      const file = (e.target as HTMLInputElement).files?.[0];
+      if (file) {
+        this.onFileParameterChanged?.(nodeId, paramName, file);
+      }
+      document.body.removeChild(fileInput);
+    });
+    
+    // Position and trigger
+    document.body.appendChild(fileInput);
+    fileInput.click();
   }
 }

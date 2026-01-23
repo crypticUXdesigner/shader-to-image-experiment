@@ -6,7 +6,7 @@ import type { NodeSpec } from '../../types';
 
 export const uvCoordinatesNodeSpec: NodeSpec = {
   id: 'uv-coordinates',
-  category: 'Input',
+  category: 'Inputs',
   displayName: 'UV Coordinates',
   description: 'Outputs normalized UV coordinates (0-1)',
   inputs: [],
@@ -25,7 +25,7 @@ export const uvCoordinatesNodeSpec: NodeSpec = {
 
 export const timeNodeSpec: NodeSpec = {
   id: 'time',
-  category: 'Input',
+  category: 'Inputs',
   displayName: 'Time',
   description: 'Outputs the current time value',
   inputs: [],
@@ -44,7 +44,7 @@ export const timeNodeSpec: NodeSpec = {
 
 export const resolutionNodeSpec: NodeSpec = {
   id: 'resolution',
-  category: 'Input',
+  category: 'Inputs',
   displayName: 'Resolution',
   description: 'Outputs the screen resolution as vec2',
   inputs: [],
@@ -63,7 +63,7 @@ export const resolutionNodeSpec: NodeSpec = {
 
 export const fragmentCoordinatesNodeSpec: NodeSpec = {
   id: 'fragment-coordinates',
-  category: 'Input',
+  category: 'Inputs',
   displayName: 'Fragment Coordinates',
   description: 'Outputs the fragment coordinates (gl_FragCoord.xy)',
   inputs: [],
@@ -82,7 +82,7 @@ export const fragmentCoordinatesNodeSpec: NodeSpec = {
 
 export const constantFloatNodeSpec: NodeSpec = {
   id: 'constant-float',
-  category: 'Input',
+  category: 'Inputs',
   displayName: 'Constant Float',
   description: 'Outputs a constant float value',
   inputs: [],
@@ -109,7 +109,7 @@ export const constantFloatNodeSpec: NodeSpec = {
 
 export const constantVec2NodeSpec: NodeSpec = {
   id: 'constant-vec2',
-  category: 'Input',
+  category: 'Inputs',
   displayName: 'Constant Vec2',
   description: 'Outputs a constant vec2 value',
   inputs: [],
@@ -143,7 +143,7 @@ export const constantVec2NodeSpec: NodeSpec = {
 
 export const constantVec3NodeSpec: NodeSpec = {
   id: 'constant-vec3',
-  category: 'Input',
+  category: 'Inputs',
   displayName: 'Constant Vec3',
   description: 'Outputs a constant vec3 value',
   inputs: [],
@@ -184,7 +184,7 @@ export const constantVec3NodeSpec: NodeSpec = {
 
 export const constantVec4NodeSpec: NodeSpec = {
   id: 'constant-vec4',
-  category: 'Input',
+  category: 'Inputs',
   displayName: 'Constant Vec4',
   description: 'Outputs a constant vec4 value',
   inputs: [],

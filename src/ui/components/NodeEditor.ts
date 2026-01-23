@@ -11,6 +11,7 @@ import type { NodeSpec } from '../../types/nodeSpec';
 export interface NodeEditorCallbacks {
   onGraphChanged?: (graph: NodeGraph) => void;
   onParameterChanged?: (nodeId: string, paramName: string, value: number) => void;
+  onFileParameterChanged?: (nodeId: string, paramName: string, file: File) => void;
   onError?: (error: { type: string, errors?: string[], error?: string, timestamp: number }) => void;
 }
 
@@ -120,14 +121,15 @@ export class NodeEditor {
         }
         this.updateViewState();
       },
-      onConnectionCreated: (sourceNodeId, sourcePort, targetNodeId, targetPort) => {
+      onConnectionCreated: (sourceNodeId, sourcePort, targetNodeId, targetPort?, targetParameter?) => {
         // Create new connection
         const connection: Connection = {
           id: this.generateId('conn'),
           sourceNodeId,
           sourcePort,
           targetNodeId,
-          targetPort
+          targetPort,
+          targetParameter
         };
         
         // Validate connection
@@ -158,6 +160,22 @@ export class NodeEditor {
         // Update parameter value in graph
         this.updateParameter(nodeId, paramName, value);
       },
+      onFileParameterChanged: (nodeId, paramName, file) => {
+        // Handle file parameter change
+        this.callbacks.onFileParameterChanged?.(nodeId, paramName, file);
+      },
+      onParameterInputModeChanged: (nodeId, paramName, mode) => {
+        // Update parameter input mode in graph
+        const node = this.graph.nodes.find(n => n.id === nodeId);
+        if (node) {
+          if (!node.parameterInputModes) {
+            node.parameterInputModes = {};
+          }
+          node.parameterInputModes[paramName] = mode;
+          this.updateViewState();
+          this.notifyGraphChanged();
+        }
+      },
       isDialogVisible: () => this.searchDialog.isVisible()
     });
   }
@@ -177,6 +195,40 @@ export class NodeEditor {
       return false;
     }
     
+    // Handle parameter connections
+    if (connection.targetParameter) {
+      const paramSpec = targetSpec.parameters[connection.targetParameter];
+      if (!paramSpec || paramSpec.type !== 'float') {
+        return false; // Parameter doesn't exist or isn't float
+      }
+      
+      const sourcePort = sourceSpec.outputs.find(p => p.name === connection.sourcePort);
+      if (!sourcePort) {
+        return false;
+      }
+      
+      // Check if parameter already has a connection
+      const existingConnection = this.graph.connections.find(
+        c => c.targetNodeId === connection.targetNodeId && 
+             c.targetParameter === connection.targetParameter
+      );
+      
+      if (existingConnection) {
+        return false; // Parameter already connected
+      }
+      
+      // Type compatibility: source must be float or int (or vec with .x extraction)
+      if (sourcePort.type !== 'float' && sourcePort.type !== 'int') {
+        // Allow vec types (will extract .x in compiler)
+        if (sourcePort.type !== 'vec2' && sourcePort.type !== 'vec3' && sourcePort.type !== 'vec4') {
+          return false;
+        }
+      }
+      
+      return true;
+    }
+    
+    // Regular port connection
     // Check if ports exist
     const sourcePort = sourceSpec.outputs.find(p => p.name === connection.sourcePort);
     const targetPort = targetSpec.inputs.find(p => p.name === connection.targetPort);
@@ -227,6 +279,10 @@ export class NodeEditor {
   
   getGraph(): NodeGraph {
     return this.graph;
+  }
+  
+  getCanvasComponent(): NodeEditorCanvas {
+    return this.canvasComponent;
   }
   
   undo(): boolean {
@@ -294,6 +350,8 @@ export class NodeEditor {
     if (node) {
       node.parameters[paramName] = value;
       this.callbacks.onParameterChanged?.(nodeId, paramName, value);
+      // Trigger canvas render to update parameter display
+      this.canvasComponent.render();
       // Parameter changes don't trigger undo (they're too frequent)
       // Only structure changes trigger undo
     }

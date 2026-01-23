@@ -1,0 +1,89 @@
+.filter-tag {
+  padding: var(--spacing-2xs) var(--spacing-sm);
+  border: 1px solid transparent;
+  border-radius: var(--filter-tag-radius);
+  background: transparent;
+  color: var(--color-gray-110);
+  font-size: var(--text-xs);
+  cursor: pointer;
+  outline: none;
+  transition: all 0.15s;
+  font-family: inherit;
+  box-sizing: border-box;
+}
+
+.filter-tag:hover {
+  opacity: 0.8;
+  border-color: var(--filter-tag-border);
+}
+
+.filter-tag.is-selected {
+  background: color-mix(in srgb, var(--tag-color, var(--filter-tag-color)) 40%, transparent);
+  color: var(--tag-color, var(--filter-tag-color));
+  border-color: var(--tag-color, var(--filter-tag-border));
+}
+
+/* Category-specific colors for filter tags */
+.filter-tag[data-category="Inputs"] {
+  --tag-color: var(--category-color-inputs);
+}
+
+.filter-tag[data-category="Patterns"] {
+  --tag-color: var(--category-color-patterns);
+}
+
+.filter-tag[data-category="Shapes"] {
+  --tag-color: var(--category-color-shapes);
+}
+
+.filter-tag[data-category="Math"] {
+  --tag-color: var(--category-color-math);
+}
+
+.filter-tag[data-category="Utilities"] {
+  --tag-color: var(--category-color-utilities);
+}
+
+.filter-tag[data-category="Distort"] {
+  --tag-color: var(--category-color-distort);
+}
+
+.filter-tag[data-category="Blend"] {
+  --tag-color: var(--category-color-blend);
+}
+
+.filter-tag[data-category="Mask"] {
+  --tag-color: var(--category-color-mask);
+}
+
+.filter-tag[data-category="Effects"] {
+  --tag-color: var(--category-color-effects);
+}
+
+.filter-tag[data-category="Output"] {
+  --tag-color: var(--category-color-output);
+}
+
+/* Type-specific colors for filter tags */
+.filter-tag[data-type="float"] {
+  --tag-color: var(--port-color-float);
+}
+
+.filter-tag[data-type="vec2"] {
+  --tag-color: var(--port-color-vec2);
+}
+
+.filter-tag[data-type="vec3"] {
+  --tag-color: var(--port-color-vec3);
+}
+
+.filter-tag[data-type="vec4"] {
+  --tag-color: var(--port-color-vec4);
+}
+
+.filter-tag-container {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--spacing-2xs);
+  width: 100%;
+}

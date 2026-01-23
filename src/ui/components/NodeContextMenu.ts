@@ -2,6 +2,7 @@
 // Right-click menu for creating nodes
 
 import type { NodeSpec } from '../../types/nodeSpec';
+import { getCSSColor, getCSSVariable } from '../../utils/cssTokens';
 
 export interface ContextMenuCallbacks {
   onCreateNode?: (nodeType: string, x: number, y: number) => void;
@@ -26,57 +27,20 @@ export class NodeContextMenu {
     this.callbacks = callbacks;
     
     this.menu = document.createElement('div');
-    this.menu.style.cssText = `
-      position: fixed;
-      background: #2a2a2a;
-      border: 1px solid #3a3a3a;
-      border-radius: 4px;
-      min-width: 300px;
-      max-width: 500px;
-      max-height: 600px;
-      z-index: 1000;
-      display: none;
-      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
-      flex-direction: column;
-    `;
+    this.menu.className = 'context-menu';
     
     // Search input at top
     this.searchInput = document.createElement('input');
     this.searchInput.type = 'text';
     this.searchInput.placeholder = 'Search nodes...';
-    this.searchInput.style.cssText = `
-      margin: 8px;
-      padding: 8px;
-      background: #1a1a1a;
-      border: 1px solid #3a3a3a;
-      border-radius: 4px;
-      color: #e0e0e0;
-      font-size: 14px;
-      outline: none;
-    `;
+    this.searchInput.className = 'context-menu-input';
     this.searchInput.addEventListener('input', () => this.filterResults());
     this.searchInput.addEventListener('keydown', (e) => this.handleInputKeyDown(e));
     this.menu.appendChild(this.searchInput);
     
     // Results container
     this.resultsContainer = document.createElement('div');
-    this.resultsContainer.id = `node-context-menu-results-${Date.now()}`;
-    this.resultsContainer.style.cssText = `
-      flex: 1;
-      overflow-y: auto;
-      padding: 4px 0;
-      max-height: 500px;
-      scrollbar-width: none; /* Firefox */
-      -ms-overflow-style: none; /* IE and Edge */
-    `;
-    // Hide scrollbar for Chrome, Safari, Opera
-    const style = document.createElement('style');
-    style.textContent = `
-      #${this.resultsContainer.id}::-webkit-scrollbar {
-        display: none;
-      }
-    `;
-    document.head.appendChild(style);
+    this.resultsContainer.className = 'context-menu-results';
     this.resultsContainer.tabIndex = -1;
     this.resultsContainer.addEventListener('keydown', (e) => this.handleResultsKeyDown(e));
     this.menu.appendChild(this.resultsContainer);
@@ -117,32 +81,37 @@ export class NodeContextMenu {
     if (this.filteredSpecs.length === 0) {
       const noResults = document.createElement('div');
       noResults.textContent = 'No nodes found';
-      noResults.style.cssText = 'padding: 16px; color: #999; text-align: center;';
+      noResults.className = 'context-menu-no-results';
       this.resultsContainer.appendChild(noResults);
       return;
     }
+    
+    const contextMenuItemPadding = getCSSVariable('context-menu-item-padding', '8px 12px');
+    const contextMenuItemColor = getCSSColor('context-menu-item-color', '#e0e0e0');
+    const contextMenuItemBgHover = getCSSColor('context-menu-item-bg-hover', '#3a3a3a');
+    const textMd = getCSSVariable('text-md', '0.9rem');
+    const textSm = getCSSVariable('text-sm', '0.85rem');
+    const spacingXs = getCSSVariable('spacing-xs', '0.25rem');
+    const descColor = getCSSColor('search-result-desc-color', '#999');
     
     for (let i = 0; i < this.filteredSpecs.length; i++) {
       const spec = this.filteredSpecs[i];
       const item = document.createElement('div');
       item.tabIndex = -1;
-      item.style.cssText = `
-        padding: 8px 12px;
-        color: #e0e0e0;
-        cursor: pointer;
-        font-size: 14px;
-        outline: none;
-      `;
+      item.className = 'context-menu-item';
+      if (i === this.selectedIndex) {
+        item.classList.add('is-selected');
+      }
       
       const name = document.createElement('div');
       name.textContent = spec.displayName;
-      name.style.cssText = 'font-weight: bold; margin-bottom: 2px;';
+      name.className = 'context-menu-item-name';
       item.appendChild(name);
       
       if (spec.description) {
         const desc = document.createElement('div');
         desc.textContent = `${spec.category} - ${spec.description}`;
-        desc.style.cssText = 'font-size: 12px; color: #999;';
+        desc.className = 'context-menu-item-desc';
         item.appendChild(desc);
       }
       
@@ -169,23 +138,13 @@ export class NodeContextMenu {
     
     // Add separator and actions
     const separator = document.createElement('div');
-    separator.style.cssText = `
-      height: 1px;
-      background: #3a3a3a;
-      margin: 4px 0;
-    `;
+    separator.className = 'context-menu-separator';
     this.resultsContainer.appendChild(separator);
     
     // Paste option
     const pasteItem = document.createElement('div');
     pasteItem.tabIndex = -1;
-    pasteItem.style.cssText = `
-      padding: 8px 12px;
-      color: #e0e0e0;
-      cursor: pointer;
-      font-size: 14px;
-      outline: none;
-    `;
+    pasteItem.className = 'context-menu-item';
     pasteItem.textContent = 'Paste';
     pasteItem.addEventListener('click', () => {
       this.hide();
@@ -207,13 +166,7 @@ export class NodeContextMenu {
     // Select All option
     const selectAllItem = document.createElement('div');
     selectAllItem.tabIndex = -1;
-    selectAllItem.style.cssText = `
-      padding: 8px 12px;
-      color: #e0e0e0;
-      cursor: pointer;
-      font-size: 14px;
-      outline: none;
-    `;
+    selectAllItem.className = 'context-menu-item';
     selectAllItem.textContent = 'Select All';
     selectAllItem.addEventListener('click', () => {
       this.hide();
@@ -236,10 +189,10 @@ export class NodeContextMenu {
     for (let i = 0; i < items.length; i++) {
       const item = items[i] as HTMLElement;
       if (i === this.selectedIndex) {
-        item.style.background = '#3a3a3a';
+        item.classList.add('is-selected');
         item.scrollIntoView({ block: 'nearest' });
       } else {
-        item.style.background = 'transparent';
+        item.classList.remove('is-selected');
       }
     }
   }
@@ -333,7 +286,7 @@ export class NodeContextMenu {
   show(x: number, y: number, canvasX: number, canvasY: number, center: boolean = false): void {
     this.canvasX = canvasX;
     this.canvasY = canvasY;
-    this.menu.style.display = 'flex';
+    this.menu.classList.add('is-visible');
     this.isVisible = true;
     this.selectedIndex = 0;
     
@@ -365,7 +318,7 @@ export class NodeContextMenu {
   }
   
   hide(): void {
-    this.menu.style.display = 'none';
+    this.menu.classList.remove('is-visible');
     this.isVisible = false;
   }
   
