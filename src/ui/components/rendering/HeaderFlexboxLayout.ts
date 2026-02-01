@@ -266,7 +266,7 @@ export class HeaderFlexboxLayout {
    */
   private calculateLogoWidth(spec: NodeSpec, node: NodeInstance): number {
     const iconBoxWidth = getCSSVariableAsNumber('node-icon-box-width', 90);
-    const nameSize = getCSSVariableAsNumber('node-header-name-size', 24);
+    const nameSize = getCSSVariableAsNumber('node-header-name-size', 30);
     const nameWeight = getCSSVariableAsNumber('node-header-name-weight', 600);
     
     // Measure text width
@@ -323,7 +323,7 @@ export class HeaderFlexboxLayout {
   private createLogoItems(spec: NodeSpec, node: NodeInstance): FlexItem[] {
     const iconBoxWidth = getCSSVariableAsNumber('node-icon-box-width', 90);
     const iconBoxHeight = getCSSVariableAsNumber('node-icon-box-height', 90);
-    const nameSize = getCSSVariableAsNumber('node-header-name-size', 24);
+    const nameSize = getCSSVariableAsNumber('node-header-name-size', 30);
     const nameWeight = getCSSVariableAsNumber('node-header-name-weight', 600);
     
     // Measure text width

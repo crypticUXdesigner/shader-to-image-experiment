@@ -1181,10 +1181,12 @@ export class NodeEditorCanvas {
   }
   
   /**
-   * Handle double-click on canvas: if over a node header label, show label edit overlay.
+   * Handle double-click on canvas: if over a parameter value box, show parameter input overlay;
+   * otherwise if over node header label, show label edit overlay.
    * Coordinates must be client (viewport) coordinates; hit test uses screenToCanvas which expects them.
    */
   private handleCanvasDoubleClick(e: MouseEvent): void {
+    if (this.showParameterInput(e.clientX, e.clientY)) return;
     this.showLabelInput(e.clientX, e.clientY);
   }
 
@@ -1690,6 +1692,7 @@ export class NodeEditorCanvas {
       const deps = (this.mouseEventHandler as any).deps;
       deps.onTypeLabelClick = this.onTypeLabelClick;
       deps.onNodeSelected = this.onNodeSelected;
+      deps.onParameterChanged = this.onParameterChanged;
     }
     
     // Update OverlayManager's callback references so it uses the latest callbacks

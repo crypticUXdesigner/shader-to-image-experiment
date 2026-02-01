@@ -39,7 +39,7 @@ export class EnumParameterRenderer extends ParameterRenderer {
     cellBounds: CellBounds
   ): ParameterMetrics {
     const cellPadding = getCSSVariableAsNumber('param-cell-padding', 12);
-    const labelFontSize = getCSSVariableAsNumber('param-label-font-size', 11);
+    const labelFontSize = getCSSVariableAsNumber('param-label-font-size', 18);
     const selectorHeight = getCSSVariableAsNumber('enum-selector-height', 32);
     const selectorSpacing = getCSSVariableAsNumber('param-label-knob-spacing', 20);
     
@@ -74,8 +74,9 @@ export class EnumParameterRenderer extends ParameterRenderer {
 
     const labelText = paramSpec.label || paramName;
     const showPort = false; // int parameters no longer have ports
-    const labelFontSize = getCSSVariableAsNumber('param-label-font-size', 11);
-    ctx.font = `${getCSSVariableAsNumber('param-label-font-weight', 400)} ${labelFontSize}px "Space Grotesk", sans-serif`;
+    const labelFontSize = getCSSVariableAsNumber('param-label-font-size', 18);
+    const labelFontWeight = getCSSVariableAsNumber('param-label-font-weight', 600);
+    ctx.font = `${labelFontWeight} ${labelFontSize}px "Space Grotesk", sans-serif`;
     ctx.textBaseline = 'top';
     const labelTextMetrics = ctx.measureText(labelText);
     const actualTextHeight =
@@ -106,7 +107,7 @@ export class EnumParameterRenderer extends ParameterRenderer {
     isHovered: boolean
   ): void {
     const cellPadding = getCSSVariableAsNumber('param-cell-padding', 12);
-    const labelFontSize = getCSSVariableAsNumber('param-label-font-size', 11);
+    const labelFontSize = getCSSVariableAsNumber('param-label-font-size', 18);
     const selectorHeight = getCSSVariableAsNumber('enum-selector-height', 32);
     const selectorSpacing = getCSSVariableAsNumber('param-label-knob-spacing', 20);
     const selectorBg = isHovered 
@@ -115,7 +116,7 @@ export class EnumParameterRenderer extends ParameterRenderer {
     const selectorBorder = getCSSColor('enum-selector-border', getCSSColor('color-gray-70', '#282b31'));
     const selectorRadius = getCSSVariableAsNumber('enum-selector-radius', 6);
     const selectorPadding = getCSSVariableAsNumber('enum-selector-padding', 8);
-    const selectorFontSize = getCSSVariableAsNumber('enum-selector-font-size', 13);
+    const selectorFontSize = getCSSVariableAsNumber('enum-selector-font-size', 18);
     const selectorFontWeight = getCSSVariableAsNumber('enum-selector-font-weight', 500);
     const selectorColor = getCSSColor('enum-selector-color', getCSSColor('color-gray-130', '#ebeff0'));
     const arrowSize = getCSSVariableAsNumber('enum-selector-arrow-size', 8);

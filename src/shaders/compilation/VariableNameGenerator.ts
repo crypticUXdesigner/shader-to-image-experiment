@@ -21,12 +21,16 @@ export class VariableNameGenerator {
 
       const nodeVars = new Map<string, string>();
       
-      // Handle audio-analyzer dynamic outputs
+      // Handle audio-analyzer dynamic outputs (bands + per-band remapped)
       if (nodeSpec.id === 'audio-analyzer') {
         const frequencyBands = this.getFrequencyBands(node, nodeSpec);
         for (let i = 0; i < frequencyBands.length; i++) {
           const varName = this.generateVariableName(node.id, `band${i}`);
           nodeVars.set(`band${i}`, varName);
+        }
+        for (let i = 0; i < frequencyBands.length; i++) {
+          const varName = this.generateVariableName(node.id, `remap${i}`);
+          nodeVars.set(`remap${i}`, varName);
         }
       } else {
         // Standard outputs

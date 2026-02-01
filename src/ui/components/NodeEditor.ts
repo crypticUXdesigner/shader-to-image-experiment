@@ -25,8 +25,8 @@ import {
 export interface NodeEditorCallbacks {
   onGraphChanged?: (graph: NodeGraph) => void;
   onConnectionRemoved?: (connectionId: string) => void;
-  /** Optional 4th arg is the updated graph (after parameter change) so runtime can stay in sync. */
-  onParameterChanged?: (nodeId: string, paramName: string, value: number | number[][], graph?: NodeGraph) => void;
+  /** Optional 4th arg is the updated graph (after parameter change) so runtime can stay in sync. May return Promise so caller can await before painting. */
+  onParameterChanged?: (nodeId: string, paramName: string, value: number | number[][], graph?: NodeGraph) => void | Promise<unknown>;
   onFileParameterChanged?: (nodeId: string, paramName: string, file: File) => void;
   onError?: (error: { type: string, errors?: string[], error?: string, timestamp: number }) => void;
   /** Called when selection changes (e.g. to update Help button state) */
@@ -45,6 +45,7 @@ export class NodeEditor {
   private copyPasteManager: CopyPasteManager;
   private helpCallout: ContextualHelpCallout;
   private helpOpenFromToolbar: boolean = false;
+  private onOpenPanelAndFocusSearch?: () => void;
   
   constructor(
     container: HTMLElement,
@@ -518,7 +519,7 @@ export class NodeEditor {
     return node;
   }
   
-  updateParameter(nodeId: string, paramName: string, value: number | number[][]): void {
+  updateParameter(nodeId: string, paramName: string, value: number | number[][]): void | Promise<unknown> {
     const node = this.graph.nodes.find(n => n.id === nodeId);
     if (node) {
       // Update parameter using immutable update
@@ -527,8 +528,9 @@ export class NodeEditor {
       this.updateViewState();
       // Sync canvas with updated graph so knob/value display updates during drag
       this.canvasComponent.setGraph(this.graph);
-      // Pass updated graph so runtime can sync (critical for audio-analyzer frequencyBands → remap signal flow)
-      this.callbacks.onParameterChanged?.(nodeId, paramName, value, this.graph);
+      // Pass updated graph so runtime can sync (critical for audio-analyzer frequencyBands → remap signal flow).
+      // Return so caller (e.g. mouse handler) can await before painting when callback is async.
+      return this.callbacks.onParameterChanged?.(nodeId, paramName, value, this.graph);
       // Parameter changes don't trigger undo (they're too frequent)
       // Only structure changes trigger undo
     }
@@ -657,6 +659,16 @@ export class NodeEditor {
         this.selectAll();
       }
       
+      // Ctrl/Cmd + F: Open node panel (if closed) and focus search
+      if ((e.ctrlKey || e.metaKey) && e.key === 'f') {
+        e.preventDefault();
+        if (this.onOpenPanelAndFocusSearch) {
+          this.onOpenPanelAndFocusSearch();
+        } else {
+          this.nodePanel.focusSearch();
+        }
+      }
+      
       // Ctrl/Cmd + Z: Undo
       if ((e.ctrlKey || e.metaKey) && e.key === 'z' && !e.shiftKey) {
         e.preventDefault();
@@ -694,6 +706,14 @@ export class NodeEditor {
    */
   getNodePanel(): NodePanel {
     return this.nodePanel;
+  }
+  
+  /**
+   * Set callback for Cmd/Ctrl+F: open panel (if closed) and focus search.
+   * Called from main so layout can be updated when opening the panel.
+   */
+  setOpenPanelAndFocusSearchCallback(callback: () => void): void {
+    this.onOpenPanelAndFocusSearch = callback;
   }
   
   destroy(): void {

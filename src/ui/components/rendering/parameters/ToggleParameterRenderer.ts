@@ -31,7 +31,7 @@ export class ToggleParameterRenderer extends ParameterRenderer {
     cellBounds: CellBounds
   ): ParameterMetrics {
     const cellPadding = getCSSVariableAsNumber('param-cell-padding', 12);
-    const labelFontSize = getCSSVariableAsNumber('param-label-font-size', 11);
+    const labelFontSize = getCSSVariableAsNumber('param-label-font-size', 18);
     
     // Toggle is centered vertically in cell
     const toggleHeight = getCSSVariableAsNumber('toggle-height', 24);
@@ -68,8 +68,9 @@ export class ToggleParameterRenderer extends ParameterRenderer {
 
     const labelText = paramSpec.label || paramName;
     const showPort = false; // int parameters no longer have ports
-    const labelFontSize = getCSSVariableAsNumber('param-label-font-size', 11);
-    ctx.font = `${getCSSVariableAsNumber('param-label-font-weight', 400)} ${labelFontSize}px "Space Grotesk", sans-serif`;
+    const labelFontSize = getCSSVariableAsNumber('param-label-font-size', 18);
+    const labelFontWeight = getCSSVariableAsNumber('param-label-font-weight', 600);
+    ctx.font = `${labelFontWeight} ${labelFontSize}px "Space Grotesk", sans-serif`;
     ctx.textBaseline = 'top';
     const labelTextMetrics = ctx.measureText(labelText);
     const actualTextHeight =

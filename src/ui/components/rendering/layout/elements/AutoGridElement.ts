@@ -49,7 +49,7 @@ export class AutoGridElementRenderer implements LayoutElementRenderer {
     
     // Calculate content-based cell height (same for all cells)
     const cellPadding = getCSSVariableAsNumber('param-cell-padding', 12);
-    const labelFontSize = getCSSVariableAsNumber('param-label-font-size', 11);
+    const labelFontSize = getCSSVariableAsNumber('param-label-font-size', 18);
     const extraSpacing = getCSSVariableAsNumber('param-label-knob-spacing', 20);
     const knobSize = getCSSVariableAsNumber('knob-size', 45);
     const valueSpacing = getCSSVariableAsNumber('knob-value-spacing', 4);
@@ -329,8 +329,8 @@ export class AutoGridElementRenderer implements LayoutElementRenderer {
     // Without drawing them, grouped layouts look like "missing headings".
     const gridPadding = getCSSVariableAsNumber('node-body-padding', 18);
     const groupHeaderHeight = getCSSVariableAsNumber('param-group-header-height', 24);
-    const groupHeaderFontSize = getCSSVariableAsNumber('param-group-header-font-size', 11);
-    const groupHeaderFontWeight = getCSSVariableAsNumber('param-group-header-weight', 500);
+    const groupHeaderFontSize = getCSSVariableAsNumber('param-group-header-font-size', 24);
+    const groupHeaderFontWeight = getCSSVariableAsNumber('param-group-header-weight', 600);
     const groupHeaderColor = getCSSColor('param-group-header-color', getCSSColor('color-gray-110', '#a3aeb5'));
     const groupHeaderMarginTop = getCSSVariableAsNumber('param-group-header-margin-top', 0);
     const groupHeaderMarginBottom = getCSSVariableAsNumber('param-group-header-margin-bottom', 0);

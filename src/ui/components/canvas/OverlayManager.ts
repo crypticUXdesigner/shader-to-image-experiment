@@ -11,6 +11,7 @@ import { UIElementManager } from './UIElementManager';
 import { HitTestManager } from './HitTestManager';
 import { NodeRenderer } from '../NodeRenderer';
 import { getCSSVariableAsNumber } from '../../../utils/cssTokens';
+import { snapParameterValue } from '../../../utils/parameterValueCalculator';
 import type { DropdownMenuItem } from '../DropdownMenu';
 
 export interface OverlayManagerDependencies {
@@ -79,7 +80,9 @@ export class OverlayManager {
   showParameterInput(screenX: number, screenY: number): boolean {
     const paramHit = this.hitTestManager.hitTestParameter(screenX, screenY);
     if (!paramHit) return false;
-    
+    // Don't show value input when double-click was on the mode button or on a non-numeric control
+    if (paramHit.isModeButton || paramHit.isString) return false;
+
     const node = this.graph.nodes.find(n => n.id === paramHit.nodeId);
     const spec = this.nodeSpecs.get(node?.type || '');
     const metrics = this.nodeMetrics.get(paramHit.nodeId);
@@ -88,31 +91,31 @@ export class OverlayManager {
     const paramSpec = spec.parameters[paramHit.paramName];
     if (!paramSpec || (paramSpec.type !== 'float' && paramSpec.type !== 'int')) return false;
     
-    const paramPos = metrics.parameterPositions.get(paramHit.paramName);
-    if (!paramPos) return false;
+    const gridPos = metrics.parameterGridPositions.get(paramHit.paramName);
+    if (!gridPos) return false;
     
     // Get current value
     const currentValue = node.parameters[paramHit.paramName] ?? paramSpec.default;
     const numValue = typeof currentValue === 'number' ? currentValue : 0;
     
-    // Calculate screen position for input
-    const padding = 8;
-    const valueWidth = 50;
-    const valueX = paramPos.x + paramPos.width - valueWidth - padding;
-    const valueY = paramPos.y;
+    // Center overlay on the value box (valueX/valueY are in canvas space after layout)
+    const inputWidth = 180;
+    const inputHeight = 40;
+    const valueBoxCenterX = gridPos.valueX;
+    const valueBoxCenterY = gridPos.valueY;
+    const overlayX = valueBoxCenterX - inputWidth / 2;
+    const overlayY = valueBoxCenterY - inputHeight / 2;
     
     this.uiElementManager.showParameterInput(
       paramHit.nodeId,
       paramHit.paramName,
       numValue,
-      { x: valueX, y: valueY },
-      { width: valueWidth, height: paramPos.height },
+      { x: overlayX, y: overlayY },
+      { width: inputWidth, height: inputHeight },
       (newValue) => {
-        // Clamp to min/max if specified
-        let clampedValue = newValue;
-        if (paramSpec.min !== undefined) clampedValue = Math.max(clampedValue, paramSpec.min);
-        if (paramSpec.max !== undefined) clampedValue = Math.min(clampedValue, paramSpec.max);
-        this.onParameterChanged?.(paramHit.nodeId, paramHit.paramName, clampedValue);
+        // Snap to parameter constraints (min/max/step/int) so typed values match drag behavior
+        const snapped = snapParameterValue(newValue, paramSpec);
+        this.onParameterChanged?.(paramHit.nodeId, paramHit.paramName, snapped);
       },
       () => {}
     );
@@ -146,7 +149,7 @@ export class OverlayManager {
     const headerHeight = metrics.headerHeight;
     const iconBoxHeight = getCSSVariableAsNumber('node-icon-box-height', 48);
     const iconBoxNameSpacing = getCSSVariableAsNumber('node-icon-box-name-spacing', 4);
-    const nameSize = getCSSVariableAsNumber('node-header-name-size', 14);
+    const nameSize = getCSSVariableAsNumber('node-header-name-size', 30);
     const nameWeight = getCSSVariableAsNumber('node-header-name-weight', 600);
     
     // Calculate label position (same as in renderHeader)
@@ -319,7 +322,7 @@ export class OverlayManager {
       if (gridPos) {
         // Calculate enum selector position (matching EnumParameterRenderer logic)
         const cellPadding = getCSSVariableAsNumber('param-cell-padding', 12);
-        const labelFontSize = getCSSVariableAsNumber('param-label-font-size', 11);
+        const labelFontSize = getCSSVariableAsNumber('param-label-font-size', 18);
         const selectorHeight = getCSSVariableAsNumber('enum-selector-height', 32);
         const selectorSpacing = getCSSVariableAsNumber('param-label-knob-spacing', 20);
         

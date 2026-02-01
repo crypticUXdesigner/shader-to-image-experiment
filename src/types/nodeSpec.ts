@@ -65,15 +65,22 @@ export interface ParameterLayout {
   elements: LayoutElement[];  // Ordered list of elements (rendered top to bottom)
   /** Parameter names that have no connection port (e.g. clamp on audio-remap) */
   parametersWithoutPorts?: string[];
+  /**
+   * Extra columns of width to add to the node (e.g. 1 = one column wider).
+   * Uses the same cell min-width and gap as the grid so the body gets dedicated width and the rest fills.
+   */
+  extraColumns?: number;
 }
 
 export type LayoutElement =
   | AutoGridElement
   | GridElement
   | RemapRangeElement
+  | AnalyzerBandRemapElement
   | FrequencyRangeElement
   | BezierEditorElement
   | ColorPickerElement
+  | AudioFileInputElement
   | CustomElement;
 
 /** OKLCH color picker: one row with swatch + picker button; parameters l, c, h. */
@@ -110,6 +117,12 @@ export interface RemapRangeElement {
   // Height controlled by design system token: --remap-range-height
 }
 
+/** Optional per-band remap UI on audio-analyzer. Uses band{N}RemapInMin/InMax/OutMin/OutMax. */
+export interface AnalyzerBandRemapElement {
+  type: 'analyzer-band-remap';
+  bandIndex: number;
+}
+
 /**
  * Scale for the frequency-range slider.
  * - 'linear': Hz maps linearly to slider position (default).
@@ -142,6 +155,11 @@ export interface BezierEditorElement {
   type: 'bezier-editor';
   height?: number;  // Default: bezier-editor-height CSS token
   parameters?: ['x1', 'y1', 'x2', 'y2'];  // Optional, defaults to these
+}
+
+/** Audio file input: single embed-slot body (height from CSS token). Center "Upload MP3" button, display text above, auto-play toggle bottom-right. */
+export interface AudioFileInputElement {
+  type: 'audio-file-input-slot';
 }
 
 // Custom element (for future extensibility)

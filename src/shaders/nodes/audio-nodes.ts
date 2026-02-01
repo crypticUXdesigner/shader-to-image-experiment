@@ -43,6 +43,12 @@ export const audioFileInputNodeSpec: NodeSpec = {
       max: 1
     }
   },
+  parameterLayout: {
+    elements: [{ type: 'audio-file-input-slot' }],
+    parametersWithoutPorts: ['filePath', 'autoPlay'],
+    /** Same width as audio-analyzer (3 columns) */
+    extraColumns: 1
+  },
   // Audio nodes don't generate GLSL code - they provide uniforms
   // The compiler will handle this specially
   mainCode: `
@@ -68,27 +74,47 @@ export const audioAnalyzerNodeSpec: NodeSpec = {
     }
   ],
   outputs: [
-    // Dynamic outputs based on frequencyBands parameter
-    // Compiler will generate outputs based on array length
+    // Dynamic outputs based on frequencyBands parameter (1-based labels: Band 1..4)
     {
       name: 'band0',
-      type: 'float',
-      label: 'Band 0'
-    },
-    {
-      name: 'band1',
       type: 'float',
       label: 'Band 1'
     },
     {
-      name: 'band2',
+      name: 'band1',
       type: 'float',
       label: 'Band 2'
     },
     {
-      name: 'band3',
+      name: 'band2',
       type: 'float',
       label: 'Band 3'
+    },
+    {
+      name: 'band3',
+      type: 'float',
+      label: 'Band 4'
+    },
+    // Optional per-band remapped outputs (band value remapped by band remap UI)
+    {
+      name: 'remap0',
+      type: 'float',
+      label: 'Remap 1'
+    },
+    {
+      name: 'remap1',
+      type: 'float',
+      label: 'Remap 2'
+    },
+    {
+      name: 'remap2',
+      type: 'float',
+      label: 'Remap 3'
+    },
+    {
+      name: 'remap3',
+      type: 'float',
+      label: 'Remap 4'
     }
   ],
   parameters: {
@@ -113,21 +139,50 @@ export const audioAnalyzerNodeSpec: NodeSpec = {
       default: 4096,
       min: 256,
       max: 8192
-    }
+    },
+    // Optional per-band remap (inMin, inMax, outMin, outMax). Default 0–1 → 0–1 (no-op).
+    band0RemapInMin: { type: 'float', default: 0 },
+    band0RemapInMax: { type: 'float', default: 1 },
+    band0RemapOutMin: { type: 'float', default: 0 },
+    band0RemapOutMax: { type: 'float', default: 1 },
+    band1RemapInMin: { type: 'float', default: 0 },
+    band1RemapInMax: { type: 'float', default: 1 },
+    band1RemapOutMin: { type: 'float', default: 0 },
+    band1RemapOutMax: { type: 'float', default: 1 },
+    band2RemapInMin: { type: 'float', default: 0 },
+    band2RemapInMax: { type: 'float', default: 1 },
+    band2RemapOutMin: { type: 'float', default: 0 },
+    band2RemapOutMax: { type: 'float', default: 1 },
+    band3RemapInMin: { type: 'float', default: 0 },
+    band3RemapInMax: { type: 'float', default: 1 },
+    band3RemapOutMin: { type: 'float', default: 0 },
+    band3RemapOutMax: { type: 'float', default: 1 }
   },
   parameterLayout: {
     elements: [
       { type: 'frequency-range', parameter: 'frequencyBands', bandIndex: 0, label: 'Band 1', scale: 'audio' },
+      { type: 'analyzer-band-remap', bandIndex: 0 },
       { type: 'frequency-range', parameter: 'frequencyBands', bandIndex: 1, label: 'Band 2', scale: 'audio' },
+      { type: 'analyzer-band-remap', bandIndex: 1 },
       { type: 'frequency-range', parameter: 'frequencyBands', bandIndex: 2, label: 'Band 3', scale: 'audio' },
+      { type: 'analyzer-band-remap', bandIndex: 2 },
       { type: 'frequency-range', parameter: 'frequencyBands', bandIndex: 3, label: 'Band 4', scale: 'audio' },
+      { type: 'analyzer-band-remap', bandIndex: 3 },
       {
         type: 'grid',
         parameters: ['smoothing', 'fftSize'],
         layout: { columns: 1, cellHeight: 120, respectMinWidth: true }
       }
     ],
-    parametersWithoutPorts: ['smoothing']
+    parametersWithoutPorts: [
+      'smoothing',
+      'band0RemapInMin', 'band0RemapInMax', 'band0RemapOutMin', 'band0RemapOutMax',
+      'band1RemapInMin', 'band1RemapInMax', 'band1RemapOutMin', 'band1RemapOutMax',
+      'band2RemapInMin', 'band2RemapInMax', 'band2RemapOutMin', 'band2RemapOutMax',
+      'band3RemapInMin', 'band3RemapInMax', 'band3RemapOutMin', 'band3RemapOutMax'
+    ],
+    /** One extra column of width so remap sliders and labels have enough space */
+    extraColumns: 1
   },
   mainCode: `
     // Audio analyzer node - data comes from AudioManager as uniforms

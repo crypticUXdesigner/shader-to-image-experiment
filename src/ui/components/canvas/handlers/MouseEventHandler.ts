@@ -19,6 +19,7 @@ import type { NodeSpec } from '../../../../types/nodeSpec';
 import type { NodeRenderMetrics } from '../../NodeRenderer';
 import type { ToolType } from '../../BottomBar';
 import { getCSSVariableAsNumber } from '../../../../utils/cssTokens';
+import { snapParameterValue } from '../../../../utils/parameterValueCalculator';
 import { getParameterUIRegistry } from '../../rendering/ParameterUIRegistry';
 import { RenderLayer } from '../../rendering/RenderState';
 import { FREQ_MIN, FREQ_MAX, normToHz } from '../../rendering/layout/elements/FrequencyRangeElement';
@@ -246,7 +247,20 @@ export class MouseEventHandler {
   private getActiveTool(): ToolType {
     return this.deps.getActiveTool?.() ?? this.getActiveTool();
   }
-  
+
+  /**
+   * Notify parameter change and then render. If the callback returns a Promise (e.g. async
+   * runtime sync for audio-analyzer params), wait for it so the next paint sees the updated state.
+   */
+  private flushParameterChangeAndRender(nodeId: string, paramName: string, value: number | number[][]): void {
+    const result = this.deps.onParameterChanged?.(nodeId, paramName, value);
+    if (result != null && typeof (result as Promise<unknown>).then === 'function') {
+      (result as Promise<unknown>).then(() => this.deps.handlerContext.render());
+    } else {
+      this.deps.handlerContext.render();
+    }
+  }
+
   /**
    * Handle mouse down event
    */
@@ -481,8 +495,7 @@ export class MouseEventHandler {
           if (isToggle) {
             const currentValue = (node.parameters[paramHit.paramName] ?? paramSpec.default) as number;
             const newValue = currentValue === 1 ? 0 : 1;
-            this.deps.onParameterChanged?.(paramHit.nodeId, paramHit.paramName, newValue);
-            this.deps.handlerContext.render();
+            this.flushParameterChangeAndRender(paramHit.nodeId, paramHit.paramName, newValue);
             return;
           }
           
@@ -680,8 +693,11 @@ export class MouseEventHandler {
           } else if (portHit) {
             // Port hover already set cursor to crosshair above
           } else if (paramHit) {
-            // Frequency-range (horizontal slider): edges use ew-resize, start/end use default
-            if (paramHit.frequencyBand) {
+            // String (file) parameters: clickable button → pointer
+            if (paramHit.isString) {
+              this.deps.canvas.style.cursor = 'pointer';
+            } else if (paramHit.frequencyBand) {
+              // Frequency-range (horizontal slider): edges use ew-resize, start/end use default
               this.deps.canvas.style.cursor = (paramHit.frequencyBand.field === 'sliderLow' || paramHit.frequencyBand.field === 'sliderHigh') ? 'ew-resize' : 'default';
             } else {
               // Check if this is a toggle parameter
@@ -816,8 +832,11 @@ export class MouseEventHandler {
           // Check for parameter value hover
           const paramHit = this.deps.hitTestManager.hitTestParameter(mouseX, mouseY);
           if (paramHit) {
-            // Frequency-range (horizontal slider): edges use ew-resize, start/end use default
-            if (paramHit.frequencyBand) {
+            // String (file) parameters: clickable button → pointer
+            if (paramHit.isString) {
+              this.deps.canvas.style.cursor = 'pointer';
+            } else if (paramHit.frequencyBand) {
+              // Frequency-range (horizontal slider): edges use ew-resize, start/end use default
               this.deps.canvas.style.cursor = (paramHit.frequencyBand.field === 'sliderLow' || paramHit.frequencyBand.field === 'sliderHigh') ? 'ew-resize' : 'default';
             } else {
               // Check if this is a toggle parameter - use pointer cursor for toggles
@@ -964,8 +983,7 @@ export class MouseEventHandler {
           this.deps.nodeRenderer.invalidateMetrics(currentStateForParam.interaction.draggingParameterNodeId!);
           const comp = this.deps.nodeComponents.get(currentStateForParam.interaction.draggingParameterNodeId!);
           if (comp) comp.invalidateMetrics();
-          this.deps.onParameterChanged?.(currentStateForParam.interaction.draggingParameterNodeId!, currentStateForParam.interaction.draggingParameterName!, newBands);
-          this.deps.handlerContext.render();
+          this.flushParameterChangeAndRender(currentStateForParam.interaction.draggingParameterNodeId!, currentStateForParam.interaction.draggingParameterName!, newBands);
         } else if (node && spec) {
           const paramSpec = spec.parameters[currentStateForParam.interaction.draggingParameterName];
           if (paramSpec && (paramSpec.type === 'float' || paramSpec.type === 'int')) {
@@ -977,9 +995,11 @@ export class MouseEventHandler {
           const max = paramSpec.max ?? 1;
           const range = max - min;
           
-          // For range slider parameters, use the actual visual slider height in screen pixels
-          // This ensures that dragging the full height of the slider = full range
-          const isRangeSliderParam = ['inMin', 'inMax', 'outMin', 'outMax'].includes(currentStateForParam.interaction.draggingParameterName || '');
+          // For range slider parameters (remap and analyzer band remap), use slider height for sensitivity
+          const p = currentStateForParam.interaction.draggingParameterName || '';
+          const isRangeSliderParam =
+            ['inMin', 'inMax', 'outMin', 'outMax'].includes(p) ||
+            /^band\d+Remap(InMin|InMax|OutMin|OutMax)$/.test(p);
           let baseSensitivity: number;
           
           if (isRangeSliderParam) {
@@ -1005,8 +1025,9 @@ export class MouseEventHandler {
           
           const sensitivity = baseSensitivity / multipliers[modifier];
           const valueDelta = (deltaY / sensitivity) * range;
-          const newValue = Math.max(min, Math.min(max, currentStateForParam.interaction.dragParamStartValue + valueDelta));
-          
+          const rawValue = currentStateForParam.interaction.dragParamStartValue + valueDelta;
+          const newValue = snapParameterValue(rawValue, paramSpec);
+
           node.parameters[currentStateForParam.interaction.draggingParameterName] = newValue;
           
           // Invalidate metrics cache so controls update during drag
@@ -1017,8 +1038,7 @@ export class MouseEventHandler {
             component.invalidateMetrics();
           }
           
-          this.deps.onParameterChanged?.(currentStateForParam.interaction.draggingParameterNodeId, currentStateForParam.interaction.draggingParameterName, newValue);
-          this.deps.handlerContext.render();
+          this.flushParameterChangeAndRender(currentStateForParam.interaction.draggingParameterNodeId, currentStateForParam.interaction.draggingParameterName, newValue);
           }
         }
       } else {

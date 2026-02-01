@@ -44,7 +44,7 @@ export class NodeHeaderRenderer {
     const iconBoxHeight = getCSSVariableAsNumber('node-icon-box-height', 90);
     const iconBoxRadius = getCSSVariableAsNumber('node-icon-box-radius', 36);
     const iconBoxNameSpacing = getCSSVariableAsNumber('node-icon-box-name-spacing', 24);
-    const nameSize = getCSSVariableAsNumber('node-header-name-size', 24);
+    const nameSize = getCSSVariableAsNumber('node-header-name-size', 30);
     const nameWeight = getCSSVariableAsNumber('node-header-name-weight', 600);
     const nameColor = getCSSColor('node-header-name-color', getCSSColor('color-gray-130', '#ebeff0'));
     const borderRadius = getCSSVariableAsNumber('node-box-border-radius', 24);

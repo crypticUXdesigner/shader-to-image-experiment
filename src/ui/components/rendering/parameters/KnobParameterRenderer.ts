@@ -31,7 +31,7 @@ export class KnobParameterRenderer extends ParameterRenderer {
     cellBounds: CellBounds
   ): ParameterMetrics {
     const cellPadding = getCSSVariableAsNumber('param-cell-padding', 12);
-    const labelFontSize = getCSSVariableAsNumber('param-label-font-size', 11);
+    const labelFontSize = getCSSVariableAsNumber('param-label-font-size', 18);
     const extraSpacing = getCSSVariableAsNumber('param-label-knob-spacing', 20);
     const knobSize = getCSSVariableAsNumber('knob-size', 45);
     const valueSpacing = getCSSVariableAsNumber('knob-value-spacing', 4);
@@ -88,8 +88,9 @@ export class KnobParameterRenderer extends ParameterRenderer {
     const showPort =
       !state.skipPorts && paramSpec.type === 'float' && hasPort;
     const showModeButton = hasPort && paramSpec.type === 'float';
-    const labelFontSize = getCSSVariableAsNumber('param-label-font-size', 11);
-    ctx.font = `${getCSSVariableAsNumber('param-label-font-weight', 400)} ${labelFontSize}px "Space Grotesk", sans-serif`;
+    const labelFontSize = getCSSVariableAsNumber('param-label-font-size', 18);
+    const labelFontWeight = getCSSVariableAsNumber('param-label-font-weight', 600);
+    ctx.font = `${labelFontWeight} ${labelFontSize}px "Space Grotesk", sans-serif`;
     ctx.textBaseline = 'top';
     const labelTextMetrics = ctx.measureText(labelText);
     const actualTextHeight =

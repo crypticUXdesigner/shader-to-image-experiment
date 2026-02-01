@@ -10,6 +10,7 @@ import { createIconElement } from '../../utils/icons';
 import { createNodeIconElement } from '../../utils/icons';
 import { getNodeIcon } from '../../utils/nodeSpecUtils';
 import { getCSSColor } from '../../utils/cssTokens';
+import { getPortTypeDisplayLabel } from './rendering/RenderingUtils';
 
 export interface ShowOptions {
   helpId?: string;
@@ -291,7 +292,7 @@ export class ContextualHelpCallout {
       titleBadge.style.color = defaultText;
     }
     
-    titleBadge.textContent = content.title;
+    titleBadge.textContent = content.titleType === 'type' ? getPortTypeDisplayLabel(content.title) : content.title;
     header.appendChild(titleBadge);
 
     // Close button
@@ -348,7 +349,7 @@ export class ContextualHelpCallout {
         nameEl.textContent = port.name;
         const typeEl = document.createElement('span');
         typeEl.className = 'port-type';
-        typeEl.textContent = port.type;
+        typeEl.textContent = getPortTypeDisplayLabel(port.type);
         nameRow.appendChild(nameEl);
         nameRow.appendChild(typeEl);
         item.appendChild(nameRow);
@@ -385,7 +386,7 @@ export class ContextualHelpCallout {
         nameEl.textContent = port.name;
         const typeEl = document.createElement('span');
         typeEl.className = 'port-type';
-        typeEl.textContent = port.type;
+        typeEl.textContent = getPortTypeDisplayLabel(port.type);
         nameRow.appendChild(nameEl);
         nameRow.appendChild(typeEl);
         item.appendChild(nameRow);

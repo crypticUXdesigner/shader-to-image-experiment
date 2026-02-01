@@ -91,6 +91,10 @@ export interface LayoutElementRenderer {
       effectiveParameterValues?: Map<string, number | null>;
       skipPorts?: boolean;
       audioRemapLiveValues?: { incoming: number | null; outgoing: number | null };
+      /** Per-band live values for audio-analyzer band remap UI (bandIndex -> { incoming, outgoing }) */
+      audioAnalyzerBandLiveValues?: Map<number, { incoming: number | null; outgoing: number | null }>;
+      /** Audio file input slot: which control is hovered */
+      hoveredAudioFileInputControl?: 'upload' | 'toggle' | null;
     }
   ): void;
 }

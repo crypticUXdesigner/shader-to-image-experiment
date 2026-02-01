@@ -28,8 +28,19 @@
   }
 }
 
-/* When shader preview is expanded, topbar is transparent so the shader shows through */
-[data-preview="expanded"] {
+/* Center section: holds view mode tab group, sits between left and right */
+.top-bar-center {
+  /* Layout */
+  display: flex;
+  flex: 1;
+  align-items: center;
+  justify-content: center;
+  min-width: 0;
+}
+
+/* When view is Split or Full, topbar is transparent so the shader shows through */
+[data-view="split"],
+[data-view="full"] {
   .top-bar {
     /* Visual */
     background: transparent;
@@ -44,20 +55,55 @@
   gap: var(--pd-md);
 }
 
+/* View mode tab group: Node | Split | Full – pill with background, centered */
+.top-bar-view-mode-group {
+  /* Layout */
+  display: inline-flex;
+  align-items: stretch;
+  gap: 0;
+
+  /* Box model */
+  padding: 2px;
+  border-radius: var(--button-radius);
+
+  /* Visual */
+  background: var(--secondary-bg);
+
+  .button {
+    /* Layout */
+    margin: 0;
+
+    /* Box model */
+    padding: var(--pd-xs) var(--pd-md);
+    border-radius: calc(var(--button-radius) - 2px);
+
+    /* Visual */
+    background: transparent;
+    border: none;
+    color: var(--secondary-print);
+
+    /* Other */
+    font-size: var(--text-sm);
+  }
+
+  .button:hover:not(.is-active) {
+    /* Visual */
+    background: var(--secondary-bg-hover);
+  }
+
+  .button.is-active {
+    /* Visual */
+    background: var(--secondary-bg-active);
+    color: var(--secondary-print-active);
+  }
+}
+
 /* Top Bar Right Section */
 .top-bar-right {
   /* Layout */
   display: flex;
   align-items: center;
   gap: var(--pd-md);
-
-  /* When preview is expanded, layout toggle lives here and flows with other items */
-  .layout-toggle-button {
-    /* Layout */
-    position: static;
-    top: auto;
-    right: auto;
-  }
 }
 
 /* ========================================
@@ -80,25 +126,3 @@
   white-space: nowrap;
 }
 
-/* ========================================
-   Layout Toggle Button
-   ======================================== */
-
-/* Layout-only overrides for the expand/collapse button; base style from .button.secondary.sm.icon-only */
-.layout-toggle-button {
-  /* Layout – floating on preview when collapsed; overridden to static when in .top-bar-right */
-  position: absolute;
-  top: var(--pd-sm);
-  right: var(--pd-sm);
-
-  /* Other */
-  z-index: 20;
-
-  &.is-hidden {
-    /* Visual */
-    opacity: 0;
-
-    /* Other */
-    pointer-events: none;
-  }
-}

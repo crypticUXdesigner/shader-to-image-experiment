@@ -24,7 +24,6 @@ import { turbulenceNodeSpec } from './turbulence';
 import { twistDistortionNodeSpec } from './twist-distortion';
 import { kaleidoscopeNodeSpec } from './kaleidoscope';
 import { fbmNoiseNodeSpec } from './fbm-noise';
-import { fbmValueNoiseNodeSpec } from './fbm-value-noise';
 import { simplexNoiseNodeSpec } from './simplex-noise';
 import { voronoiNoiseNodeSpec } from './voronoi-noise';
 import { ringsNodeSpec } from './rings';
@@ -142,7 +141,6 @@ export const nodeSystemSpecs: NodeSpec[] = [
   
   // Pattern/Noise nodes
   fbmNoiseNodeSpec,
-  fbmValueNoiseNodeSpec,
   simplexNoiseNodeSpec,
   voronoiNoiseNodeSpec,
   ringsNodeSpec,

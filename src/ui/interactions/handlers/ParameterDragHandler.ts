@@ -16,6 +16,7 @@ import type { InteractionEvent, InteractionHandler } from '../InteractionHandler
 import type { HandlerContext } from '../HandlerContext';
 import { getCSSVariableAsNumber } from '../../../utils/cssTokens';
 import { Throttler } from '../../../utils/Throttler';
+import { snapParameterValue } from '../../../utils/parameterValueCalculator';
 import { getParameterUIRegistry } from '../../components/rendering/ParameterUIRegistry';
 
 export class ParameterDragHandler implements InteractionHandler {
@@ -153,8 +154,9 @@ export class ParameterDragHandler implements InteractionHandler {
       
       const sensitivity = baseSensitivity / multipliers[modifier];
       const valueDelta = (deltaY / sensitivity) * range;
-      const newValue = Math.max(min, Math.min(max, this.dragParamStartValue + valueDelta));
-      
+      const rawValue = this.dragParamStartValue + valueDelta;
+      const newValue = snapParameterValue(rawValue, paramSpec);
+
       // Update node parameter immediately for visual feedback
       node.parameters[this.draggingParameterName] = newValue;
       

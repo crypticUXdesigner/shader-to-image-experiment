@@ -47,13 +47,16 @@ export class UniformGenerator {
             uniformNames.set(`${node.id}.${output.name}`, uniformName);
           }
         }
-        // Audio-analyzer: outputs are uniforms (dynamic based on frequencyBands)
+        // Audio-analyzer: outputs are uniforms (bands + per-band remapped)
         else if (nodeSpec.id === 'audio-analyzer') {
-          // Get frequency bands from node parameters or default
           const frequencyBands = this.getFrequencyBands(node, nodeSpec);
           for (let i = 0; i < frequencyBands.length; i++) {
             const uniformName = this.sanitizeUniformName(node.id, `band${i}`);
             uniformNames.set(`${node.id}.band${i}`, uniformName);
+          }
+          for (let i = 0; i < frequencyBands.length; i++) {
+            const uniformName = this.sanitizeUniformName(node.id, `remap${i}`);
+            uniformNames.set(`${node.id}.remap${i}`, uniformName);
           }
         }
       }
@@ -78,6 +81,10 @@ export class UniformGenerator {
         }
         // Skip runtime-only parameters for audio-analyzer nodes
         if (nodeSpec.id === 'audio-analyzer' && (paramName === 'frequencyBands' || paramName === 'smoothing' || paramName === 'fftSize')) {
+          continue;
+        }
+        // Skip per-band remap params (used in JS to compute remap uniforms, not shader uniforms)
+        if (nodeSpec.id === 'audio-analyzer' && /^band\d+Remap(InMin|InMax|OutMin|OutMax)$/.test(paramName)) {
           continue;
         }
         // Check if parameter is connected to an output
@@ -169,17 +176,26 @@ export class UniformGenerator {
             });
           }
         } else if (nodeSpec.id === 'audio-analyzer') {
-          // Dynamic outputs based on frequency bands - always include them
+          // Dynamic outputs (bands + per-band remapped) - always include them
           const frequencyBands = this.getFrequencyBands(node, nodeSpec);
           for (let i = 0; i < frequencyBands.length; i++) {
             const uniformName = uniformNames.get(`${node.id}.band${i}`);
             if (!uniformName) continue;
-            // Don't check usedUniforms - audio outputs must always be declared
-
             uniforms.push({
               name: uniformName,
               nodeId: node.id,
               paramName: `band${i}`,
+              type: 'float',
+              defaultValue: 0.0
+            });
+          }
+          for (let i = 0; i < frequencyBands.length; i++) {
+            const uniformName = uniformNames.get(`${node.id}.remap${i}`);
+            if (!uniformName) continue;
+            uniforms.push({
+              name: uniformName,
+              nodeId: node.id,
+              paramName: `remap${i}`,
               type: 'float',
               defaultValue: 0.0
             });

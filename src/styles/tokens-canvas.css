@@ -14,6 +14,35 @@
  * 9. Icons / Other  → icon design, delete button, zoom
  */
 
+/* === CANVAS FONT STYLES === */
+/* label: small semibold — port label, port type, param type label */
+--canvas-font-label-size: var(--canvas-text-sm);
+--canvas-font-label-weight: 600;
+
+/* caption: small regular/medium — axis labels, scale ticks, small descriptors */
+--canvas-font-caption-size: var(--canvas-text-sm);
+--canvas-font-caption-weight: 700;
+
+/* input: medium — value boxes, numeric inputs */
+--canvas-font-input-size: var(--canvas-text-md);
+--canvas-font-input-weight: 500;
+
+/* button: medium — mode button (same as input for now) */
+--canvas-font-button-size: var(--canvas-text-md);
+--canvas-font-button-weight: 900;
+
+/* select: medium — enum selector (same as input for now) */
+--canvas-font-select-size: var(--canvas-text-md);
+--canvas-font-select-weight: 500;
+
+/* headline: node (xl), group (lg), parameter (md) */
+--canvas-headline-xl-size: var(--canvas-text-xl);
+--canvas-headline-xl-weight: 600;
+--canvas-headline-lg-size: var(--canvas-text-lg);
+--canvas-headline-lg-weight: 600;
+--canvas-headline-md-size: var(--canvas-text-md);
+--canvas-headline-md-weight: 600;
+
 /* === 1. CANVAS (grid, bg, guides) === */
 --canvas-bg: var(--color-gray-40);
 --canvas-grid-color: var(--color-gray-50);
@@ -51,12 +80,12 @@
 /* === 3. NODE — HEADER (HeaderFlexboxLayout, NodeHeaderRenderer, NodeRenderer) === */
 
 /* Header content: padding, min-height, icon, name */
---node-header-padding: 24px; /* General header inset — inputs and outputs react to this */
+--node-header-padding: 36px; /* General header inset — inputs and outputs react to this */
 --node-header-logo-padding: 60px; /* Padding around icon box + label (center part only) */
 --node-header-min-height: 200px;
 --node-header-icon-size: 60px;
---node-header-name-size: 24px;
---node-header-name-weight: 600;
+--node-header-name-size: var(--canvas-headline-xl-size);
+--node-header-name-weight: var(--canvas-headline-xl-weight);
 --node-header-name-color: var(--color-gray-130);
 
 /* Header background gradient (ellipse for radial gradient) */
@@ -117,7 +146,7 @@
 --node-header-inputs-flex-direction: column;
 --node-header-inputs-justify-content: flex-start;
 --node-header-inputs-align-items: flex-start;
---node-header-inputs-gap: 28px;
+--node-header-inputs-gap: 42px;
 --node-header-logo-flex-direction: column;
 --node-header-logo-justify-content: center;
 --node-header-logo-align-items: center;
@@ -125,7 +154,7 @@
 --node-header-outputs-flex-direction: column;
 --node-header-outputs-justify-content: flex-start;
 --node-header-outputs-align-items: flex-end;
---node-header-outputs-gap: 28px;
+--node-header-outputs-gap: 42px;
 
 /* Header ports: spacing between ports, label color */
 --node-header-input-port-spacing: var(--scale-11); /* 54px */
@@ -145,20 +174,26 @@
 --node-port-regular-size: var(--scale-4); /* 12px */
 --port-radius: var(--scale-4); /* 12px */
 --port-border-width: var(--scale-3); /* 2px */
---port-border-color: #00000059;
---port-color-float: var(--color-gray-50);
+--port-border-color: #19191b6e;
+--port-color-float: var(--color-gray-60);
 --port-color-vec2: var(--color-blue-gray-100);
 --port-color-vec3: var(--color-teal-gray-100);
 --port-color-vec4: var(--color-purple-gray-100);
 --port-color-default: var(--color-gray-100);
+/* Port connected colors (per type — used when port has a connection, no hover/drag) */
+--port-connected-color-float: var(--color-gray-120);
+--port-connected-color-vec2: var(--color-blue-gray-90);
+--port-connected-color-vec3: var(--color-teal-gray-90);
+--port-connected-color-vec4: var(--color-purple-gray-90);
+--port-connected-color-default: var(--color-gray-120);
 --port-hover-color: var(--color-gray-110);
 --port-hover-outer-opacity: 0.6;
 --port-dragging-color: var(--color-teal-110);
 --port-dragging-outer-opacity: 0.3;
 
 /* === NODE PORT LABEL TOKENS === */
---port-label-font-size: var(--canvas-text-xl); /* 19px */
---port-label-font-weight: 600;
+--port-label-font-size: var(--canvas-font-label-size);
+--port-label-font-weight: var(--canvas-font-label-weight);
 --port-label-color: var(--color-gray-10);
 --port-label-spacing: var(--scale-4); /* 12px - Space between port and label */
 
@@ -177,8 +212,8 @@
 --port-type-text-default: var(--color-gray-110);
 
 /* Port Type Styling */
---port-type-font-size: var(--canvas-text-xl); /* 19px */
---port-type-font-weight: 600;
+--port-type-font-size: var(--canvas-font-label-size);
+--port-type-font-weight: var(--canvas-font-label-weight);
 --port-type-spacing: var(--scale-2); /* 4px - Space between name and type */
 --port-type-bg-radius: var(--scale-4); /* 12px */
 --port-type-padding-horizontal: var(--scale-4); /* 12px - Increased from 8px to match larger ports */
@@ -286,6 +321,7 @@
 
 /* === CONNECTION COLOR BY PORT TYPE TOKENS === */
 --connection-color-float: var(--color-gray-90);
+--connection-color-float-parameter: var(--color-teal-90);
 --connection-color-vec2: var(--color-blue-gray-110);
 --connection-color-vec3: var(--color-teal-gray-110);
 --connection-color-vec4: var(--color-purple-gray-110);
@@ -318,9 +354,16 @@
 --param-body-top-padding: 24px; /* Top padding when body doesn't start with a group header */
 
 /* Parameter Cell */
---param-cell-bg: #ffffff17;
+--param-cell-bg: #e4e4ed75; /* Gradient start (center); transparent hex */
+--param-cell-bg-end: #3b3b3c00; /* Gradient end (outer); transparent hex */
 --param-cell-bg-connected: #ffffff60;
---param-cell-border: transparent;
+
+/* Parameter cell background gradient (ellipse for radial gradient; start → end) */
+--param-cell-bg-gradient-ellipse-width: 320%;
+--param-cell-bg-gradient-ellipse-height: 180%;
+--param-cell-bg-gradient-ellipse-x: 50%;
+--param-cell-bg-gradient-ellipse-y: 35%;
+--param-cell-border: #ffffff60;
 --param-cell-border-connected: #ffffff;
 --param-cell-border-radius: 12px;
 --param-cell-height: 200px; /* Increased to accommodate larger ports and spacing */
@@ -331,27 +374,27 @@
 --param-port-offset-y: var(--scale-5); /* 18px */
 
 /* Parameter Label */
---param-label-font-size: var(--canvas-text-xl); /* 19px */
---param-label-font-weight: 600;
+--param-label-font-size: var(--canvas-headline-md-size);
+--param-label-font-weight: var(--canvas-headline-md-weight);
 --param-label-color: var(--color-gray-40);
 --param-label-knob-spacing: 12px;
 
 /* Parameter Type Label */
---param-type-label-font-size: var(--canvas-text-xs); /* 11px */
---param-type-label-font-weight: 600;
+--param-type-label-font-size: var(--canvas-font-label-size);
+--param-type-label-font-weight: var(--canvas-font-label-weight);
 
 /* Rotary Knob */
---knob-size: 72px; /* Diameter */
---knob-ring-width: 7px;
---knob-ring-color: var(--color-gray-30);
---knob-ring-active-color-static: var(--color-gray-120);
---knob-ring-active-color-animated: var(--color-leaf-100);
---knob-marker-size: 7px;
---knob-marker-color: var(--color-gray-10);
+--knob-size: 78px; /* Diameter */
+--knob-ring-width: 9px;
+--knob-ring-color: #171718c2;
+--knob-ring-active-color-static: var(--color-gray-130);
+--knob-ring-active-color-animated: var(--color-leaf-110);
+--knob-marker-size: 9px;
+--knob-marker-color: var(--color-gray-130);
 --knob-marker-radius-offset: -16px; /* Offset from arc radius (positive = further out, negative = further in) */
---knob-value-font-size: var(--canvas-text-2xl); /* 20px */
+--knob-value-font-size: var(--canvas-font-input-size);
 --knob-value-color: var(--color-gray-130);
---knob-value-bg: #000000d9;
+--knob-value-bg: #0000007a;
 --knob-value-radius: 6px;
 --knob-value-padding-horizontal: 16px;
 --knob-value-padding-vertical: 6px;
@@ -363,7 +406,7 @@
 
 /* === INPUT / VALUE BOX PRIMITIVE === */
 /* input-* is the value-box primitive used by input param, knob value display, and remap-range input row */
---input-value-font-size: var(--canvas-text-2xl); /* 20px – from knob-value-font-size */
+--input-value-font-size: var(--canvas-font-input-size);
 --input-value-color: var(--color-gray-130);
 --input-value-bg: #000000d9;
 --input-value-radius: 12px;
@@ -373,8 +416,8 @@
 
 /* Parameter Mode Button */
 --param-mode-button-size: 24px;
---param-mode-button-font-size: var(--canvas-text-3xl); /* 24px */
---param-mode-button-font-weight: 900;
+--param-mode-button-font-size: var(--canvas-font-button-size);
+--param-mode-button-font-weight: var(--canvas-font-button-weight);
 --param-mode-button-color-static: #00000034; /* Color when parameter is NOT connected (clicking does nothing) */
 --param-mode-button-color-connected: var(--color-leaf-100); /* Color when parameter IS connected (clicking has effect) */
 --param-mode-button-bg: #ffffff32;
@@ -382,10 +425,10 @@
 --param-mode-button-text-offset-y: 2px; /* Vertical offset adjustment for symbol centering (positive = down) */
 
 /* Parameter Group */
---param-group-header-height: 12px;
---param-group-header-font-size: var(--canvas-text-lg); /* 18px */
+--param-group-header-height: 18px;
+--param-group-header-font-size: var(--canvas-headline-lg-size);
 --param-group-header-color: var(--color-gray-40);
---param-group-header-weight: 600;
+--param-group-header-weight: var(--canvas-headline-lg-weight);
 --param-group-header-margin-top: 12px;
 --param-group-header-margin-bottom: 12px;
 --param-group-divider-height: 1px;
@@ -396,12 +439,12 @@
 --zoom-interaction-threshold: 0.3; /* Disable parameter drag below this zoom */
 
 /* === 8. EMBEDDED UIs (range-editor, bezier, toggle, enum, remap-range, etc.) === */
-/* Bezier editor */
---bezier-editor-bg: var(--color-gray-20);
+/* Bezier editor (uses embed-slot for container) */
+--bezier-editor-bg: var(--embed-slot-bg);
 --bezier-editor-border: 0 solid var(--color-gray-70);
 --bezier-editor-border-color: var(--color-gray-70);
---bezier-editor-radius: 18px;
---bezier-editor-padding: 18px;
+--bezier-editor-radius: var(--embed-slot-radius);
+--bezier-editor-padding: var(--embed-slot-pd);
 --bezier-editor-height: 200px;
 --bezier-editor-grid-color: var(--color-gray-70);
 --bezier-editor-grid-line-width: 1px;
@@ -417,15 +460,17 @@
 --bezier-editor-control-line-color: var(--color-gray-80);
 --bezier-editor-control-line-width: 1px;
 --bezier-editor-control-line-dash: 4px;
---bezier-editor-label-font-size: var(--canvas-text-xs); /* 11px */
+--bezier-editor-label-font-size: var(--canvas-font-caption-size);
 --bezier-editor-label-color: var(--color-gray-110);
 --bezier-editor-label-spacing: 4px;
 --bezier-param-port-spacing: var(--scale-11); /* 54px */
 
 /* === COLOR PICKER (in-node swatch only; popover tokens live in tokens-dom) === */
-/* In-node swatch: height dictates row height; width fills available space; no vertical padding */
---color-picker-node-swatch-height: 120px;
---color-picker-node-swatch-radius: 12px;
+/* In-node swatch: embed-slot container; height dictates row height; width fills available space */
+--color-picker-node-swatch-height: 180px;
+--color-picker-node-swatch-bg: var(--embed-slot-bg);
+--color-picker-node-swatch-radius: var(--embed-slot-radius);
+--color-picker-node-swatch-color-radius: var(--radius-sm);
 
 /* === 2D VECTOR EDITOR TOKENS === */
 --vector2d-editor-size: 160px;
@@ -445,9 +490,9 @@
 --vector2d-editor-point-hover-bg: var(--color-blue-100);
 --vector2d-editor-input-width: 70px;
 --vector2d-editor-input-height: 24px;
---vector2d-editor-input-font-size: var(--canvas-text-sm); /* 12px */
+--vector2d-editor-input-font-size: var(--canvas-font-input-size);
 --vector2d-editor-input-spacing: 8px;
---vector2d-editor-label-font-size: var(--canvas-text-xs); /* 11px */
+--vector2d-editor-label-font-size: var(--canvas-font-caption-size);
 --vector2d-editor-label-color: var(--color-gray-110);
 --vector2d-editor-label-spacing: 4px;
 
@@ -471,9 +516,9 @@
 --vector3d-editor-knob-marker-color: var(--color-gray-10);
 --vector3d-editor-input-width: 60px;
 --vector3d-editor-input-height: 24px;
---vector3d-editor-input-font-size: var(--canvas-text-sm); /* 12px */
+--vector3d-editor-input-font-size: var(--canvas-font-input-size);
 --vector3d-editor-input-spacing: 6px;
---vector3d-editor-label-font-size: var(--canvas-text-xs); /* 11px */
+--vector3d-editor-label-font-size: var(--canvas-font-caption-size);
 --vector3d-editor-label-color: var(--color-gray-110);
 --vector3d-editor-label-spacing: 4px;
 
@@ -485,8 +530,8 @@
 --enum-selector-border-focus: 1px solid var(--color-blue-90);
 --enum-selector-radius: 6px;
 --enum-selector-padding: 8px 12px;
---enum-selector-font-size: var(--canvas-text-md); /* 13px */
---enum-selector-font-weight: 500;
+--enum-selector-font-size: var(--canvas-font-select-size);
+--enum-selector-font-weight: var(--canvas-font-select-weight);
 --enum-selector-color: var(--color-gray-130);
 --enum-selector-arrow-size: 8px;
 --enum-selector-arrow-color: var(--color-gray-100);
@@ -506,8 +551,8 @@
 --range-editor-height: 300px;
 --range-editor-bg: var(--color-gray-20);
 --range-editor-border: 0 solid var(--color-gray-70);
---range-editor-radius: 12px;
---range-editor-padding: 12px;
+--range-editor-radius: var(--radius-lg);
+--range-editor-padding: var(--pd-lg);
 --range-editor-slider-width: 120px;
 --range-editor-slider-bg: var(--color-gray-30);
 --range-editor-slider-radius: 2px;
@@ -523,12 +568,12 @@
 --range-editor-connection-color: var(--color-blue-90);
 --range-editor-connection-width: 2px;
 --range-editor-connection-dash: 4px;
---range-editor-label-font-size: var(--canvas-text-xs); /* 11px */
+--range-editor-label-font-size: var(--canvas-font-caption-size);
 --range-editor-label-color: var(--color-gray-110);
 --range-editor-label-spacing: 18px;
 --range-editor-input-width: 60px;
 --range-editor-input-height: 24px;
---range-editor-input-font-size: var(--canvas-text-lg); /* 18px */
+--range-editor-input-font-size: var(--canvas-font-input-size);
 --range-editor-input-spacing: 6px;
 --range-editor-param-label-spacing: 24px;
 
@@ -545,9 +590,10 @@
 --toggle-slider-border: 1px solid var(--color-gray-100);
 --toggle-slider-offset: 2px;
 --toggle-transition-duration: 0.2s;
---toggle-label-font-size: var(--canvas-text-md); /* 13px */
---toggle-label-color: var(--color-gray-130);
---toggle-label-spacing: 8px;
+--toggle-label-font-size: var(--canvas-font-label-size);
+--toggle-label-font-weight: var(--canvas-font-label-weight);
+--toggle-label-color: var(--color-gray-90);
+--toggle-label-spacing: 12px;
 
 /* === ELEMENT BOX TOKENS === */
 --element-box-bg: var(--color-gray-40);
@@ -581,7 +627,7 @@
 --param-cell-flex-direction: column;
 --param-cell-justify-content: center;
 --param-cell-align-items: center;
---param-cell-gap: 8px;
+--param-cell-gap: 12px;
 --param-cell-min-height: auto; /* content-based */
 --param-cell-flex-grow: 0;
 --param-cell-flex-shrink: 1;
@@ -630,19 +676,22 @@
  * Layering: remap-range-* overlays range-editor-*; use var(--range-editor-...) defaults where shared.
  */
 --remap-range-height: 300px; /* Fallback total; computed as 3×padding + slider-row + input-row when tokens set */
---remap-range-padding: 12px; /* Used as container padding and as gap between rows */
+--remap-range-padding: var(--embed-slot-pd);
 --remap-range-gap: 0px; /* Unused; gap = padding */
---remap-range-radius: var(--range-editor-radius);
---remap-range-editor-padding: var(--range-editor-padding); /* Inset inside container for slider/content area */
---remap-range-slider-row-height: 228px; /* Height of the slider graph row */
---remap-range-input-row-height: 24px; /* Height of the In/Out Min/Max input row */
+--remap-range-radius: var(--embed-slot-radius);
+--remap-range-editor-padding: var(--embed-slot-pd);
+--remap-range-slider-row-height: 180px; /* Height of the slider graph row */
+--remap-range-input-row-height: 30px; /* Match value box height (input-value-font-size + 2×padding-vertical) */
 
 /* Remap Range – input row (IN: min — max | OUT: min — max) */
---remap-range-input-group-gap: 120px; /* Gap between IN and OUT groups */
---remap-range-input-dash-width: 18px; /* Space for the "—" between min and max */
---remap-range-input-item-spacing: 2px; /* Spacing between label, value boxes, dash */
---remap-range-input-label-font-size: var(--canvas-text-md); /* 11px */
---remap-range-input-label-width: 24px; /* Reserved width for "IN:" / "OUT:" (for layout + hit-test) */
+--remap-range-input-group-gap: 60px; /* Gap between IN and OUT groups */
+--remap-range-input-dash-width: 6px; /* Space for the "—" between min and max */
+--remap-range-input-item-spacing: 4px; /* Spacing between label, value boxes, dash */
+--remap-range-input-label-font-size: var(--canvas-headline-md-size);
+--remap-range-input-label-font-weight: var(--canvas-headline-md-weight);
+--remap-range-input-label-width: 30px; /* Default for both IN and OUT when not overridden */
+--remap-range-input-label-in-width: 12px;
+--remap-range-input-label-out-width: 30px;
 --remap-range-input-label-color: var(--range-editor-label-color);
 
 /* Remap Range – slider and connection (overlay range-editor) */
@@ -652,7 +701,7 @@
 --remap-range-connection-dash: var(--range-editor-connection-dash);
 
 /* Remap Range – slider colors */
---remap-range-bg: var(--color-gray-20);
+--remap-range-bg: var(--embed-slot-bg);
 --remap-range-slider-bg: var(--color-gray-30);
 --remap-range-slider-track-color: var(--color-gray-60);
 --remap-range-slider-input-color: var(--color-purple-90);   /* Left/input range fill */
@@ -666,19 +715,44 @@
 /* Bezier Editor Container */
 --bezier-editor-gap: 6px;
 
-/* === EMBED SLOT (frequency-range, etc.) === */
---embed-slot-pd: 12px; /* Padding and gap for embed-slot; direction column */
+/* === EMBED SLOT (shared container for embedded UIs: frequency-range, remap-range, swatch, etc.) === */
+--embed-slot-pd: var(--pd-lg);
+--embed-slot-radius: var(--radius-lg);
+--embed-slot-bg: var(--color-gray-20);
 
-/* Frequency Range Element (simplified range: label + horizontal slider + start/end inputs) */
---frequency-range-label-font-size: var(--canvas-text-md); /* 11px */
---frequency-range-slider-height: 36px;
---frequency-range-input-row-height: 24px;
+/* Audio File Input Slot (single embed-slot body: display text, Upload MP3 button, auto-play toggle) */
+--audio-file-input-slot-height: 180px;
+--audio-file-input-display-text-color: var(--color-teal-gray-90);
+--audio-file-input-display-placeholder-color: var(--color-red-80);
+/* Display text uses --canvas-headline-md-size/weight (same as param labels) */
+--audio-file-input-button-width: 180px;
+--audio-file-input-button-height: 42px;
+--audio-file-input-button-radius: var(--radius-md);
+--audio-file-input-button-bg: var(--color-gray-60);
+--audio-file-input-button-bg-hover: var(--color-gray-90);
+--audio-file-input-button-border: var(--color-gray-80);
+--audio-file-input-button-text-color: var(--color-gray-110);
+--audio-file-input-toggle-label-gap: 12px;
+
+/* Frequency Range Element (label + [scale when audio] + horizontal slider + start/end inputs) */
+--frequency-range-label-font-size: var(--canvas-headline-md-size);
+--frequency-range-label-font-weight: var(--canvas-headline-md-weight);
+--frequency-range-label-color: var(--color-gray-120);
+--frequency-range-scale-height: 18px;
+--frequency-range-scale-font-size: var(--canvas-font-caption-size);
+--frequency-range-scale-font-weight: var(--canvas-font-caption-weight);
+--frequency-range-scale-color: var(--color-teal-gray-80);
+--frequency-range-slider-height: 42px;
+--frequency-range-input-row-height: 36px;
 --frequency-range-input-gap: 60px;
---frequency-range-radius: var(--radius-md);
---frequency-range-bg: var(--color-gray-20);
---frequency-range-slider-bg: var(--color-gray-40);
---frequency-range-slider-track-color: var(--color-gray-60);
---frequency-range-slider-active-color: var(--color-teal-90);
---frequency-range-slider-radius: 4px;
---frequency-range-label-color: var(--color-gray-110);
+--frequency-range-radius: var(--embed-slot-radius);
+--frequency-range-bg: var(--embed-slot-bg);
+--frequency-range-slider-bg: var(--color-teal-gray-40);
+--frequency-range-slider-edge-thickness: 0; /* left/right edge strip; 0 = none */
+--frequency-range-slider-edge-color: var(--color-teal-gray-60);
+--frequency-range-slider-track-color: var(--color-teal-gray-40);
+--frequency-range-slider-radius: var(--radius-xs);
+--frequency-range-slider-active-color: var(--color-violet-90);
+--frequency-range-slider-active-edge-thickness: 4px; /* left/right edge of active range; 0 = none */
+--frequency-range-slider-active-edge-color: var(--color-violet-120);
 }

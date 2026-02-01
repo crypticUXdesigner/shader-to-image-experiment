@@ -12,6 +12,7 @@ import { getParameterUIRegistry } from './rendering/ParameterUIRegistry';
 import { ParameterLayoutManager } from './rendering/layout/ParameterLayoutManager';
 import type { ElementMetrics } from './rendering/layout/LayoutElementRenderer';
 import { NodeCache } from './rendering/NodeCache';
+import { getPortTypeDisplayLabel } from './rendering/RenderingUtils';
 import { renderStringParameter, renderArrayParameter } from '../utils/stringArrayRendering';
 
 export interface NodeRenderMetrics {
@@ -489,7 +490,7 @@ export class NodeRenderer {
     const iconBoxHeight = getCSSVariableAsNumber('node-icon-box-height', 90);
     const iconBoxRadius = getCSSVariableAsNumber('node-icon-box-radius', 36);
     const iconBoxNameSpacing = getCSSVariableAsNumber('node-icon-box-name-spacing', 24);
-    const nameSize = getCSSVariableAsNumber('node-header-name-size', 24);
+    const nameSize = getCSSVariableAsNumber('node-header-name-size', 30);
     const nameWeight = getCSSVariableAsNumber('node-header-name-weight', 600);
     const nameColor = getCSSColor('node-header-name-color', getCSSColor('color-gray-130', '#ebeff0'));
     const portSize = getCSSVariableAsNumber('node-port-size', 8);
@@ -573,16 +574,16 @@ export class NodeRenderer {
         const isConnecting = connectingPortName === port.name;
         const portX = x;
         
-        // Draw port circle first (without highlight)
-        this.renderPortCircle(portX, portY, port.type, isHovered, isConnecting);
+        // Draw port circle first (without highlight) — connected state not available in this path
+        this.renderPortCircle(portX, portY, port.type, isHovered, isConnecting, false);
         
         // Draw port label (type and name) to the right of the port
         // Order: port -> type -> name
         const portRadius = getCSSVariableAsNumber('port-radius', 6);
         const labelSpacing = getCSSVariableAsNumber('port-label-spacing', 12);
-        const labelFontSize = getCSSVariableAsNumber('port-label-font-size', 19);
-        const labelFontWeight = getCSSVariableAsNumber('port-label-font-weight', 500);
-        const typeFontSize = getCSSVariableAsNumber('port-type-font-size', 19);
+        const labelFontSize = getCSSVariableAsNumber('port-label-font-size', 15);
+        const labelFontWeight = getCSSVariableAsNumber('port-label-font-weight', 600);
+        const typeFontSize = getCSSVariableAsNumber('port-type-font-size', 15);
         const typeFontWeight = getCSSVariableAsNumber('port-type-font-weight', 600);
         const typeSpacing = getCSSVariableAsNumber('port-label-spacing', 12); // Use same spacing as port-to-type
         const typeBgRadius = getCSSVariableAsNumber('port-type-bg-radius', 6);
@@ -590,11 +591,12 @@ export class NodeRenderer {
         const typePaddingV = getCSSVariableAsNumber('port-type-padding-vertical', 4);
         
         const portLabel = port.label || port.name;
-        
+        const typeLabel = getPortTypeDisplayLabel(port.type);
+
         // Measure text widths
         this.ctx.font = `${typeFontWeight} ${typeFontSize}px "Space Grotesk", sans-serif`;
-        const typeWidth = this.ctx.measureText(port.type).width;
-        
+        const typeWidth = this.ctx.measureText(typeLabel).width;
+
         // Calculate positions: port -> type -> name
         const typeStartX = portX + portRadius + labelSpacing;
         const typeBgX = typeStartX;
@@ -603,28 +605,28 @@ export class NodeRenderer {
         const typeBgY = portY - typeBgHeight / 2;
         const typeTextX = typeStartX + typePaddingH;
         const typeTextY = portY;
-        
+
         const nameStartX = typeStartX + typeBgWidth + typeSpacing;
         const nameTextX = nameStartX;
         const nameTextY = portY;
-        
+
         // Draw type background first
         const typeBgColor = this.getPortTypeBgColor(port.type);
         this.ctx.fillStyle = typeBgColor;
         this.drawRoundedRect(typeBgX, typeBgY, typeBgWidth, typeBgHeight, typeBgRadius);
         this.ctx.fill();
-        
+
         // Draw hover highlight after type background (so it appears on top of bg but behind text)
         this.renderPortHighlight(portX, portY, isHovered, isConnecting);
-        
+
         // Draw type text
         const typeTextColor = this.getPortTypeTextColor(port.type);
         this.ctx.fillStyle = typeTextColor;
         this.ctx.font = `${typeFontWeight} ${typeFontSize}px "Space Grotesk", sans-serif`;
         this.ctx.textAlign = 'left';
         this.ctx.textBaseline = 'middle';
-        this.ctx.fillText(port.type, typeTextX, typeTextY);
-        
+        this.ctx.fillText(typeLabel, typeTextX, typeTextY);
+
         // Draw label text (no background, after type)
         const labelColor = getCSSColor('port-label-color', getCSSColor('color-gray-110', '#a3aeb5'));
         this.ctx.fillStyle = labelColor;
@@ -641,16 +643,16 @@ export class NodeRenderer {
         const isConnecting = connectingPortName === port.name;
         const portX = x + width;
         
-        // Draw port circle first (without highlight)
-        this.renderPortCircle(portX, portY, port.type, isHovered, isConnecting);
+        // Draw port circle first (without highlight) — connected state not available in this path
+        this.renderPortCircle(portX, portY, port.type, isHovered, isConnecting, false);
         
         // Draw port label (name and type) to the left of the port
         // Order: name -> type -> port
         const portRadius = getCSSVariableAsNumber('port-radius', 6);
         const labelSpacing = getCSSVariableAsNumber('port-label-spacing', 12);
-        const labelFontSize = getCSSVariableAsNumber('port-label-font-size', 19);
-        const labelFontWeight = getCSSVariableAsNumber('port-label-font-weight', 500);
-        const typeFontSize = getCSSVariableAsNumber('port-type-font-size', 19);
+        const labelFontSize = getCSSVariableAsNumber('port-label-font-size', 15);
+        const labelFontWeight = getCSSVariableAsNumber('port-label-font-weight', 600);
+        const typeFontSize = getCSSVariableAsNumber('port-type-font-size', 15);
         const typeFontWeight = getCSSVariableAsNumber('port-type-font-weight', 600);
         const typeSpacing = getCSSVariableAsNumber('port-label-spacing', 12); // Use same spacing as port-to-type
         const typeBgRadius = getCSSVariableAsNumber('port-type-bg-radius', 6);
@@ -658,25 +660,26 @@ export class NodeRenderer {
         const typePaddingV = getCSSVariableAsNumber('port-type-padding-vertical', 4);
         
         const portLabel = port.label || port.name;
-        
+        const typeLabel = getPortTypeDisplayLabel(port.type);
+
         // Measure text widths
         this.ctx.font = `${typeFontWeight} ${typeFontSize}px "Space Grotesk", sans-serif`;
-        const typeWidth = this.ctx.measureText(port.type).width;
-        
+        const typeWidth = this.ctx.measureText(typeLabel).width;
+
         // Calculate positions from right to left: port -> type -> name
         const typeBgWidth = typeWidth + typePaddingH * 2;
         const typeBgHeight = typeFontSize + typePaddingV * 2;
-        
+
         const typeEndX = portX - portRadius - labelSpacing;
         const typeBgX = typeEndX - typeBgWidth;
         const typeBgY = portY - typeBgHeight / 2;
         const typeTextX = typeBgX + typePaddingH;
         const typeTextY = portY;
-        
+
         const nameEndX = typeBgX - typeSpacing;
         const nameTextX = nameEndX;
         const nameTextY = portY;
-        
+
         // Draw label text first (no background, furthest left)
         const labelColor = getCSSColor('port-label-color', getCSSColor('color-gray-110', '#a3aeb5'));
         this.ctx.fillStyle = labelColor;
@@ -684,23 +687,23 @@ export class NodeRenderer {
         this.ctx.textAlign = 'right';
         this.ctx.textBaseline = 'middle';
         this.ctx.fillText(portLabel, nameTextX, nameTextY);
-        
+
         // Draw type background (between name and port)
         const typeBgColor = this.getPortTypeBgColor(port.type);
         this.ctx.fillStyle = typeBgColor;
         this.drawRoundedRect(typeBgX, typeBgY, typeBgWidth, typeBgHeight, typeBgRadius);
         this.ctx.fill();
-        
+
         // Draw hover highlight after type background (so it appears on top of bg but behind text)
         this.renderPortHighlight(portX, portY, isHovered, isConnecting);
-        
+
         // Draw type text
         const typeTextColor = this.getPortTypeTextColor(port.type);
         this.ctx.fillStyle = typeTextColor;
         this.ctx.font = `${typeFontWeight} ${typeFontSize}px "Space Grotesk", sans-serif`;
         this.ctx.textAlign = 'left';
         this.ctx.textBaseline = 'middle';
-        this.ctx.fillText(port.type, typeTextX, typeTextY);
+        this.ctx.fillText(typeLabel, typeTextX, typeTextY);
       });
     }
     
@@ -1072,22 +1075,40 @@ export class NodeRenderer {
   ): void {
     // Use exact same tokens and setup as renderParameterCell
     const cellBg = getCSSColor('param-cell-bg', getCSSColor('color-gray-30', '#050507'));
+    const cellBgEnd = getCSSColor('param-cell-bg-end', 'transparent');
     const cellBgConnectedRGBA = getCSSColorRGBA('param-cell-bg-connected', { r: 255, g: 255, b: 255, a: 0.5 });
     const cellBgConnected = `rgba(${cellBgConnectedRGBA.r}, ${cellBgConnectedRGBA.g}, ${cellBgConnectedRGBA.b}, ${cellBgConnectedRGBA.a})`;
     const cellBorderRadius = getCSSVariableAsNumber('param-cell-border-radius', 6);
     const cellPadding = getCSSVariableAsNumber('param-cell-padding', 12);
     const portSize = getCSSVariableAsNumber('param-port-size', 6);
-    const labelFontSize = getCSSVariableAsNumber('param-label-font-size', 11);
-    const labelFontWeight = getCSSVariableAsNumber('param-label-font-weight', 400);
+    const labelFontSize = getCSSVariableAsNumber('param-label-font-size', 18);
+    const labelFontWeight = getCSSVariableAsNumber('param-label-font-weight', 600);
     const labelColor = getCSSColor('param-label-color', getCSSColor('color-gray-110', '#a3aeb5'));
-    const valueFontSize = getCSSVariableAsNumber('knob-value-font-size', 11);
+    const valueFontSize = getCSSVariableAsNumber('knob-value-font-size', 18);
     const valueColor = getCSSColor('knob-value-color', getCSSColor('color-gray-130', '#ebeff0'));
     const modeButtonSize = getCSSVariableAsNumber('param-mode-button-size', 20);
-    
-    // Draw cell background
-    this.ctx.fillStyle = isConnected ? cellBgConnected : cellBg;
-    this.drawRoundedRect(cellX, cellY, cellWidth, cellHeight, cellBorderRadius);
-    this.ctx.fill();
+
+    // Draw cell background (gradient when not connected, solid when connected)
+    if (isConnected) {
+      this.ctx.fillStyle = cellBgConnected;
+      this.drawRoundedRect(cellX, cellY, cellWidth, cellHeight, cellBorderRadius);
+      this.ctx.fill();
+    } else {
+      const ew = (cellWidth * getCSSVariableAsNumber('param-cell-bg-gradient-ellipse-width', 100)) / 100;
+      const eh = (cellHeight * getCSSVariableAsNumber('param-cell-bg-gradient-ellipse-height', 100)) / 100;
+      const ex = cellX + (cellWidth * getCSSVariableAsNumber('param-cell-bg-gradient-ellipse-x', 50)) / 100;
+      const ey = cellY + (cellHeight * getCSSVariableAsNumber('param-cell-bg-gradient-ellipse-y', 50)) / 100;
+      const gradientRadius = Math.max(ew, eh) / 2;
+      const gradient = this.ctx.createRadialGradient(ex, ey, 0, ex, ey, gradientRadius);
+      gradient.addColorStop(0, cellBg);
+      gradient.addColorStop(1, cellBgEnd);
+      this.ctx.save();
+      this.drawRoundedRect(cellX, cellY, cellWidth, cellHeight, cellBorderRadius);
+      this.ctx.clip();
+      this.ctx.fillStyle = gradient;
+      this.ctx.fillRect(cellX, cellY, cellWidth, cellHeight);
+      this.ctx.restore();
+    }
     
     // Draw cell border
     const borderColorToken = isConnected ? 'param-cell-border-connected' : 'param-cell-border';
@@ -1119,7 +1140,7 @@ export class NodeRenderer {
     
     // Draw parameter port (top-left corner) - only if not skipping and parameter has a port
     if (!skipPorts && paramSpec.type === 'float' && hasPort) {
-      this.renderPort(portX, portY, 'float', isHovered, false, portSize / getCSSVariableAsNumber('port-radius', 4));
+      this.renderPort(portX, portY, 'float', isHovered, false, false, portSize / getCSSVariableAsNumber('port-radius', 4));
     }
     
     // Draw parameter name label
@@ -1147,8 +1168,8 @@ export class NodeRenderer {
       // Use different color based on connection state
       const modeButtonColorToken = isConnected ? 'param-mode-button-color-connected' : 'param-mode-button-color-static';
       this.ctx.fillStyle = getCSSColor(modeButtonColorToken, isConnected ? getCSSColor('color-gray-130', '#ebeff0') : getCSSColor('color-gray-60', '#5a5f66'));
-      const modeButtonFontSize = getCSSVariableAsNumber('param-mode-button-font-size', 10);
-      const modeButtonFontWeight = getCSSVariableAsNumber('param-mode-button-font-weight', 400);
+      const modeButtonFontSize = getCSSVariableAsNumber('param-mode-button-font-size', 18);
+      const modeButtonFontWeight = getCSSVariableAsNumber('param-mode-button-font-weight', 500);
       const modeButtonTextOffsetY = getCSSVariableAsNumber('param-mode-button-text-offset-y', 0);
       this.ctx.font = `${modeButtonFontWeight} ${modeButtonFontSize}px "Space Grotesk", sans-serif`;
       this.ctx.textAlign = 'center';
@@ -1379,7 +1400,7 @@ export class NodeRenderer {
   ): void {
     const gridPadding = getCSSVariableAsNumber('node-body-padding', 18); // Use same padding as calculateMetrics
     const groupHeaderHeight = getCSSVariableAsNumber('param-group-header-height', 24);
-    const groupHeaderFontSize = getCSSVariableAsNumber('param-group-header-font-size', 11);
+    const groupHeaderFontSize = getCSSVariableAsNumber('param-group-header-font-size', 24);
     const groupHeaderColor = getCSSColor('param-group-header-color', getCSSColor('color-gray-110', '#a3aeb5'));
     const groupHeaderMarginTop = getCSSVariableAsNumber('param-group-header-margin-top', 0);
     const groupHeaderMarginBottom = getCSSVariableAsNumber('param-group-header-margin-bottom', 0);
@@ -1422,14 +1443,14 @@ export class NodeRenderer {
       // Calculate labelX based on max type label width
       const typeSpacing = getCSSVariableAsNumber('port-type-spacing', 4);
       const typePaddingH = getCSSVariableAsNumber('port-type-padding-horizontal', 8);
-      const typeFontSize = getCSSVariableAsNumber('port-type-font-size', 19);
+      const typeFontSize = getCSSVariableAsNumber('port-type-font-size', 15);
       const typeFontWeight = getCSSVariableAsNumber('port-type-font-weight', 600);
       // Measure max type width for all parameters
       this.ctx.font = `${typeFontWeight} ${typeFontSize}px "Space Grotesk", sans-serif`;
       const maxTypeWidth = Math.max(...bezierParams.map(p => {
         const paramSpec = spec.parameters[p];
         const paramType = paramSpec?.type || 'float';
-        return this.ctx.measureText(paramType).width;
+        return this.ctx.measureText(getPortTypeDisplayLabel(paramType)).width;
       }));
       const maxTypeBgWidth = maxTypeWidth + typePaddingH * 2;
       const labelX = typeLabelX + maxTypeBgWidth + typeSpacing;
@@ -1556,7 +1577,7 @@ export class NodeRenderer {
         currentY += groupHeaderMarginTop;
         
         this.ctx.fillStyle = groupHeaderColor;
-        this.ctx.font = `${getCSSVariableAsNumber('param-group-header-weight', 500)} ${groupHeaderFontSize}px "Space Grotesk", sans-serif`;
+        this.ctx.font = `${getCSSVariableAsNumber('param-group-header-weight', 600)} ${groupHeaderFontSize}px "Space Grotesk", sans-serif`;
         this.ctx.textAlign = 'left';
         this.ctx.textBaseline = 'middle';
         this.ctx.fillText(group.label, x + gridPadding, currentY + groupHeaderHeight / 2);
@@ -1813,7 +1834,8 @@ export class NodeRenderer {
     isConnectingParameter?: boolean,
     connectedParameters?: Set<string>,
     skipPorts: boolean = false,
-    audioRemapLiveValues?: { incoming: number | null; outgoing: number | null }
+    audioRemapLiveValues?: { incoming: number | null; outgoing: number | null },
+    audioAnalyzerBandLiveValues?: Map<number, { incoming: number | null; outgoing: number | null }>
   ): void {
     const { width, height, headerHeight } = metrics;
     const x = node.position.x;
@@ -2036,6 +2058,11 @@ export class NodeRenderer {
           this.ctx.clip(bodyClipPath);
 
           // Use layout manager to render elements
+          const hoveredAudioFileInputControl =
+            spec.id === 'audio-file-input' && hoveredPortName && isHoveredParameter
+              ? (hoveredPortName === 'filePath' ? 'upload' : hoveredPortName === 'autoPlay' ? 'toggle' : null)
+              : null;
+
           this.layoutManager.render(
             node,
             spec,
@@ -2053,7 +2080,9 @@ export class NodeRenderer {
               connectedParameters,
               effectiveParameterValues,
               skipPorts,
-              audioRemapLiveValues
+              audioRemapLiveValues,
+              audioAnalyzerBandLiveValues,
+              hoveredAudioFileInputControl
             }
           );
 
@@ -2355,7 +2384,8 @@ export class NodeRenderer {
     isHoveredParameter?: boolean,
     connectingPortName?: string | null,
     isConnectingParameter?: boolean,
-    connectedParameters?: Set<string>
+    connectedParameters?: Set<string>,
+    connectedHeaderPorts?: Set<string>
   ): void {
     // Use port renderer
     if (this.portRenderer) {
@@ -2367,7 +2397,8 @@ export class NodeRenderer {
         isHoveredParameter,
         connectingPortName,
         isConnectingParameter,
-        connectedParameters
+        connectedParameters,
+        connectedHeaderPorts
       );
     }
   }
@@ -2390,41 +2421,44 @@ export class NodeRenderer {
     if (paramInputPortPos && paramSpec.type === 'float') {
       // Note: isConnecting for parameters is handled via isConnectingParameter
       const isConnecting = false; // Parameters don't use the connecting state from regular ports
-      this.renderPort(paramInputPortPos.x, paramInputPortPos.y, 'float', isHovered, isConnecting);
+      this.renderPort(paramInputPortPos.x, paramInputPortPos.y, 'float', isHovered, isConnecting, false);
     }
     
-    // Parameter label (after port)
+    // Parameter label (after port) — headline-md
     const labelX = paramInputPortPos ? paramInputPortPos.x + portRadius + 6 : x + padding;
     const paramLabelColor = getCSSColor('node-param-label-color', getCSSColor('color-gray-100', '#747e87'));
+    const paramLabelFontSize = getCSSVariableAsNumber('param-label-font-size', 18);
+    const paramLabelFontWeight = getCSSVariableAsNumber('param-label-font-weight', 600);
     this.ctx.fillStyle = paramLabelColor;
-    this.ctx.font = '12px "Space Grotesk", sans-serif';
+    this.ctx.font = `${paramLabelFontWeight} ${paramLabelFontSize}px "Space Grotesk", sans-serif`;
     this.ctx.textAlign = 'left';
     this.ctx.fillText(paramSpec.label || paramName, labelX, y + height / 2 + 4);
     
     // Value display (right side, draggable)
     const valueX = x + width - valueWidth - padding;
     
-    // Mode selector (positioned right before value, very close - visually grouped with value)
+    // Mode selector (positioned right before value, very close - visually grouped with value) — button style
     const modeGap = 1; // Small gap to keep it visually distinct but close
     const modeX = valueX - modeWidth - modeGap;
     const inputMode = node.parameterInputModes?.[paramName] || paramSpec.inputMode || 'override';
     const modeSymbol = inputMode === 'override' ? '=' : inputMode === 'add' ? '+' : inputMode === 'subtract' ? '-' : '*';
     const modeColor = getCSSColor('node-param-label-color', getCSSColor('color-gray-100', '#747e87'));
+    const modeButtonFontSize = getCSSVariableAsNumber('param-mode-button-font-size', 18);
+    const modeButtonFontWeight = getCSSVariableAsNumber('param-mode-button-font-weight', 500);
     this.ctx.fillStyle = modeColor;
-    this.ctx.font = '11px "Space Grotesk", sans-serif';
+    this.ctx.font = `${modeButtonFontWeight} ${modeButtonFontSize}px "Space Grotesk", sans-serif`;
     this.ctx.textAlign = 'center';
     this.ctx.fillText(modeSymbol, modeX + modeWidth / 2, y + height / 2 + 4);
     
-    // Display value - show effective value if available, otherwise show config value
+    // Display value - show effective value if available, otherwise show config value — input style
     const displayValue = effectiveValue !== null ? effectiveValue : value;
     const isAnimated = effectiveValue !== null;
-    
-    // Use different color for animated values
+    const inputValueFontSize = getCSSVariableAsNumber('input-value-font-size', 18);
     const paramValueColor = isAnimated 
       ? getCSSColor('node-param-value-animated-color', getCSSColor('color-teal-90', '#2f8a6b'))
       : getCSSColor('node-param-value-color', getCSSColor('color-gray-130', '#ebeff0'));
     this.ctx.fillStyle = paramValueColor;
-    this.ctx.font = '12px "JetBrains Mono", monospace';
+    this.ctx.font = `${inputValueFontSize}px "JetBrains Mono", monospace`;
     this.ctx.textAlign = 'right';
     const displayText = paramSpec.type === 'int' ? Math.round(displayValue).toString() : displayValue.toFixed(3);
     this.ctx.fillText(displayText, valueX + valueWidth, y + height / 2 + 4);
@@ -2433,34 +2467,39 @@ export class NodeRenderer {
   
 
   // Render just the port circle (without highlight)
-  private renderPortCircle(x: number, y: number, type: string, isHovered: boolean = false, isConnecting: boolean = false, scale: number = 1.0, opacity: number = 1.0): void {
+  private renderPortCircle(x: number, y: number, type: string, isHovered: boolean = false, isConnecting: boolean = false, isConnected: boolean = false, scale: number = 1.0, opacity: number = 1.0): void {
     const radius = getCSSVariableAsNumber('port-radius', 4) * scale;
     const borderWidth = getCSSVariableAsNumber('port-border-width', 0);
     const borderColorRGBA = getCSSColorRGBA('port-border-color', { r: 255, g: 255, b: 255, a: 1 });
     
-    // Get base port color for normal state
-    const colorMap: Record<string, string> = {
-      'float': 'port-color-float',
-      'vec2': 'port-color-vec2',
-      'vec3': 'port-color-vec3',
-      'vec4': 'port-color-vec4'
-    };
-    const tokenName = colorMap[type] || 'port-color-default';
-    const colorRGBA = getCSSColorRGBA(tokenName, { r: 102, g: 102, b: 102, a: 1 });
-    
-    // Determine port color based on state
+    // Determine port color: hover/dragging > connected > type color
     if (isHovered || isConnecting) {
       if (isConnecting) {
-        // Dragging state: use green color from token
         const draggingColorRGBA = getCSSColorRGBA('port-dragging-color', { r: 0, g: 255, b: 136, a: 1 });
         this.ctx.fillStyle = `rgba(${draggingColorRGBA.r}, ${draggingColorRGBA.g}, ${draggingColorRGBA.b}, ${opacity})`;
       } else {
-        // Hover state: use blue color from token
         const hoverColorRGBA = getCSSColorRGBA('port-hover-color', { r: 33, g: 150, b: 243, a: 1 });
         this.ctx.fillStyle = `rgba(${hoverColorRGBA.r}, ${hoverColorRGBA.g}, ${hoverColorRGBA.b}, ${opacity})`;
       }
+    } else if (isConnected) {
+      const connectedColorMap: Record<string, string> = {
+        'float': 'port-connected-color-float',
+        'vec2': 'port-connected-color-vec2',
+        'vec3': 'port-connected-color-vec3',
+        'vec4': 'port-connected-color-vec4'
+      };
+      const connectedTokenName = connectedColorMap[type] || 'port-connected-color-default';
+      const colorRGBA = getCSSColorRGBA(connectedTokenName, { r: 81, g: 89, b: 97, a: 1 });
+      this.ctx.fillStyle = `rgba(${colorRGBA.r}, ${colorRGBA.g}, ${colorRGBA.b}, ${opacity})`;
     } else {
-      // Normal state: use port type color
+      const colorMap: Record<string, string> = {
+        'float': 'port-color-float',
+        'vec2': 'port-color-vec2',
+        'vec3': 'port-color-vec3',
+        'vec4': 'port-color-vec4'
+      };
+      const tokenName = colorMap[type] || 'port-color-default';
+      const colorRGBA = getCSSColorRGBA(tokenName, { r: 102, g: 102, b: 102, a: 1 });
       this.ctx.fillStyle = `rgba(${colorRGBA.r}, ${colorRGBA.g}, ${colorRGBA.b}, ${opacity})`;
     }
     
@@ -2513,11 +2552,11 @@ export class NodeRenderer {
   }
   
   // Render port with highlight (for backwards compatibility and non-header ports)
-  private renderPort(x: number, y: number, type: string, isHovered: boolean = false, isConnecting: boolean = false, scale: number = 1.0, opacity: number = 1.0): void {
+  private renderPort(x: number, y: number, type: string, isHovered: boolean = false, isConnecting: boolean = false, isConnected: boolean = false, scale: number = 1.0, opacity: number = 1.0): void {
     // Draw highlight first (behind)
     this.renderPortHighlight(x, y, isHovered, isConnecting, scale, opacity);
     // Draw port circle on top
-    this.renderPortCircle(x, y, type, isHovered, isConnecting, scale, opacity);
+    this.renderPortCircle(x, y, type, isHovered, isConnecting, isConnected, scale, opacity);
   }
   
   private drawRoundedRect(x: number, y: number, width: number, height: number, radius: number): void {

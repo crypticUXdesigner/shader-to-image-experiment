@@ -46,6 +46,7 @@ const iconNameMap: Record<IconName, string> = {
   'arrows-minimize': 'arrows-minimize',
   'copy': 'copy',
   'photo': 'photo',
+  'video': 'video',
   'help-circle': 'help-circle',
 };
 
@@ -81,6 +82,7 @@ export type IconName =
   | 'arrows-minimize'
   | 'copy'
   | 'photo'
+  | 'video'
   | 'help-circle';
 
 // Helper to get icon path data from Tabler nodes

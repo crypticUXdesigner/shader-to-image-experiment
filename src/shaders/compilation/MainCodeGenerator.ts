@@ -94,14 +94,21 @@ export class MainCodeGenerator {
         continue;
       }
       
-      // Handle audio-analyzer dynamic outputs
+      // Handle audio-analyzer dynamic outputs (bands + per-band remapped)
       if (nodeSpec.id === 'audio-analyzer') {
         const frequencyBands = this.getFrequencyBands(node, nodeSpec);
         for (let i = 0; i < frequencyBands.length; i++) {
           const varName = outputVars.get(`band${i}`);
           if (varName) {
             const initValue = this.getOutputInitialValue('float', nodeSpec.id);
-            // Declare at global scope (without const) so it can be reassigned from uniforms
+            variableDeclarations.push(`float ${varName} = ${initValue};`);
+            declaredVars.add(varName);
+          }
+        }
+        for (let i = 0; i < frequencyBands.length; i++) {
+          const varName = outputVars.get(`remap${i}`);
+          if (varName) {
+            const initValue = this.getOutputInitialValue('float', nodeSpec.id);
             variableDeclarations.push(`float ${varName} = ${initValue};`);
             declaredVars.add(varName);
           }
@@ -238,11 +245,17 @@ export class MainCodeGenerator {
         }
       }
     } else if (nodeSpec.id === 'audio-analyzer') {
-      // Get frequency bands to determine how many outputs
       const frequencyBands = this.getFrequencyBands(node, nodeSpec);
       for (let i = 0; i < frequencyBands.length; i++) {
         const varName = outputVars.get(`band${i}`);
         const uniformName = uniformNames.get(`${node.id}.band${i}`);
+        if (varName && uniformName) {
+          code.push(`${varName} = ${uniformName};`);
+        }
+      }
+      for (let i = 0; i < frequencyBands.length; i++) {
+        const varName = outputVars.get(`remap${i}`);
+        const uniformName = uniformNames.get(`${node.id}.remap${i}`);
         if (varName && uniformName) {
           code.push(`${varName} = ${uniformName};`);
         }

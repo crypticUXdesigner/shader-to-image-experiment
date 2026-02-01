@@ -6,7 +6,7 @@
  * rendering of string (file selection) and array (frequency bands) parameters.
  */
 
-import { getCSSColor } from '../../utils/cssTokens';
+import { getCSSColor, getCSSVariableAsNumber } from '../../utils/cssTokens';
 import type { ParameterSpec } from '../../types/nodeSpec';
 
 /**
@@ -57,11 +57,15 @@ export function renderStringParameter(
 ): void {
   const padding = 8;
   const buttonWidth = 100;
+  const paramLabelFontSize = getCSSVariableAsNumber('param-label-font-size', 18);
+  const paramLabelFontWeight = getCSSVariableAsNumber('param-label-font-weight', 600);
+  const buttonFontSize = getCSSVariableAsNumber('param-mode-button-font-size', 18);
+  const buttonFontWeight = getCSSVariableAsNumber('param-mode-button-font-weight', 500);
   
-  // Parameter label (left side)
+  // Parameter label (left side) — headline-md
   const paramLabelColor = getCSSColor('node-param-label-color', getCSSColor('color-gray-100', '#747e87'));
   ctx.fillStyle = paramLabelColor;
-  ctx.font = '12px "Space Grotesk", sans-serif';
+  ctx.font = `${paramLabelFontWeight} ${paramLabelFontSize}px "Space Grotesk", sans-serif`;
   ctx.textAlign = 'left';
   ctx.fillText(paramSpec.label || paramName, x + padding, y + height / 2 + 4);
   
@@ -78,10 +82,10 @@ export function renderStringParameter(
   ctx.fill();
   ctx.stroke();
   
-  // Button text - show filename if file is selected, otherwise show "Select File"
+  // Button text - show filename if file is selected, otherwise show "Select File" — button style
   const buttonTextColor = getCSSColor('node-param-value-color', '#333333');
   ctx.fillStyle = buttonTextColor;
-  ctx.font = '11px "Space Grotesk", sans-serif';
+  ctx.font = `${buttonFontWeight} ${buttonFontSize}px "Space Grotesk", sans-serif`;
   ctx.textAlign = 'center';
   
   let buttonText = 'Select File';
@@ -124,19 +128,22 @@ export function renderArrayParameter(
 ): void {
   const padding = 8;
   const valueWidth = 50;
+  const paramLabelFontSize = getCSSVariableAsNumber('param-label-font-size', 18);
+  const paramLabelFontWeight = getCSSVariableAsNumber('param-label-font-weight', 600);
+  const inputValueFontSize = getCSSVariableAsNumber('input-value-font-size', 18);
   
-  // Parameter label (left side) - match style of other parameters
+  // Parameter label (left side) — headline-md
   const paramLabelColor = getCSSColor('node-param-label-color', getCSSColor('color-gray-100', '#747e87'));
   ctx.fillStyle = paramLabelColor;
-  ctx.font = '12px "Space Grotesk", sans-serif';
+  ctx.font = `${paramLabelFontWeight} ${paramLabelFontSize}px "Space Grotesk", sans-serif`;
   ctx.textAlign = 'left';
   const labelText = paramSpec.label || paramName;
   ctx.fillText(labelText, x + padding, y + height / 2 + 4);
   
-  // Display frequency bands (right side) - match style of other parameter values
+  // Display frequency bands (right side) — input style
   const bandsTextColor = getCSSColor('node-param-value-color', '#333333');
   ctx.fillStyle = bandsTextColor;
-  ctx.font = '11px "JetBrains Mono", monospace';
+  ctx.font = `${inputValueFontSize}px "JetBrains Mono", monospace`;
   ctx.textAlign = 'right';
   
   if (Array.isArray(value) && value.length > 0) {

@@ -25,7 +25,8 @@
 
   /* Other */
   z-index: var(--message-z-index);
-  overflow: hidden;
+  overflow-x: hidden;
+  overflow-y: auto;
 
   &.is-visible {
     /* Layout */

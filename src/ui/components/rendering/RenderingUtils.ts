@@ -6,6 +6,22 @@
 
 import { getCSSColor, getCSSColorRGBA, getCSSVariableAsNumber } from '../../../utils/cssTokens';
 
+/** Short display labels for port types in the node UI. */
+const PORT_TYPE_DISPLAY_LABELS: Record<string, string> = {
+  float: 'flt',
+  vec2: 'v2',
+  vec3: 'v3',
+  vec4: 'v4',
+};
+
+/**
+ * Return the short display label for a port type (e.g. float → flt, vec2 → v2).
+ * Unknown types are returned as-is.
+ */
+export function getPortTypeDisplayLabel(type: string): string {
+  return PORT_TYPE_DISPLAY_LABELS[type] ?? type;
+}
+
 /**
  * Options for the value-box primitive (rounded background + formatted number).
  * Used by InputParameterRenderer, KnobParameterRenderer, and RemapRangeElement row-2.
@@ -42,7 +58,7 @@ export function drawValueBox(
   const align = options?.align ?? 'center';
   const maxWidth = options?.width;
 
-  const fontSize = getCSSVariableAsNumber('input-value-font-size', 20);
+  const fontSize = getCSSVariableAsNumber('input-value-font-size', 18);
   const color = isAnimated
     ? getCSSColor('input-value-animated-color', '#2f8a6b')
     : getCSSColor('input-value-color', '#ebeff0');
@@ -196,6 +212,8 @@ export function drawVerticalRangeSlider(
 /**
  * Draw a horizontal range slider with two handles
  * Left = low value (0), right = high value (1)
+ * Optional track edge strips: edgeThickness + edgeColor.
+ * Optional active-range edge strips: activeEdgeThickness + activeEdgeColor.
  */
 export function drawHorizontalRangeSlider(
   ctx: CanvasRenderingContext2D,
@@ -210,7 +228,11 @@ export function drawHorizontalRangeSlider(
   activeColor: string,
   radius: number,
   isHovered: boolean = false,
-  isDragging: boolean = false
+  isDragging: boolean = false,
+  edgeThickness: number = 0,
+  edgeColor?: string,
+  activeEdgeThickness: number = 0,
+  activeEdgeColor?: string
 ): void {
   // Draw full slider track background (inactive areas)
   ctx.fillStyle = bgColor;
@@ -232,6 +254,21 @@ export function drawHorizontalRangeSlider(
     ctx.fillStyle = activeColor;
     drawRoundedRect(ctx, activeLeft, y, activeWidth, height, radius);
     ctx.fill();
+
+    // Draw configurable left/right edge strips on the active range
+    if (activeEdgeThickness > 0 && activeEdgeColor) {
+      const tw = Math.min(activeEdgeThickness, activeWidth / 2);
+      ctx.fillStyle = activeEdgeColor;
+      ctx.fillRect(activeLeft, y, tw, height);
+      ctx.fillRect(activeLeft + activeWidth - tw, y, tw, height);
+    }
+  }
+
+  // Draw configurable left/right edge strips (full track)
+  if (edgeThickness > 0 && edgeColor) {
+    ctx.fillStyle = edgeColor;
+    ctx.fillRect(x, y, edgeThickness, height);
+    ctx.fillRect(x + width - edgeThickness, y, edgeThickness, height);
   }
 
   // Draw edge highlighting when hovering or dragging
@@ -279,10 +316,11 @@ export function drawArrow(
   ctx.fill();
 }
 
-/** State for parameter port drawing (hover/connecting). */
+/** State for parameter port drawing (hover, connecting, connected). */
 export interface ParameterPortState {
   isHovered: boolean;
   isConnecting?: boolean;
+  isConnected?: boolean;
 }
 
 /** Minimal metrics needed for parameter cell rendering (cell + label). */
@@ -330,8 +368,9 @@ export interface RenderParameterCellOptions {
  * Used by InputParameterRenderer, KnobParameterRenderer, ToggleParameterRenderer, EnumParameterRenderer.
  * Draw order: cell bg → port → label → mode. Does not draw the control (value box, knob, toggle, enum).
  *
- * Tokens: param-cell-bg, param-cell-bg-connected, param-cell-border, param-cell-border-connected,
- * param-cell-border-radius, param-label-font-size, param-label-font-weight, param-label-color,
+ * Tokens: param-cell-bg, param-cell-bg-end, param-cell-bg-connected, param-cell-bg-gradient-ellipse-* (when not connected),
+ * param-cell-border, param-cell-border-connected, param-cell-border-radius, param-label-font-size,
+ * param-label-font-weight, param-label-color,
  * param-mode-button-size, param-mode-button-bg, param-mode-button-color-static, param-mode-button-color-connected,
  * param-mode-button-font-size, param-mode-button-font-weight, param-mode-button-text-offset-y.
  * Port is drawn via drawParameterPort (package 04).
@@ -352,6 +391,7 @@ export function renderParameterCell(
 
   // (a) Cell background and border (param-cell-*)
   const cellBg = getCSSColor('param-cell-bg', getCSSColor('color-gray-30', '#050507'));
+  const cellBgEnd = getCSSColor('param-cell-bg-end', 'transparent');
   const cellBgConnectedRGBA = getCSSColorRGBA('param-cell-bg-connected', {
     r: 255,
     g: 255,
@@ -361,16 +401,41 @@ export function renderParameterCell(
   const cellBgConnected = `rgba(${cellBgConnectedRGBA.r}, ${cellBgConnectedRGBA.g}, ${cellBgConnectedRGBA.b}, ${cellBgConnectedRGBA.a})`;
   const cellBorderRadius = getCSSVariableAsNumber('param-cell-border-radius', 6);
 
-  ctx.fillStyle = isConnected ? cellBgConnected : cellBg;
-  drawRoundedRect(
-    ctx,
-    metrics.cellX,
-    metrics.cellY,
-    metrics.cellWidth,
-    metrics.cellHeight,
-    cellBorderRadius
-  );
-  ctx.fill();
+  if (isConnected) {
+    ctx.fillStyle = cellBgConnected;
+    drawRoundedRect(
+      ctx,
+      metrics.cellX,
+      metrics.cellY,
+      metrics.cellWidth,
+      metrics.cellHeight,
+      cellBorderRadius
+    );
+    ctx.fill();
+  } else {
+    // Radial gradient (start → end) using ellipse controls
+    const ew = (metrics.cellWidth * getCSSVariableAsNumber('param-cell-bg-gradient-ellipse-width', 100)) / 100;
+    const eh = (metrics.cellHeight * getCSSVariableAsNumber('param-cell-bg-gradient-ellipse-height', 100)) / 100;
+    const ex = metrics.cellX + (metrics.cellWidth * getCSSVariableAsNumber('param-cell-bg-gradient-ellipse-x', 50)) / 100;
+    const ey = metrics.cellY + (metrics.cellHeight * getCSSVariableAsNumber('param-cell-bg-gradient-ellipse-y', 50)) / 100;
+    const gradientRadius = Math.max(ew, eh) / 2;
+    const gradient = ctx.createRadialGradient(ex, ey, 0, ex, ey, gradientRadius);
+    gradient.addColorStop(0, cellBg);
+    gradient.addColorStop(1, cellBgEnd);
+    ctx.save();
+    drawRoundedRect(
+      ctx,
+      metrics.cellX,
+      metrics.cellY,
+      metrics.cellWidth,
+      metrics.cellHeight,
+      cellBorderRadius
+    );
+    ctx.clip();
+    ctx.fillStyle = gradient;
+    ctx.fillRect(metrics.cellX, metrics.cellY, metrics.cellWidth, metrics.cellHeight);
+    ctx.restore();
+  }
 
   const borderColor = getCSSColor(
     isConnected ? 'param-cell-border-connected' : 'param-cell-border',
@@ -397,13 +462,14 @@ export function renderParameterCell(
     options.portScale != null
   ) {
     drawParameterPort(ctx, options.portX, options.portY, options.portType, {
-      isHovered: state.isHovered
+      isHovered: state.isHovered,
+      isConnected: state.isConnected
     }, options.portScale);
   }
 
   // (c) Label (param-label-*)
-  const labelFontSize = getCSSVariableAsNumber('param-label-font-size', 11);
-  const labelFontWeight = getCSSVariableAsNumber('param-label-font-weight', 400);
+  const labelFontSize = getCSSVariableAsNumber('param-label-font-size', 18);
+  const labelFontWeight = getCSSVariableAsNumber('param-label-font-weight', 600);
   const labelColor = getCSSColor('param-label-color', getCSSColor('color-gray-110', '#a3aeb5'));
   ctx.font = `${labelFontWeight} ${labelFontSize}px "Space Grotesk", sans-serif`;
   ctx.textBaseline = 'top';
@@ -437,8 +503,8 @@ export function renderParameterCell(
         ? getCSSColor('color-gray-130', '#ebeff0')
         : getCSSColor('color-gray-60', '#5a5f66')
     );
-    const modeButtonFontSize = getCSSVariableAsNumber('param-mode-button-font-size', 10);
-    const modeButtonFontWeight = getCSSVariableAsNumber('param-mode-button-font-weight', 400);
+    const modeButtonFontSize = getCSSVariableAsNumber('param-mode-button-font-size', 18);
+    const modeButtonFontWeight = getCSSVariableAsNumber('param-mode-button-font-weight', 500);
     const modeButtonTextOffsetY = getCSSVariableAsNumber('param-mode-button-text-offset-y', 0);
     ctx.font = `${modeButtonFontWeight} ${modeButtonFontSize}px "Space Grotesk", sans-serif`;
     ctx.textAlign = 'center';
@@ -462,12 +528,21 @@ const PORT_COLOR_TOKEN_MAP: Record<string, string> = {
   vec4: 'port-color-vec4',
 };
 
+const PORT_CONNECTED_COLOR_TOKEN_MAP: Record<string, string> = {
+  float: 'port-connected-color-float',
+  int: 'port-connected-color-float',
+  vec2: 'port-connected-color-vec2',
+  vec3: 'port-connected-color-vec3',
+  vec4: 'port-connected-color-vec4',
+};
+
 /**
  * Draw the shared parameter port primitive (highlight + circle, optional border).
  * Used by InputParameterRenderer, KnobParameterRenderer, ToggleParameterRenderer, EnumParameterRenderer.
  *
  * Tokens: port-radius, param-port-size (callers pass scale = param-port-size/port-radius),
  * port-border-width, port-border-color, port-color-float/vec2/vec3/vec4, port-color-default,
+ * port-connected-color-float/vec2/vec3/vec4, port-connected-color-default,
  * port-hover-color, port-dragging-color, port-hover-outer-opacity, port-dragging-outer-opacity.
  * All colors and opacity use getCSSColorRGBA for consistent behavior.
  *
@@ -475,7 +550,7 @@ const PORT_COLOR_TOKEN_MAP: Record<string, string> = {
  * @param x - Port center X
  * @param y - Port center Y
  * @param type - Port type for color: 'float' | 'int' | 'vec2' | 'vec3' | 'vec4'
- * @param state - { isHovered, isConnecting? }
+ * @param state - { isHovered, isConnecting?, isConnected? }
  * @param scale - Scale factor (e.g. param-port-size / port-radius from metrics)
  */
 export function drawParameterPort(
@@ -506,10 +581,7 @@ export function drawParameterPort(
     ctx.fill();
   }
 
-  // (b) Port circle fill
-  const tokenName = PORT_COLOR_TOKEN_MAP[type] ?? 'port-color-default';
-  const colorRGBA = getCSSColorRGBA(tokenName, { r: 102, g: 102, b: 102, a: 1 });
-
+  // (b) Port circle fill: hover/dragging > connected > type color
   if (state.isHovered || state.isConnecting) {
     if (state.isConnecting) {
       const c = getCSSColorRGBA('port-dragging-color', { r: 0, g: 255, b: 136, a: 1 });
@@ -518,7 +590,13 @@ export function drawParameterPort(
       const c = getCSSColorRGBA('port-hover-color', { r: 33, g: 150, b: 243, a: 1 });
       ctx.fillStyle = `rgba(${c.r}, ${c.g}, ${c.b}, ${opacity})`;
     }
+  } else if (state.isConnected) {
+    const connectedTokenName = PORT_CONNECTED_COLOR_TOKEN_MAP[type] ?? 'port-connected-color-default';
+    const colorRGBA = getCSSColorRGBA(connectedTokenName, { r: 81, g: 89, b: 97, a: 1 });
+    ctx.fillStyle = `rgba(${colorRGBA.r}, ${colorRGBA.g}, ${colorRGBA.b}, ${opacity})`;
   } else {
+    const tokenName = PORT_COLOR_TOKEN_MAP[type] ?? 'port-color-default';
+    const colorRGBA = getCSSColorRGBA(tokenName, { r: 102, g: 102, b: 102, a: 1 });
     ctx.fillStyle = `rgba(${colorRGBA.r}, ${colorRGBA.g}, ${colorRGBA.b}, ${opacity})`;
   }
 

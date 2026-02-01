@@ -21,8 +21,7 @@ export interface RelativeRect {
   h: number;
 }
 
-/** Swatch fills available width and dictates height only; values from tokens. */
-const SWATCH_PADDING_H = 0;
+/** Swatch uses embed-slot: full area for slot bg; inner rect (inset by embed-slot-pd) for color. */
 
 export class ColorPickerElementRenderer implements LayoutElementRenderer {
   private ctx: CanvasRenderingContext2D;
@@ -50,8 +49,8 @@ export class ColorPickerElementRenderer implements LayoutElementRenderer {
     const containerY = node.position.y + metrics.headerHeight + startY;
 
     const rowHeight = swatchHeight;
-    const swatchW = Math.max(0, availableWidth - SWATCH_PADDING_H * 2);
-    const swatchRelX = SWATCH_PADDING_H;
+    const swatchW = Math.max(0, availableWidth);
+    const swatchRelX = 0;
     const swatchRelY = 0;
 
     return {
@@ -76,18 +75,33 @@ export class ColorPickerElementRenderer implements LayoutElementRenderer {
     const c = (node.parameters.c ?? spec.parameters.c?.default ?? 0.1) as number;
     const h = (node.parameters.h ?? spec.parameters.h?.default ?? 0) as number;
 
+    const slotBg = getCSSColor('color-picker-node-swatch-bg', getCSSColor('embed-slot-bg', '#0a0b0d'));
+    const slotRadius = getCSSVariableAsNumber('color-picker-node-swatch-radius', 18);
+    const colorRadius = getCSSVariableAsNumber('color-picker-node-swatch-color-radius', 6);
+    const pd = getCSSVariableAsNumber('embed-slot-pd', 18);
     const swatchBorder = getCSSColor('color-gray-70', '#282b31');
-    const swatchRadius = getCSSVariableAsNumber('color-picker-node-swatch-radius', 6);
 
     const x = elementMetrics.x;
     const y = elementMetrics.y;
     const swatchRect = elementMetrics.colorPickerSwatchRect as RelativeRect;
-    const swatchX = x + swatchRect.x;
-    const swatchY = y + swatchRect.y;
+    const slotX = x + swatchRect.x;
+    const slotY = y + swatchRect.y;
+    const slotW = swatchRect.w;
+    const slotH = swatchRect.h;
 
+    // 1) Embed-slot background (same as frequency-range, remap-range)
+    this.ctx.fillStyle = slotBg;
+    drawRoundedRect(this.ctx, slotX, slotY, slotW, slotH, slotRadius);
+    this.ctx.fill();
+
+    // 2) Inner color swatch (inset by embed-slot-pd)
+    const innerX = slotX + pd;
+    const innerY = slotY + pd;
+    const innerW = Math.max(0, slotW - pd * 2);
+    const innerH = Math.max(0, slotH - pd * 2);
     const cssRgb = oklchToCssRgb(l, c, h);
     this.ctx.fillStyle = cssRgb;
-    drawRoundedRect(this.ctx, swatchX, swatchY, swatchRect.w, swatchRect.h, swatchRadius);
+    drawRoundedRect(this.ctx, innerX, innerY, innerW, innerH, colorRadius);
     this.ctx.fill();
     this.ctx.strokeStyle = swatchBorder;
     this.ctx.lineWidth = 1;

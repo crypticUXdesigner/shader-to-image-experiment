@@ -1,10 +1,37 @@
 /**
- * Utility to compute effective parameter values when inputs are connected
+ * Utility to compute effective parameter values when inputs are connected,
+ * and to snap values to parameter constraints (min/max/step/int).
  */
 
 import type { NodeGraph, NodeInstance, Connection } from '../types/nodeGraph';
 import type { NodeSpec, ParameterSpec } from '../types/nodeSpec';
 import type { IAudioManager } from '../runtime/types';
+
+/**
+ * Snap a raw number to the parameter's constraints so that dragging/typing
+ * can hit discrete values. Without this, only min/max are enforced and
+ * paramSpec.step / type 'int' are ignored, making some values unreachable.
+ *
+ * - Clamps to [min, max]
+ * - If step is defined: snaps to nearest step (min + k*step)
+ * - If type is 'int' and no step: rounds to integer
+ */
+export function snapParameterValue(value: number, paramSpec: ParameterSpec): number {
+  const min = paramSpec.min ?? 0;
+  const max = paramSpec.max ?? 1;
+  let v = Math.max(min, Math.min(max, value));
+
+  if (typeof paramSpec.step === 'number' && paramSpec.step > 0) {
+    const step = paramSpec.step;
+    v = min + Math.round((v - min) / step) * step;
+    v = Math.max(min, Math.min(max, v));
+  } else if (paramSpec.type === 'int') {
+    v = Math.round(v);
+    v = Math.max(min, Math.min(max, v));
+  }
+
+  return v;
+}
 
 export type ParameterInputMode = 'override' | 'add' | 'subtract' | 'multiply';
 
@@ -130,30 +157,31 @@ function getInputValue(
       return null; // No band values available yet
     }
     
-    // Extract band index from port name (e.g., "band0" -> 0)
+    // Port name: band0..bandN (raw) or remap0..remapN (remapped)
     const bandMatch = connection.sourcePort.match(/^band(\d+)$/);
-    if (!bandMatch) {
-      return null; // Invalid port name
-    }
-    
-    const bandIndex = parseInt(bandMatch[1], 10);
-    
-    // Validate band index is in range
-    if (bandIndex < 0 || bandIndex >= analyzerState.smoothedBandValues.length) {
-      return null; // Band index out of range
-    }
-    
-    // Get band value - now we know it's safe to access
+    const remapMatch = connection.sourcePort.match(/^remap(\d+)$/);
+    const indexMatch = bandMatch ?? remapMatch;
+    if (!indexMatch) return null;
+
+    const bandIndex = parseInt(indexMatch[1], 10);
+    if (bandIndex < 0 || bandIndex >= analyzerState.smoothedBandValues.length) return null;
+
     const bandValue = analyzerState.smoothedBandValues[bandIndex];
-    
-    // Validate band value is a number
-    if (typeof bandValue !== 'number' || isNaN(bandValue)) {
-      return null; // Invalid band value
-    }
-    
-    return bandValue;
+    if (typeof bandValue !== 'number' || isNaN(bandValue)) return null;
+
+    if (bandMatch) return bandValue;
+
+    // remap{N}: apply per-band remap
+    const inMin = getBandRemapParam(sourceNode, bandIndex, 'InMin', 0);
+    const inMax = getBandRemapParam(sourceNode, bandIndex, 'InMax', 1);
+    const outMin = getBandRemapParam(sourceNode, bandIndex, 'OutMin', 0);
+    const outMax = getBandRemapParam(sourceNode, bandIndex, 'OutMax', 1);
+    const range = inMax - inMin;
+    const normalized = range !== 0 ? (bandValue - inMin) / range : 0;
+    const clamped = Math.max(0, Math.min(1, normalized));
+    return outMin + clamped * (outMax - outMin);
   }
-  
+
   // Handle audio-remap nodes - compute remapped value
   if (sourceNode.type === 'audio-remap') {
     // Get the input audio value
@@ -287,6 +315,53 @@ export function getAudioRemapLiveValues(
   const remapped = outMin + clamped * outRange;
 
   return { incoming: audioValue, outgoing: remapped };
+}
+
+function getBandRemapParam(node: NodeInstance, bandIndex: number, suffix: string, fallback: number): number {
+  const key = `band${bandIndex}Remap${suffix}`;
+  const v = node.parameters[key];
+  return typeof v === 'number' ? v : fallback;
+}
+
+/**
+ * Get per-band live incoming (band value) and outgoing (remapped) values for an audio-analyzer node.
+ * Used to draw needle markers on each band's optional remap UI.
+ */
+export function getAudioAnalyzerBandLiveValues(
+  node: NodeInstance,
+  _graph: NodeGraph,
+  _nodeSpecs: Map<string, NodeSpec>,
+  audioManager?: IAudioManager
+): Map<number, { incoming: number | null; outgoing: number | null }> {
+  const result = new Map<number, { incoming: number | null; outgoing: number | null }>();
+  if (node.type !== 'audio-analyzer' || !audioManager) {
+    return result;
+  }
+
+  const analyzerState = audioManager.getAnalyzerNodeState(node.id);
+  if (!analyzerState?.smoothedBandValues?.length) {
+    return result;
+  }
+
+  const bandCount = analyzerState.smoothedBandValues.length;
+  for (let i = 0; i < bandCount; i++) {
+    const incoming = analyzerState.smoothedBandValues[i];
+    if (typeof incoming !== 'number' || isNaN(incoming)) {
+      result.set(i, { incoming: null, outgoing: null });
+      continue;
+    }
+    const inMin = getBandRemapParam(node, i, 'InMin', 0);
+    const inMax = getBandRemapParam(node, i, 'InMax', 1);
+    const outMin = getBandRemapParam(node, i, 'OutMin', 0);
+    const outMax = getBandRemapParam(node, i, 'OutMax', 1);
+    const range = inMax - inMin;
+    const normalized = range !== 0 ? (incoming - inMin) / range : 0;
+    const clamped = Math.max(0, Math.min(1, normalized));
+    const outRange = outMax - outMin;
+    const outgoing = outMin + clamped * outRange;
+    result.set(i, { incoming, outgoing });
+  }
+  return result;
 }
 
 /**

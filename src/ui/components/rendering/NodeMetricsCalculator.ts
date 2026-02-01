@@ -197,7 +197,7 @@ export class NodeMetricsCalculator {
    */
   private calculateMetrics(node: NodeInstance, spec: NodeSpec): NodeRenderMetrics {
     const minWidth = getCSSVariableAsNumber('node-box-min-width', 300);
-    const nameSize = getCSSVariableAsNumber('node-header-name-size', 14);
+    const nameSize = getCSSVariableAsNumber('node-header-name-size', 30);
     
     // Calculate total width first (needed for header layout)
     this.ctx.font = `${getCSSVariableAsNumber('node-header-name-weight', 600)} ${nameSize}px "Space Grotesk", sans-serif`;
@@ -242,8 +242,12 @@ export class NodeMetricsCalculator {
           }
         });
         
-        // Calculate minimum width needed for grid
-        const minGridWidth = gridPadding * 2 + (maxColumns * cellMinWidth) + ((maxColumns - 1) * gridGap);
+        // Apply extraColumns from layout (e.g. audio-analyzer needs one column wider)
+        const extraColumns = layout.extraColumns ?? 0;
+        const effectiveColumns = maxColumns + Math.max(0, extraColumns);
+        
+        // Calculate minimum width needed for grid (dedicated width by columns, rest fills)
+        const minGridWidth = gridPadding * 2 + (effectiveColumns * cellMinWidth) + ((effectiveColumns - 1) * gridGap);
         width = Math.max(width, minGridWidth);
       }
     }

@@ -9,10 +9,12 @@ import type { NodeRenderMetrics } from '../NodeRenderer';
 import { getCSSVariableAsNumber } from '../../../utils/cssTokens';
 import type { ViewStateManager } from './ViewStateManager';
 import { FREQ_MIN, FREQ_MAX, hzToNorm } from '../rendering/layout/elements/FrequencyRangeElement';
+import { getPortTypeDisplayLabel } from '../rendering/RenderingUtils';
 import {
   getParameterControlHitRegions,
   isPointInParameterRegions,
   getRemapHitRegions,
+  getAnalyzerBandRemapHitRegions,
   testRemapHit,
   type ParameterGridPosition
 } from './ParameterHitRegions';
@@ -273,6 +275,47 @@ export class HitTestManager {
   }
 
   /**
+   * Hit test for audio-analyzer band remap elements (per-band remap slider + input row).
+   */
+  hitTestAnalyzerBandRemap(mouseX: number, mouseY: number): { nodeId: string; paramName: string } | null {
+    const canvasPos = this.screenToCanvas(mouseX, mouseY);
+    const viewState = this.getViewState();
+
+    for (const node of this.graph.nodes) {
+      if (node.type !== 'audio-analyzer') continue;
+      const spec = this.nodeSpecs.get(node.type);
+      const metrics = this.nodeMetrics.get(node.id);
+      if (!spec || !metrics?.elementMetrics) continue;
+
+      const layout = spec.parameterLayout?.elements;
+      if (!layout) continue;
+
+      for (let i = 0; i < layout.length; i++) {
+        const el = layout[i] as { type?: string; bandIndex?: number };
+        if (el?.type !== 'analyzer-band-remap' || typeof el.bandIndex !== 'number') continue;
+
+        const bandIndex = el.bandIndex;
+        const key = `analyzer-band-remap-${i}-${bandIndex}`;
+        const em = metrics.elementMetrics.get(key);
+        if (!em || em.width == null || em.height == null) continue;
+
+        const result = getAnalyzerBandRemapHitRegions(
+          node,
+          spec,
+          em as { x: number; y: number; width: number; height: number },
+          bandIndex,
+          viewState.zoom
+        );
+        const paramName = testRemapHit(canvasPos.x, canvasPos.y, result);
+        if (paramName != null) {
+          return { nodeId: node.id, paramName };
+        }
+      }
+    }
+    return null;
+  }
+
+  /**
    * Hit test for frequency-range elements (slider + start/end inputs).
    * Returns hit with frequencyBand when over a frequency-range control.
    */
@@ -285,11 +328,12 @@ export class HitTestManager {
     const canvasPos = this.screenToCanvas(mouseX, mouseY);
     const pd = getCSSVariableAsNumber('embed-slot-pd', 12);
     const gap = pd;
-    const labelFontSize = getCSSVariableAsNumber('frequency-range-label-font-size', 11);
+    const labelFontSize = getCSSVariableAsNumber('frequency-range-label-font-size', 18);
     const labelHeight = labelFontSize + 2;
+    const scaleHeightToken = getCSSVariableAsNumber('frequency-range-scale-height', 22);
     const sliderHeight = getCSSVariableAsNumber('frequency-range-slider-height', 16);
     const inputRowHeight = getCSSVariableAsNumber('frequency-range-input-row-height', 28);
-    const valueFontSize = getCSSVariableAsNumber('knob-value-font-size', 11);
+    const valueFontSize = getCSSVariableAsNumber('knob-value-font-size', 18);
     const valuePaddingH = getCSSVariableAsNumber('knob-value-padding-horizontal', 8);
     const handleRadius = 10;
 
@@ -319,13 +363,14 @@ export class HitTestManager {
         const scale = el.scale ?? 'linear';
         const minNorm = Math.max(0, Math.min(1, hzToNorm(minHz, scale)));
         const maxNorm = Math.max(0, Math.min(1, hzToNorm(maxHz, scale)));
+        const scaleBlockHeight = scale === 'audio' ? scaleHeightToken + gap : 0;
 
         const x = em.x;
         const y = em.y;
         const w = em.width;
         const contentWidth = w - pd * 2;
         const sliderX = x + pd;
-        const sliderY = y + pd + labelHeight + gap;
+        const sliderY = y + pd + labelHeight + gap + scaleBlockHeight;
         const rowY = sliderY + sliderHeight + gap;
         const rowLeft = x + pd;
         const rowRight = x + w - pd;
@@ -391,6 +436,44 @@ export class HitTestManager {
    * Hit test for parameters
    * Returns parameter information if mouse is over a parameter, null otherwise
    */
+  /**
+   * Hit test for audio-file-input-slot: upload button (filePath) or auto-play toggle (autoPlay).
+   * Returns first hit in reverse node order (topmost first).
+   */
+  hitTestAudioFileInputSlot(mouseX: number, mouseY: number): {
+    nodeId: string;
+    paramName: string;
+    isString: boolean;
+  } | null {
+    const canvasPos = this.screenToCanvas(mouseX, mouseY);
+    for (let i = this.graph.nodes.length - 1; i >= 0; i--) {
+      const node = this.graph.nodes[i];
+      const spec = this.nodeSpecs.get(node.type);
+      const metrics = this.nodeMetrics.get(node.id);
+      if (!spec || spec.id !== 'audio-file-input' || !metrics?.elementMetrics) continue;
+      const layout = spec.parameterLayout?.elements;
+      if (!layout) continue;
+      for (let ei = 0; ei < layout.length; ei++) {
+        const el = layout[ei] as { type?: string };
+        if (el?.type !== 'audio-file-input-slot') continue;
+        const key = `audio-file-input-slot-${ei}`;
+        const em = metrics.elementMetrics.get(key);
+        if (!em) continue;
+        const uploadRect = em.audioFileInputUploadButtonRect as { x: number; y: number; w: number; h: number } | undefined;
+        const toggleRect = em.audioFileInputToggleRect as { x: number; y: number; w: number; h: number } | undefined;
+        if (toggleRect && canvasPos.x >= toggleRect.x && canvasPos.x <= toggleRect.x + toggleRect.w &&
+            canvasPos.y >= toggleRect.y && canvasPos.y <= toggleRect.y + toggleRect.h) {
+          return { nodeId: node.id, paramName: 'autoPlay', isString: false };
+        }
+        if (uploadRect && canvasPos.x >= uploadRect.x && canvasPos.x <= uploadRect.x + uploadRect.w &&
+            canvasPos.y >= uploadRect.y && canvasPos.y <= uploadRect.y + uploadRect.h) {
+          return { nodeId: node.id, paramName: 'filePath', isString: true };
+        }
+      }
+    }
+    return null;
+  }
+
   hitTestParameter(mouseX: number, mouseY: number): {
     nodeId: string;
     paramName: string;
@@ -400,6 +483,14 @@ export class HitTestManager {
     frequencyBand?: { bandIndex: number; field: 'start' | 'end' | 'sliderLow' | 'sliderHigh' };
     scale?: 'linear' | 'audio';
   } | null {
+    const audioFileInputHit = this.hitTestAudioFileInputSlot(mouseX, mouseY);
+    if (audioFileInputHit) {
+      return {
+        nodeId: audioFileInputHit.nodeId,
+        paramName: audioFileInputHit.paramName,
+        isString: audioFileInputHit.isString
+      };
+    }
     const freqRangeHit = this.hitTestFrequencyRange(mouseX, mouseY);
     if (freqRangeHit) {
       return {
@@ -409,6 +500,10 @@ export class HitTestManager {
         frequencyBand: freqRangeHit.frequencyBand,
         scale: freqRangeHit.scale
       };
+    }
+    const analyzerBandRemapHit = this.hitTestAnalyzerBandRemap(mouseX, mouseY);
+    if (analyzerBandRemapHit) {
+      return { nodeId: analyzerBandRemapHit.nodeId, paramName: analyzerBandRemapHit.paramName, isString: false };
     }
     const rangeSliderHit = this.hitTestRangeEditorSlider(mouseX, mouseY);
     if (rangeSliderHit) {
@@ -433,21 +528,14 @@ export class HitTestManager {
 
         // Test mode button first (same position as render: portX, knobY) so it's clickable
         // before the larger knob hit region. Only for float params that have a port.
-        // Support both absolute and node-local coordinates (layout may use either).
+        // gridPos is in canvas space (slot offset applied in ParameterLayoutManager).
         if (paramSpec.type === 'float' && hasPort(paramName)) {
           const modeButtonSize = getCSSVariableAsNumber('param-mode-button-size', 20);
           const modeButtonRadius = modeButtonSize / 2;
           const r2 = modeButtonRadius * modeButtonRadius;
-          const inCircle = (cx: number, cy: number) => {
-            const dx = canvasPos.x - cx;
-            const dy = canvasPos.y - cy;
-            return dx * dx + dy * dy <= r2;
-          };
-          const modeButtonX = gridPos.portX;
-          const modeButtonY = gridPos.knobY;
-          const modeButtonXLocal = node.position.x + gridPos.portX;
-          const modeButtonYLocal = node.position.y + gridPos.knobY;
-          if (inCircle(modeButtonX, modeButtonY) || inCircle(modeButtonXLocal, modeButtonYLocal)) {
+          const dx = canvasPos.x - gridPos.portX;
+          const dy = canvasPos.y - gridPos.knobY;
+          if (dx * dx + dy * dy <= r2) {
             return { nodeId: node.id, paramName, isString: false, isModeButton: true };
           }
         }
@@ -578,7 +666,7 @@ export class HitTestManager {
       const headerHeight = metrics.headerHeight;
       const iconBoxHeight = getCSSVariableAsNumber('node-icon-box-height', 48);
       const iconBoxNameSpacing = getCSSVariableAsNumber('node-icon-box-name-spacing', 4);
-      const nameSize = getCSSVariableAsNumber('node-header-name-size', 14);
+      const nameSize = getCSSVariableAsNumber('node-header-name-size', 30);
       const nameWeight = getCSSVariableAsNumber('node-header-name-weight', 600);
       
       // Calculate label position (same as in renderHeader)
@@ -643,7 +731,7 @@ export class HitTestManager {
           const dy = canvasPos.y - cy;
           return dx * dx + dy * dy <= r2;
         };
-        if (inCircle(gridPos.portX, gridPos.knobY) || inCircle(node.position.x + gridPos.portX, node.position.y + gridPos.knobY)) {
+        if (inCircle(gridPos.portX, gridPos.knobY)) {
           return { nodeId: node.id, paramName };
         }
       }
@@ -675,7 +763,7 @@ export class HitTestManager {
     const canvasPos = this.screenToCanvas(mouseX, mouseY);
     
     // Get type label dimensions from CSS tokens
-    const typeFontSize = getCSSVariableAsNumber('port-type-font-size', 19);
+    const typeFontSize = getCSSVariableAsNumber('port-type-font-size', 15);
     const typeFontWeight = getCSSVariableAsNumber('port-type-font-weight', 600);
     const typePaddingH = getCSSVariableAsNumber('port-type-padding-horizontal', 8);
     const typePaddingV = getCSSVariableAsNumber('port-type-padding-vertical', 4);
@@ -697,7 +785,7 @@ export class HitTestManager {
         
         // Calculate type label position (same as in NodePortRenderer)
         const typeStartX = pos.x + portRadius + labelSpacing;
-        const typeWidth = this.ctx.measureText(port.type).width;
+        const typeWidth = this.ctx.measureText(getPortTypeDisplayLabel(port.type)).width;
         const typeBgWidth = typeWidth + typePaddingH * 2;
         const typeBgHeight = typeFontSize + typePaddingV * 2;
         const typeBgX = typeStartX;
@@ -757,7 +845,7 @@ export class HitTestManager {
         
         // Calculate type label position (output ports have type on the left side)
         const typeEndX = pos.x - portRadius - labelSpacing;
-        const typeWidth = this.ctx.measureText(port.type).width;
+        const typeWidth = this.ctx.measureText(getPortTypeDisplayLabel(port.type)).width;
         const typeBgWidth = typeWidth + typePaddingH * 2;
         const typeBgHeight = typeFontSize + typePaddingV * 2;
         const typeBgX = typeEndX - typeBgWidth;

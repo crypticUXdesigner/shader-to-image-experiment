@@ -1,0 +1,570 @@
+{
+  "format": "shader-composer-node-graph",
+  "formatVersion": "2.0",
+  "graph": {
+    "id": "graph-1769985447217-xn7dhnntw",
+    "name": "Sphere Shader",
+    "version": "2.0",
+    "nodes": [
+      {
+        "id": "node-1769985447217-gggzob695",
+        "type": "final-output",
+        "position": {
+          "x": 6203,
+          "y": 2318
+        },
+        "parameters": {}
+      },
+      {
+        "id": "node-1769985447217-1vbj3uasw",
+        "type": "audio-file-input",
+        "position": {
+          "x": -280,
+          "y": 2563
+        },
+        "parameters": {
+          "filePath": "seb - music xcx.mp3",
+          "autoPlay": 0
+        }
+      },
+      {
+        "id": "node-1769985447217-uvlhi2rc8",
+        "type": "audio-analyzer",
+        "position": {
+          "x": 595,
+          "y": 2563
+        },
+        "parameters": {
+          "frequencyBands": [
+            [
+              30,
+              60
+            ],
+            [
+              120,
+              300
+            ],
+            [
+              11438,
+              20000
+            ],
+            [
+              4000,
+              20000
+            ]
+          ],
+          "smoothing": 1,
+          "fftSize": 4096,
+          "band2RemapOutMin": 0,
+          "band2RemapOutMax": 1,
+          "band0RemapOutMin": 0.54,
+          "band1RemapOutMin": 0.51,
+          "band2RemapInMax": 1,
+          "band3RemapOutMin": 0.8400000000000001,
+          "band3RemapOutMax": 1
+        }
+      },
+      {
+        "id": "node-1769985447217-83r35ia8o",
+        "type": "uv-coordinates",
+        "position": {
+          "x": 169,
+          "y": 1199
+        },
+        "parameters": {}
+      },
+      {
+        "id": "node-1769985447217-ftnq5c1pb",
+        "type": "oklch-color",
+        "position": {
+          "x": 3265,
+          "y": 626
+        },
+        "parameters": {
+          "l": 0.8672497245443948,
+          "c": 0.07879077035251324,
+          "h": 168.24958113477808
+        }
+      },
+      {
+        "id": "node-1769985447217-ij1odpm6k",
+        "type": "oklch-color",
+        "position": {
+          "x": 2805,
+          "y": 626
+        },
+        "parameters": {
+          "l": 0.48475935419759897,
+          "c": 0.08808188961265595,
+          "h": 48.30096424406648
+        }
+      },
+      {
+        "id": "node-1769985447217-u0f4bmrgt",
+        "type": "bezier-curve",
+        "position": {
+          "x": 2805,
+          "y": 1126
+        },
+        "parameters": {
+          "x1": 0,
+          "y1": 0.41024029265773054,
+          "x2": 0.9987471252777326,
+          "y2": 0.6625545767248056
+        }
+      },
+      {
+        "id": "node-1769985447217-2jn63wk2e",
+        "type": "bezier-curve",
+        "position": {
+          "x": 3265,
+          "y": 1126
+        },
+        "parameters": {
+          "x1": 0.532112432882558,
+          "y1": 0.09557525425927549,
+          "x2": 0.07472520374585338,
+          "y2": 0.9501881519058215
+        }
+      },
+      {
+        "id": "node-1769985447217-vuhgq97ul",
+        "type": "bezier-curve",
+        "position": {
+          "x": 3734,
+          "y": 1126
+        },
+        "parameters": {
+          "x1": 0.3566936104730303,
+          "y1": 0.12813193607438256,
+          "x2": 0.3753624769684056,
+          "y2": 1
+        }
+      },
+      {
+        "id": "node-1769985447217-yyd4th37u",
+        "type": "oklch-color-map-bezier",
+        "position": {
+          "x": 4803,
+          "y": 2330
+        },
+        "parameters": {
+          "stops": 12
+        }
+      },
+      {
+        "id": "node-1769985447217-5usly3zou",
+        "type": "fractal",
+        "position": {
+          "x": 2418,
+          "y": 1713
+        },
+        "parameters": {
+          "fractalIntensity": 2.58,
+          "fractalLayers": 2.27,
+          "fractalIterations": 10,
+          "fractalTimeOffset": 0,
+          "fractalAnimationSpeed": 0.45,
+          "fractalRotationSpeed": 0.33999999999999986,
+          "fractalLayerPhase": -0.76
+        },
+        "parameterInputModes": {
+          "fractalLayers": "subtract",
+          "fractalIntensity": "multiply"
+        }
+      },
+      {
+        "id": "node-1769985447217-guyr2nifw",
+        "type": "turbulence",
+        "position": {
+          "x": 770,
+          "y": 1199
+        },
+        "parameters": {
+          "turbulenceScale": 0.9,
+          "turbulenceStrength": 0.01,
+          "turbulenceIterations": 1,
+          "turbulenceTimeSpeed": 1,
+          "turbulenceTimeOffset": 0
+        },
+        "parameterInputModes": {
+          "turbulenceStrength": "multiply"
+        }
+      },
+      {
+        "id": "node-1769985447217-spw45p96d",
+        "type": "vector-field",
+        "position": {
+          "x": 1763,
+          "y": 1199
+        },
+        "parameters": {
+          "vectorFieldFrequencyX": 4,
+          "vectorFieldFrequencyY": 4.6000000000000005,
+          "vectorFieldFrequencyZ": 4.4,
+          "vectorFieldAmplitude": 5,
+          "vectorFieldRadialStrength": 8,
+          "vectorFieldHarmonicAmplitude": 2.9000000000000004,
+          "vectorFieldComplexity": 10.600000000000001,
+          "vectorFieldDistanceContribution": 0.18,
+          "vectorFieldSpeed": 0.3,
+          "animationSpeed": 0.3
+        },
+        "parameterInputModes": {
+          "vectorFieldFrequencyZ": "multiply",
+          "vectorFieldFrequencyX": "multiply",
+          "vectorFieldHarmonicAmplitude": "multiply"
+        }
+      },
+      {
+        "id": "node-1769985447217-z6z6cthck",
+        "type": "blend-mode",
+        "position": {
+          "x": 3265,
+          "y": 2330
+        },
+        "parameters": {
+          "mode": 7,
+          "opacity": 1
+        },
+        "parameterInputModes": {
+          "opacity": "multiply"
+        }
+      },
+      {
+        "id": "node-1769985447217-22qlvcijm",
+        "type": "sphere-raymarch",
+        "position": {
+          "x": 1659,
+          "y": 3830
+        },
+        "parameters": {
+          "sphereRadius": 1.7000000000000002,
+          "sphereGlowIntensity": 0.46,
+          "sphereBrightness": 0.8,
+          "raymarchSteps": 94,
+          "vectorFieldFrequencyX": 7,
+          "vectorFieldFrequencyY": 4.2,
+          "vectorFieldFrequencyZ": 4.4,
+          "vectorFieldAmplitude": 3.7,
+          "vectorFieldRadialStrength": 16.8,
+          "vectorFieldHarmonicAmplitude": 1.8,
+          "vectorFieldComplexity": 9.8,
+          "vectorFieldDistanceContribution": 0.06,
+          "vectorFieldSpeed": 0.5,
+          "animationSpeed": 1.2000000000000002
+        },
+        "parameterInputModes": {
+          "sphereBrightness": "multiply",
+          "vectorFieldAmplitude": "multiply",
+          "vectorFieldHarmonicAmplitude": "add",
+          "vectorFieldFrequencyZ": "multiply",
+          "vectorFieldFrequencyY": "multiply",
+          "vectorFieldFrequencyX": "multiply",
+          "sphereGlowIntensity": "multiply"
+        }
+      },
+      {
+        "id": "node-1769985447217-bf802z6vj",
+        "type": "blend-mode",
+        "position": {
+          "x": 3265,
+          "y": 2892
+        },
+        "parameters": {
+          "mode": 11,
+          "opacity": 1
+        },
+        "parameterInputModes": {
+          "opacity": "multiply"
+        }
+      },
+      {
+        "id": "node-1769985447217-nrgk6v9oi",
+        "type": "mix",
+        "position": {
+          "x": 3924,
+          "y": 2805
+        },
+        "parameters": {}
+      },
+      {
+        "id": "node-1769985447217-xtzeqb6cm",
+        "type": "tone-mapping",
+        "position": {
+          "x": 3149,
+          "y": 3530
+        },
+        "parameters": {
+          "exposure": 1.1,
+          "contrast": 1.46,
+          "saturation": 1
+        },
+        "parameterInputModes": {
+          "contrast": "multiply",
+          "exposure": "multiply"
+        }
+      }
+    ],
+    "connections": [
+      {
+        "id": "conn-1769985447217-v2pfpae8n",
+        "sourceNodeId": "node-1769985447217-1vbj3uasw",
+        "sourcePort": "currentTime",
+        "targetNodeId": "node-1769985447217-uvlhi2rc8",
+        "targetPort": "audioFile"
+      },
+      {
+        "id": "conn-1769985447217-t0f3xj3mv",
+        "sourceNodeId": "node-1769985447217-ij1odpm6k",
+        "sourcePort": "out",
+        "targetNodeId": "node-1769985447217-yyd4th37u",
+        "targetPort": "startColor"
+      },
+      {
+        "id": "conn-1769985447217-991m5q5pg",
+        "sourceNodeId": "node-1769985447217-ftnq5c1pb",
+        "sourcePort": "out",
+        "targetNodeId": "node-1769985447217-yyd4th37u",
+        "targetPort": "endColor"
+      },
+      {
+        "id": "conn-1769985447217-ajjbt7qvl",
+        "sourceNodeId": "node-1769985447217-u0f4bmrgt",
+        "sourcePort": "out",
+        "targetNodeId": "node-1769985447217-yyd4th37u",
+        "targetPort": "lCurve"
+      },
+      {
+        "id": "conn-1769985447217-wapitpjnn",
+        "sourceNodeId": "node-1769985447217-2jn63wk2e",
+        "sourcePort": "out",
+        "targetNodeId": "node-1769985447217-yyd4th37u",
+        "targetPort": "cCurve"
+      },
+      {
+        "id": "conn-1769985447217-wnmp592w6",
+        "sourceNodeId": "node-1769985447217-vuhgq97ul",
+        "sourcePort": "out",
+        "targetNodeId": "node-1769985447217-yyd4th37u",
+        "targetPort": "hCurve"
+      },
+      {
+        "id": "conn-1769985447217-cngu9in5k",
+        "sourceNodeId": "node-1769985447217-83r35ia8o",
+        "sourcePort": "out",
+        "targetNodeId": "node-1769985447217-guyr2nifw",
+        "targetPort": "in"
+      },
+      {
+        "id": "conn-1769985447217-cqj714ymp",
+        "sourceNodeId": "node-1769985447217-guyr2nifw",
+        "sourcePort": "out",
+        "targetNodeId": "node-1769985447217-spw45p96d",
+        "targetPort": "in"
+      },
+      {
+        "id": "conn-1769985447217-5lbh7byrd",
+        "sourceNodeId": "node-1769985447217-spw45p96d",
+        "sourcePort": "out",
+        "targetNodeId": "node-1769985447217-5usly3zou",
+        "targetPort": "in"
+      },
+      {
+        "id": "conn-1769985447217-yuj47nah6",
+        "sourceNodeId": "node-1769985447217-uvlhi2rc8",
+        "sourcePort": "remap0",
+        "targetNodeId": "node-1769985447217-spw45p96d",
+        "targetParameter": "vectorFieldFrequencyX"
+      },
+      {
+        "id": "conn-1769985447217-k02nsy8zk",
+        "sourceNodeId": "node-1769985447217-uvlhi2rc8",
+        "sourcePort": "remap1",
+        "targetNodeId": "node-1769985447217-spw45p96d",
+        "targetParameter": "vectorFieldFrequencyZ"
+      },
+      {
+        "id": "conn-1769985447217-61s6uf7sh",
+        "sourceNodeId": "node-1769985447217-uvlhi2rc8",
+        "sourcePort": "remap2",
+        "targetNodeId": "node-1769985447217-spw45p96d",
+        "targetParameter": "vectorFieldFrequencyY"
+      },
+      {
+        "id": "conn-1769985447217-uv2fmierj",
+        "sourceNodeId": "node-1769985447217-uvlhi2rc8",
+        "sourcePort": "remap3",
+        "targetNodeId": "node-1769985447217-spw45p96d",
+        "targetParameter": "vectorFieldHarmonicAmplitude"
+      },
+      {
+        "id": "conn-1769985447217-5cs93nqkp",
+        "sourceNodeId": "node-1769985447217-uvlhi2rc8",
+        "sourcePort": "remap3",
+        "targetNodeId": "node-1769985447217-5usly3zou",
+        "targetParameter": "fractalIntensity"
+      },
+      {
+        "id": "conn-1769985447217-8bnmk0nk7",
+        "sourceNodeId": "node-1769985447217-uvlhi2rc8",
+        "sourcePort": "remap3",
+        "targetNodeId": "node-1769985447217-5usly3zou",
+        "targetParameter": "fractalLayers"
+      },
+      {
+        "id": "conn-1769985447217-u7i8l5e5g",
+        "sourceNodeId": "node-1769985447217-guyr2nifw",
+        "sourcePort": "out",
+        "targetNodeId": "node-1769985447217-22qlvcijm",
+        "targetPort": "in"
+      },
+      {
+        "id": "conn-1769985447217-6ifx91onn",
+        "sourceNodeId": "node-1769985447217-uvlhi2rc8",
+        "sourcePort": "remap3",
+        "targetNodeId": "node-1769985447217-22qlvcijm",
+        "targetParameter": "vectorFieldFrequencyX"
+      },
+      {
+        "id": "conn-1769985447217-4p58dl14q",
+        "sourceNodeId": "node-1769985447217-uvlhi2rc8",
+        "sourcePort": "remap3",
+        "targetNodeId": "node-1769985447217-22qlvcijm",
+        "targetParameter": "vectorFieldFrequencyY"
+      },
+      {
+        "id": "conn-1769985447217-q10xtmhr9",
+        "sourceNodeId": "node-1769985447217-uvlhi2rc8",
+        "sourcePort": "remap3",
+        "targetNodeId": "node-1769985447217-22qlvcijm",
+        "targetParameter": "vectorFieldFrequencyZ"
+      },
+      {
+        "id": "conn-1769985447217-y23nroput",
+        "sourceNodeId": "node-1769985447217-uvlhi2rc8",
+        "sourcePort": "remap3",
+        "targetNodeId": "node-1769985447217-22qlvcijm",
+        "targetParameter": "vectorFieldAmplitude"
+      },
+      {
+        "id": "conn-1769985447217-7yadh0or1",
+        "sourceNodeId": "node-1769985447217-uvlhi2rc8",
+        "sourcePort": "remap0",
+        "targetNodeId": "node-1769985447217-22qlvcijm",
+        "targetParameter": "vectorFieldHarmonicAmplitude"
+      },
+      {
+        "id": "conn-1769985447217-xc6ht1x8l",
+        "sourceNodeId": "node-1769985447217-uvlhi2rc8",
+        "sourcePort": "remap1",
+        "targetNodeId": "node-1769985447217-22qlvcijm",
+        "targetParameter": "sphereBrightness"
+      },
+      {
+        "id": "conn-1769985447217-25zannran",
+        "sourceNodeId": "node-1769985447217-uvlhi2rc8",
+        "sourcePort": "remap1",
+        "targetNodeId": "node-1769985447217-22qlvcijm",
+        "targetParameter": "sphereGlowIntensity"
+      },
+      {
+        "id": "conn-1769985447217-7o2dhqks8",
+        "sourceNodeId": "node-1769985447217-22qlvcijm",
+        "sourcePort": "out",
+        "targetNodeId": "node-1769985447217-z6z6cthck",
+        "targetPort": "blend"
+      },
+      {
+        "id": "conn-1769985447217-ztej3n7wg",
+        "sourceNodeId": "node-1769985447217-5usly3zou",
+        "sourcePort": "out",
+        "targetNodeId": "node-1769985447217-z6z6cthck",
+        "targetPort": "base"
+      },
+      {
+        "id": "conn-1769985447217-egan7dj4w",
+        "sourceNodeId": "node-1769985447217-uvlhi2rc8",
+        "sourcePort": "remap0",
+        "targetNodeId": "node-1769985447217-z6z6cthck",
+        "targetParameter": "opacity"
+      },
+      {
+        "id": "conn-1769985447217-zsv3vxeg1",
+        "sourceNodeId": "node-1769985447217-5usly3zou",
+        "sourcePort": "out",
+        "targetNodeId": "node-1769985447217-bf802z6vj",
+        "targetPort": "base"
+      },
+      {
+        "id": "conn-1769985447217-m4zirtq9n",
+        "sourceNodeId": "node-1769985447217-22qlvcijm",
+        "sourcePort": "out",
+        "targetNodeId": "node-1769985447217-bf802z6vj",
+        "targetPort": "blend"
+      },
+      {
+        "id": "conn-1769985447217-2lxwmk0z3",
+        "sourceNodeId": "node-1769985447217-z6z6cthck",
+        "sourcePort": "out",
+        "targetNodeId": "node-1769985447217-nrgk6v9oi",
+        "targetPort": "a"
+      },
+      {
+        "id": "conn-1769985447217-llngyg8kh",
+        "sourceNodeId": "node-1769985447217-bf802z6vj",
+        "sourcePort": "out",
+        "targetNodeId": "node-1769985447217-nrgk6v9oi",
+        "targetPort": "b"
+      },
+      {
+        "id": "conn-1769985447217-p24jp15qb",
+        "sourceNodeId": "node-1769985447217-uvlhi2rc8",
+        "sourcePort": "remap1",
+        "targetNodeId": "node-1769985447217-bf802z6vj",
+        "targetParameter": "opacity"
+      },
+      {
+        "id": "conn-1769985447217-fbrvsn0x3",
+        "sourceNodeId": "node-1769985447217-uvlhi2rc8",
+        "sourcePort": "remap2",
+        "targetNodeId": "node-1769985447217-nrgk6v9oi",
+        "targetPort": "t"
+      },
+      {
+        "id": "conn-1769985447217-knw35v3qp",
+        "sourceNodeId": "node-1769985447217-yyd4th37u",
+        "sourcePort": "out",
+        "targetNodeId": "node-1769985447217-xtzeqb6cm",
+        "targetPort": "in"
+      },
+      {
+        "id": "conn-1769985447217-9xr55y68x",
+        "sourceNodeId": "node-1769985447217-xtzeqb6cm",
+        "sourcePort": "out",
+        "targetNodeId": "node-1769985447217-gggzob695",
+        "targetPort": "in"
+      },
+      {
+        "id": "conn-1769985447217-7m7z59u8f",
+        "sourceNodeId": "node-1769985447217-uvlhi2rc8",
+        "sourcePort": "remap1",
+        "targetNodeId": "node-1769985447217-xtzeqb6cm",
+        "targetParameter": "contrast"
+      },
+      {
+        "id": "conn-1769985455620-9q7v6w215",
+        "sourceNodeId": "node-1769985447217-5usly3zou",
+        "sourcePort": "out",
+        "targetNodeId": "node-1769985447217-yyd4th37u",
+        "targetPort": "in"
+      }
+    ],
+    "viewState": {
+      "zoom": 0.4594500937353694,
+      "panX": -1042.098762059209,
+      "panY": -782.1005559593448,
+      "selectedNodeIds": []
+    }
+  }
+}

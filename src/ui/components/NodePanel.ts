@@ -20,6 +20,7 @@ type DisplayMode = 'list' | 'grid';
 export class NodePanel {
   private panel: HTMLElement;
   private input: HTMLInputElement;
+  private clearButton: HTMLButtonElement;
   private filterTags: HTMLElement;
   private displayModeToggle: HTMLElement;
   private results: HTMLElement;
@@ -114,9 +115,9 @@ export class NodePanel {
     const searchContainer = document.createElement('div');
     searchContainer.className = 'search-container';
     
-    // Search input wrapper (for leading icon)
+    // Search input wrapper (for leading icon and trailing clear button)
     const inputWrapper = document.createElement('div');
-    inputWrapper.className = 'input-wrapper';
+    inputWrapper.className = 'input-wrapper input-wrapper-search';
     
     // Search icon (leading)
     const searchIcon = createIconElement('search', 16, 'currentColor', 'input-icon-leading', 'line');
@@ -127,8 +128,35 @@ export class NodePanel {
     this.input.type = 'text';
     this.input.placeholder = 'Search nodes...';
     this.input.className = 'input primary md';
-    this.input.addEventListener('input', () => this.filterResults());
+    this.input.addEventListener('input', () => {
+      this.updateClearButtonVisibility();
+      this.filterResults();
+    });
+    this.input.addEventListener('focus', () => {
+      this.input.value = '';
+      this.updateClearButtonVisibility();
+      this.filterResults();
+    });
     inputWrapper.appendChild(this.input);
+    
+    // Clear button (trailing)
+    const clearButton = document.createElement('button');
+    clearButton.className = 'button ghost sm icon-only input-clear';
+    clearButton.type = 'button';
+    clearButton.title = 'Clear search';
+    clearButton.setAttribute('aria-label', 'Clear search');
+    const clearIcon = createIconElement('x', 16, 'currentColor', undefined, 'line');
+    clearButton.appendChild(clearIcon);
+    clearButton.addEventListener('click', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      this.input.value = '';
+      this.updateClearButtonVisibility();
+      this.filterResults();
+      this.input.focus();
+    });
+    this.clearButton = clearButton;
+    inputWrapper.appendChild(clearButton);
     
     searchContainer.appendChild(inputWrapper);
     
@@ -183,6 +211,22 @@ export class NodePanel {
     // Panel will be appended by layout, not to body
     this.filterResults();
     this.updateDisplayModeToggle();
+    this.updateClearButtonVisibility();
+  }
+  
+  private updateClearButtonVisibility(): void {
+    if (this.input.value.trim() === '') {
+      this.clearButton.classList.add('is-hidden');
+    } else {
+      this.clearButton.classList.remove('is-hidden');
+    }
+  }
+  
+  /**
+   * Focus the search input (e.g. for Cmd/Ctrl+F shortcut).
+   */
+  focusSearch(): void {
+    this.input.focus();
   }
   
   private updateDisplayModeToggle(): void {

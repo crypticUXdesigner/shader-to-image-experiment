@@ -192,14 +192,25 @@ export class RuntimeManager implements Disposable {
         return;
       }
       
-      // Handle audio-analyzer runtime parameters
-      if (node && node.type === 'audio-analyzer' && (paramName === 'smoothing' || paramName === 'fftSize' || paramName === 'frequencyBands')) {
-        // These are runtime-only, not shader uniforms
-        // Update the graph parameter and handle via audio analyzer parameter change handler
+      // Handle audio-analyzer runtime parameters (smoothing, fftSize, frequencyBands, and band remap)
+      const isAnalyzerCoreParam = paramName === 'smoothing' || paramName === 'fftSize' || paramName === 'frequencyBands';
+      const isAnalyzerBandRemapParam = /^band\d+Remap(InMin|InMax|OutMin|OutMax)$/.test(paramName);
+      if (node && node.type === 'audio-analyzer' && (isAnalyzerCoreParam || isAnalyzerBandRemapParam)) {
+        // Update the graph parameter so runtime uses latest state
         if (node) {
           node.parameters[paramName] = value;
         }
-        this.audioParameterHandler.onAudioAnalyzerParameterChange(nodeId, paramName, value, this.currentGraph);
+        if (isAnalyzerCoreParam) {
+          this.audioParameterHandler.onAudioAnalyzerParameterChange(nodeId, paramName, value, this.currentGraph);
+        }
+        // Tick analyzers immediately so smoothedBandValues are filled before the next canvas render.
+        // Push uniforms so visualizer needles and shader (remapped output) update when frequency range
+        // or band remap sliders change, not only on connection/node changes.
+        this.audioParameterHandler.tickAudioAnalyzers(this.currentGraph);
+        const shaderInstance = this.compilationManager.getShaderInstance();
+        if (shaderInstance) {
+          this.audioParameterHandler.updateAudioUniforms(shaderInstance, this.currentGraph);
+        }
         return;
       }
     }
@@ -291,6 +302,20 @@ export class RuntimeManager implements Disposable {
    */
   renderIfDirty(): void {
     this.timeManager.renderIfDirty(this.renderer);
+  }
+
+  /**
+   * Tick audio analyzers and push uniforms so the next canvas render sees fresh values.
+   * Call after setGraph when syncing due to audio-analyzer param changes (frequency range, remap).
+   */
+  syncAudioAnalyzers(): void {
+    if (this.currentGraph) {
+      this.audioParameterHandler.tickAudioAnalyzers(this.currentGraph);
+      const shaderInstance = this.compilationManager.getShaderInstance();
+      if (shaderInstance) {
+        this.audioParameterHandler.updateAudioUniforms(shaderInstance, this.currentGraph);
+      }
+    }
   }
 
   /**

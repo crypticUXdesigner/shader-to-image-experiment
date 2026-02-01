@@ -90,8 +90,12 @@ export class CompilationManager implements Disposable {
         return;
       }
 
-      // Skip runtime-only parameters for audio-analyzer nodes
-      if (node.type === 'audio-analyzer' && (paramName === 'smoothing' || paramName === 'fftSize' || paramName === 'frequencyBands')) {
+      // Skip runtime-only parameters for audio-analyzer nodes (band remap params are used in JS only)
+      const isAnalyzerRuntimeParam =
+        node.type === 'audio-analyzer' &&
+        (paramName === 'smoothing' || paramName === 'fftSize' || paramName === 'frequencyBands' ||
+          /^band\d+Remap(InMin|InMax|OutMin|OutMax)$/.test(paramName));
+      if (isAnalyzerRuntimeParam) {
         // Just update the graph parameter, don't try to set as uniform
         node.parameters[paramName] = value;
         return;
@@ -452,8 +456,10 @@ export class CompilationManager implements Disposable {
           continue;
         }
         
-        // For audio-analyzer nodes: frequencyBands, smoothing, and fftSize are runtime-only
-        if (node.type === 'audio-analyzer' && (paramName === 'frequencyBands' || paramName === 'smoothing' || paramName === 'fftSize')) {
+        // For audio-analyzer: frequencyBands, smoothing, fftSize, and band remap params are runtime-only
+        if (node.type === 'audio-analyzer' &&
+            (paramName === 'frequencyBands' || paramName === 'smoothing' || paramName === 'fftSize' ||
+             /^band\d+Remap(InMin|InMax|OutMin|OutMax)$/.test(paramName))) {
           continue;
         }
         

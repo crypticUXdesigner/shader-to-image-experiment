@@ -8,8 +8,11 @@ import { globalErrorHandler } from '../../utils/errorHandling';
 
 export type PreviewState = 'expanded' | 'collapsed';
 
+/** View mode for the main layout: Node (small preview), Split (side-by-side), Full (shader fills content area). */
+export type ViewMode = 'node' | 'split' | 'full';
+
 export interface LayoutState {
-  previewState: PreviewState;
+  viewMode: ViewMode;
   dividerPosition: number; // 0.0 to 1.0 (percentage of viewport width)
   cornerWidgetSize: { width: number; height: number };
   cornerWidgetPosition: { x: number; y: number };
@@ -51,8 +54,6 @@ export class NodeEditorLayout {
   // Edge snapping configuration
   private readonly SNAP_DISTANCE = 20; // pixels
   private readonly SAFE_DISTANCE = 16; // pixels from edges
-  private readonly BUTTON_HIDE_DELAY = 2000; // milliseconds before hiding button when collapsed
-  
   /**
    * Get the top bar height in pixels
    */
@@ -76,17 +77,17 @@ export class NodeEditorLayout {
   
   private onCopyPreset?: () => Promise<void> | void;
   private onExport?: () => Promise<void> | void;
+  private onVideoExport?: () => Promise<void>;
   private onLoadPreset?: (presetName: string) => Promise<void> | void;
   private onZoomChange?: (zoom: number) => void;
   private getZoom?: () => number;
   private onPanelToggle?: () => void;
-  private buttonHideTimeout: number | null = null;
   private panelToggleButton!: HTMLElement;
   private panelToggleIcon!: SVGElement;
   private nodePanelContainer!: HTMLElement;
   private buttonContainer!: HTMLElement;
   private topBarRightSection!: HTMLElement;
-  private layoutToggleButton!: HTMLElement;
+  private viewModeButtons: { node: HTMLElement; split: HTMLElement; full: HTMLElement } | null = null;
   private panelWidth: number = 380;
   private isPanelVisible: boolean = true;
   private bottomBar?: { setPanelOffset: (offset: number) => void };
@@ -119,7 +120,7 @@ export class NodeEditorLayout {
     this.snappedCorner = 'top-right';
     
     this.state = {
-      previewState: 'collapsed',
+      viewMode: 'node',
       dividerPosition: 0.5,
       cornerWidgetSize: { width: initialWidth, height: initialHeight },
       cornerWidgetPosition: { x: initialX, y: initialY }
@@ -210,7 +211,27 @@ export class NodeEditorLayout {
       }
     };
   }
-  
+
+  /**
+   * Set callback for video export button
+   */
+  setVideoExportCallback(callback: () => Promise<void>): void {
+    this.onVideoExport = async () => {
+      try {
+        await callback();
+        this.showToast('Video exported successfully!', 'success');
+      } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : 'Failed to export video';
+        this.showToast(errorMessage, 'error');
+        globalErrorHandler.report(
+          'runtime',
+          'error',
+          errorMessage,
+          { originalError: error instanceof Error ? error : new Error(errorMessage) }
+        );
+      }
+    };
+  }
 
   /**
    * Set callback for preset selection
@@ -418,6 +439,11 @@ export class NodeEditorLayout {
     leftSection.className = 'top-bar-left';
     this.buttonContainer.appendChild(leftSection);
     
+    // Create center section for view mode tab group (between left and right)
+    const centerSection = document.createElement('div');
+    centerSection.className = 'top-bar-center';
+    this.buttonContainer.appendChild(centerSection);
+    
     // Create right section container
     this.topBarRightSection = document.createElement('div');
     this.topBarRightSection.className = 'top-bar-right';
@@ -442,7 +468,36 @@ export class NodeEditorLayout {
     });
     leftSection.appendChild(this.panelToggleButton);
     
-    // Preset button (left side - second)
+    // View mode: Node | Split | Full
+    const viewModeGroup = document.createElement('div');
+    viewModeGroup.className = 'top-bar-view-mode-group';
+    viewModeGroup.setAttribute('role', 'group');
+    viewModeGroup.setAttribute('aria-label', 'View mode');
+    const nodeBtn = document.createElement('button');
+    (nodeBtn as HTMLButtonElement).type = 'button';
+    nodeBtn.className = 'button secondary sm';
+    nodeBtn.textContent = 'Node';
+    nodeBtn.title = 'Node editor with small shader preview';
+    nodeBtn.addEventListener('click', () => this.setViewMode('node'));
+    const splitBtn = document.createElement('button');
+    (splitBtn as HTMLButtonElement).type = 'button';
+    splitBtn.className = 'button secondary sm';
+    splitBtn.textContent = 'Split';
+    splitBtn.title = 'Node editor and shader preview side by side';
+    splitBtn.addEventListener('click', () => this.setViewMode('split'));
+    const fullBtn = document.createElement('button');
+    (fullBtn as HTMLButtonElement).type = 'button';
+    fullBtn.className = 'button secondary sm';
+    fullBtn.textContent = 'Full';
+    fullBtn.title = 'Shader fills viewport (top and bottom bars visible)';
+    fullBtn.addEventListener('click', () => this.setViewMode('full'));
+    viewModeGroup.appendChild(nodeBtn);
+    viewModeGroup.appendChild(splitBtn);
+    viewModeGroup.appendChild(fullBtn);
+    this.viewModeButtons = { node: nodeBtn, split: splitBtn, full: fullBtn };
+    centerSection.appendChild(viewModeGroup);
+    
+    // Preset button (left side - after panel toggle)
     this.presetButton = document.createElement('button');
     (this.presetButton as HTMLButtonElement).type = 'button';
     this.presetButton.className = 'button secondary sm both';
@@ -508,11 +563,11 @@ export class NodeEditorLayout {
     this.exportButton = document.createElement('button');
     (this.exportButton as HTMLButtonElement).type = 'button';
     this.exportButton.className = 'button secondary sm both';
-    this.exportButton.title = 'Export Image';
+    this.exportButton.title = 'Save Image';
     const exportIcon = createIconElement('photo', 16, 'currentColor', undefined, 'line');
     this.exportButton.appendChild(exportIcon);
     const exportLabel = document.createElement('span');
-    exportLabel.textContent = 'Export';
+    exportLabel.textContent = 'Save';
     this.exportButton.appendChild(exportLabel);
     this.exportButton.addEventListener('click', async (e) => {
       e.preventDefault();
@@ -525,6 +580,35 @@ export class NodeEditorLayout {
       }
     });
     leftSection.appendChild(this.exportButton);
+
+    // Export Video button (left side - fifth)
+    const videoExportButton = document.createElement('button');
+    (videoExportButton as HTMLButtonElement).type = 'button';
+    videoExportButton.className = 'button secondary sm both';
+    videoExportButton.title = 'Save Video';
+    const videoExportIcon = createIconElement('video', 16, 'currentColor', undefined, 'line');
+    videoExportButton.appendChild(videoExportIcon);
+    const videoExportLabel = document.createElement('span');
+    videoExportLabel.textContent = 'Save';
+    videoExportButton.appendChild(videoExportLabel);
+    videoExportButton.addEventListener('click', async (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      if (this.onVideoExport) {
+        try {
+          await this.onVideoExport();
+        } catch (err) {
+          const msg = err instanceof Error ? err.message : String(err);
+          if (msg === 'Cancelled' || msg === 'Export cancelled') return;
+          globalErrorHandler.report('runtime', 'error', msg);
+          this.showToast(msg, 'error');
+        }
+      } else {
+        globalErrorHandler.report('validation', 'warning', 'Video export callback not set yet');
+        this.showToast('Video export not ready yet. Please try again.', 'error');
+      }
+    });
+    leftSection.appendChild(videoExportButton);
     
     // FPS counter (right side - first)
     this.fpsDisplay = document.createElement('div');
@@ -719,16 +803,16 @@ export class NodeEditorLayout {
     `;
     this.container.appendChild(this.previewContainer);
     
-    // Expand/Collapse button – same size as panel toggle (.button.secondary.md.icon-only)
-    this.layoutToggleButton = document.createElement('button');
-    this.layoutToggleButton.className = 'button secondary md icon-only layout-toggle-button';
-    this.layoutToggleButton.title = this.state.previewState === 'expanded' ? 'Collapse preview' : 'Expand preview';
-    this.layoutToggleButton.addEventListener('click', () => this.togglePreview());
-    this.previewContainer.appendChild(this.layoutToggleButton);
-    this.updateToggleButtonIcon();
-    
-    // Setup hover listeners for auto-hide/show when collapsed
-    this.setupButtonAutoHide();
+    this.updateViewModeButtonStates();
+  }
+  
+  private updateViewModeButtonStates(): void {
+    if (!this.viewModeButtons) return;
+    const { node, split, full } = this.viewModeButtons;
+    const mode = this.state.viewMode;
+    node.classList.toggle('is-active', mode === 'node');
+    split.classList.toggle('is-active', mode === 'split');
+    full.classList.toggle('is-active', mode === 'full');
   }
   
   private setupEventListeners(): void {
@@ -756,51 +840,6 @@ export class NodeEditorLayout {
       this.updateLayout();
     });
     
-  }
-  
-  private setupButtonAutoHide(): void {
-    // Show button on hover when collapsed
-    this.previewContainer.addEventListener('mouseenter', () => {
-      if (this.state.previewState === 'collapsed') {
-        this.showToggleButton();
-      }
-    });
-    
-    // Start hide timer when mouse leaves (only when collapsed)
-    this.previewContainer.addEventListener('mouseleave', () => {
-      if (this.state.previewState === 'collapsed') {
-        this.scheduleButtonHide();
-      }
-    });
-  }
-  
-  private showToggleButton(): void {
-    if (!this.layoutToggleButton) return;
-    this.clearButtonHideTimeout();
-    this.layoutToggleButton.classList.remove('is-hidden');
-  }
-  
-  private hideToggleButton(): void {
-    if (!this.layoutToggleButton) return;
-    this.layoutToggleButton.classList.add('is-hidden');
-  }
-  
-  private scheduleButtonHide(): void {
-    this.clearButtonHideTimeout();
-    
-    this.buttonHideTimeout = window.setTimeout(() => {
-      if (this.state.previewState === 'collapsed') {
-        this.hideToggleButton();
-      }
-      this.buttonHideTimeout = null;
-    }, this.BUTTON_HIDE_DELAY);
-  }
-  
-  private clearButtonHideTimeout(): void {
-    if (this.buttonHideTimeout !== null) {
-      clearTimeout(this.buttonHideTimeout);
-      this.buttonHideTimeout = null;
-    }
   }
   
   private handleDividerDrag = (e: MouseEvent): void => {
@@ -841,57 +880,15 @@ export class NodeEditorLayout {
     document.removeEventListener('mouseup', this.handlePanelResizeEnd);
   };
   
-  private togglePreview(): void {
-    const wasExpanded = this.state.previewState === 'expanded';
-    this.state.previewState = wasExpanded ? 'collapsed' : 'expanded';
-    
-    // If transitioning to collapsed, initialize position if not set
-    if (wasExpanded && this.state.previewState === 'collapsed') {
-      const containerRect = this.container.getBoundingClientRect();
-      const widgetWidth = this.state.cornerWidgetSize.width;
-      const topBarHeight = this.getTopBarHeight();
-      
-      // Only initialize if position is at origin (0,0) or invalid
-      if (this.state.cornerWidgetPosition.x === 0 && this.state.cornerWidgetPosition.y === 0) {
-        this.state.cornerWidgetPosition.x = containerRect.width - widgetWidth - this.SAFE_DISTANCE;
-        this.state.cornerWidgetPosition.y = topBarHeight; // Top-right corner (below top bar)
-        this.snappedCorner = 'top-right';
-      } else {
-        // Check if the current position is at a corner and update snappedCorner
-        const safeDist = this.SAFE_DISTANCE;
-        const bottomInset = this.getBottomSafeInset();
-        const widgetHeight = this.state.cornerWidgetSize.height;
-        const x = this.state.cornerWidgetPosition.x;
-        const y = this.state.cornerWidgetPosition.y;
-        const maxX = containerRect.width - widgetWidth - safeDist;
-        const maxY = containerRect.height - widgetHeight - bottomInset;
-        
-        // Check if at a corner (use topBarHeight for top edge)
-        if (Math.abs(x - safeDist) < this.SNAP_DISTANCE && Math.abs(y - topBarHeight) < this.SNAP_DISTANCE) {
-          this.snappedCorner = 'top-left';
-        } else if (Math.abs(x - maxX) < this.SNAP_DISTANCE && Math.abs(y - topBarHeight) < this.SNAP_DISTANCE) {
-          this.snappedCorner = 'top-right';
-        } else if (Math.abs(x - safeDist) < this.SNAP_DISTANCE && Math.abs(y - maxY) < this.SNAP_DISTANCE) {
-          this.snappedCorner = 'bottom-left';
-        } else if (Math.abs(x - maxX) < this.SNAP_DISTANCE && Math.abs(y - maxY) < this.SNAP_DISTANCE) {
-          this.snappedCorner = 'bottom-right';
-        } else {
-          this.snappedCorner = null;
-        }
-      }
-    }
-    
-    this.updateToggleButtonIcon();
-    this.updateLayout();
-  }
-  
   private updateLayout(): void {
     const containerRect = this.container.getBoundingClientRect();
     const width = containerRect.width;
     const height = containerRect.height;
+    const viewMode = this.state.viewMode;
     
-    // Expose preview state on container for CSS (e.g. transparent topbar when expanded)
-    this.container.dataset.preview = this.state.previewState;
+    // Expose view mode on container for CSS (e.g. transparent topbar when split/full)
+    this.container.dataset.view = viewMode;
+    this.container.dataset.preview = viewMode === 'node' ? 'collapsed' : 'expanded';
     
     // Calculate panel offset
     const panelOffset = this.isPanelVisible ? this.panelWidth : 0;
@@ -899,69 +896,66 @@ export class NodeEditorLayout {
     // Update panel container visibility using CSS classes
     if (this.isPanelVisible) {
       this.nodePanelContainer.classList.add('is-visible');
-      // Update resize handle visibility
       if (this.panelResizeHandle) {
         this.panelResizeHandle.style.display = 'block';
       }
     } else {
       this.nodePanelContainer.classList.remove('is-visible');
-      // Hide resize handle when panel is hidden
       if (this.panelResizeHandle) {
         this.panelResizeHandle.style.display = 'none';
       }
     }
     
-    // Update bottom bar position
     if (this.bottomBar) {
       this.bottomBar.setPanelOffset(panelOffset);
     }
-    
-    // Update button container position using CSS variable
     if (this.buttonContainer) {
       this.buttonContainer.style.setProperty('--top-bar-left-offset', `${panelOffset}px`);
     }
     
-    // Update toggle button icon
-    this.updateToggleButtonIcon();
+    this.updateViewModeButtonStates();
     
-    // Handle button visibility
-    if (this.state.previewState === 'expanded') {
-      // Always show when expanded
-      this.clearButtonHideTimeout();
-      this.showToggleButton();
-    } else {
-      // When collapsed, show initially then schedule hide
-      this.showToggleButton();
-      this.scheduleButtonHide();
-    }
-    
-    // Get top bar height for safe distance calculations
     const topBarHeight = this.getTopBarHeight();
     
-    if (this.state.previewState === 'expanded') {
-      // Split-screen mode: same safe space at top (topbar) and bottom (bottom bar)
-      const bottomInset = this.getBottomSafeInset();
+    if (viewMode === 'full') {
+      // Full mode: shader fills entire content area; top bar and bottom bar stay on top
+      this.nodeEditorContainer.style.display = 'none';
+      this.divider.style.display = 'none';
+      
+      this.previewContainer.style.left = `${panelOffset}px`;
+      this.previewContainer.style.top = '0px';
+      this.previewContainer.style.width = `calc(100% - ${panelOffset}px)`;
+      this.previewContainer.style.bottom = '0px';
+      this.previewContainer.style.height = '';
+      this.previewContainer.style.display = 'block';
+      this.previewContainer.style.position = 'absolute';
+      this.previewContainer.style.border = 'none';
+      this.previewContainer.style.borderRadius = '0';
+      this.previewContainer.style.cursor = 'default';
+      this.previewContainer.style.zIndex = '1';
+      
+      const existingHandles = this.previewContainer.querySelectorAll('.resize-handle');
+      existingHandles.forEach(h => h.remove());
+    } else if (viewMode === 'split') {
+      // Split mode: node editor and preview side by side
       const leftWidth = (width - panelOffset) * this.state.dividerPosition;
       const rightWidth = (width - panelOffset) * (1 - this.state.dividerPosition);
       
-      // Node editor container: full height with bottom safe space
       this.nodeEditorContainer.style.left = `${panelOffset}px`;
       this.nodeEditorContainer.style.width = `${leftWidth}px`;
       this.nodeEditorContainer.style.display = 'block';
-      this.nodeEditorContainer.style.top = `0px`;
-      this.nodeEditorContainer.style.bottom = `${bottomInset}px`;
+      this.nodeEditorContainer.style.top = '0px';
+      this.nodeEditorContainer.style.bottom = '0px';
       
-      // Divider: same vertical range
       this.divider.style.left = `${panelOffset + leftWidth}px`;
-      this.divider.style.top = `0px`;
-      this.divider.style.bottom = `${bottomInset}px`;
+      this.divider.style.top = '0px';
+      this.divider.style.bottom = '0px';
       this.divider.style.height = '';
       this.divider.style.display = 'block';
       
-      // Preview container: full height with top/bottom safe space (topbar and bottom bar)
       this.previewContainer.style.left = `${panelOffset + leftWidth + 4}px`;
-      this.previewContainer.style.top = `0px`;
-      this.previewContainer.style.bottom = `${bottomInset}px`;
+      this.previewContainer.style.top = '0px';
+      this.previewContainer.style.bottom = '0px';
       this.previewContainer.style.width = `${rightWidth - 4}px`;
       this.previewContainer.style.height = '';
       this.previewContainer.style.display = 'block';
@@ -969,43 +963,29 @@ export class NodeEditorLayout {
       this.previewContainer.style.border = 'none';
       this.previewContainer.style.borderRadius = '0';
       this.previewContainer.style.cursor = 'default';
+      this.previewContainer.style.zIndex = '1';
       
-      // Remove resize handles when expanded
       const existingHandles = this.previewContainer.querySelectorAll('.resize-handle');
       existingHandles.forEach(h => h.remove());
-      
-      // Move toggle button into topbar right section so it sits with other topbar items
-      if (this.layoutToggleButton && this.layoutToggleButton.parentElement !== this.topBarRightSection) {
-        this.topBarRightSection.appendChild(this.layoutToggleButton);
-      }
     } else {
-      // Collapsed mode (corner widget)
-      // Move toggle button back into preview container when collapsed
-      if (this.layoutToggleButton && this.layoutToggleButton.parentElement !== this.previewContainer) {
-        this.previewContainer.appendChild(this.layoutToggleButton);
-      }
-      // Node editor container overlays the top bar (starts at top: 0)
+      // Node mode: corner widget (small preview)
       this.nodeEditorContainer.style.left = `${panelOffset}px`;
       this.nodeEditorContainer.style.width = `calc(100% - ${panelOffset}px)`;
       this.nodeEditorContainer.style.display = 'block';
-      this.nodeEditorContainer.style.top = `0px`;
-      this.nodeEditorContainer.style.bottom = `0px`;
+      this.nodeEditorContainer.style.top = '0px';
+      this.nodeEditorContainer.style.bottom = '0px';
       
       this.divider.style.display = 'none';
       
-      // Position corner widget - maintain relative position when snapped
       const widgetWidth = this.state.cornerWidgetSize.width;
       const widgetHeight = this.state.cornerWidgetSize.height;
       let widgetX = this.state.cornerWidgetPosition.x;
       let widgetY = this.state.cornerWidgetPosition.y;
       
-      // If snapped to a corner, recalculate position based on that corner
-      // Use top bar height for top edge, bottom bar height for bottom edge
       if (this.snappedCorner) {
         const bottomInset = this.getBottomSafeInset();
         const maxX = width - widgetWidth - this.SAFE_DISTANCE;
         const maxY = height - widgetHeight - bottomInset;
-        
         switch (this.snappedCorner) {
           case 'top-left':
             widgetX = this.SAFE_DISTANCE;
@@ -1025,8 +1005,6 @@ export class NodeEditorLayout {
             break;
         }
       } else {
-        // Not snapped - constrain position to viewport with safe distance
-        // Use top bar height for top edge, bottom bar height for bottom edge
         const bottomInset = this.getBottomSafeInset();
         const maxX = width - widgetWidth - this.SAFE_DISTANCE;
         const maxY = height - widgetHeight - bottomInset;
@@ -1034,7 +1012,6 @@ export class NodeEditorLayout {
         widgetY = Math.max(topBarHeight, Math.min(maxY, widgetY));
       }
       
-      // Update state with constrained position
       this.state.cornerWidgetPosition.x = widgetX;
       this.state.cornerWidgetPosition.y = widgetY;
       
@@ -1051,24 +1028,8 @@ export class NodeEditorLayout {
       this.previewContainer.style.zIndex = '50';
       this.previewContainer.style.cursor = 'move';
       
-      // Add resize handles and drag functionality
       this.addResizeHandles();
       this.setupCornerWidgetDrag();
-    }
-  }
-  
-  private updateToggleButtonIcon(): void {
-    if (!this.layoutToggleButton) return;
-    this.layoutToggleButton.innerHTML = '';
-    const iconName = this.state.previewState === 'expanded' ? 'arrows-minimize' : 'arrows-maximize';
-    const icon = createIconElement(iconName, 0, 'currentColor', undefined, 'line');
-    this.layoutToggleButton.appendChild(icon);
-    this.layoutToggleButton.title = this.state.previewState === 'expanded' ? 'Collapse preview' : 'Expand preview';
-    // Same active state as panel toggle: .button.is-active when maximized/expanded
-    if (this.state.previewState === 'expanded') {
-      this.layoutToggleButton.classList.add('is-active');
-    } else {
-      this.layoutToggleButton.classList.remove('is-active');
     }
   }
   
@@ -1439,8 +1400,31 @@ export class NodeEditorLayout {
     return this.previewContainer;
   }
   
+  /**
+   * Set view mode (Node / Split / Full). Replaces legacy setPreviewState.
+   */
+  setViewMode(mode: ViewMode): void {
+    if (this.state.viewMode === mode) return;
+    const wasNode = this.state.viewMode === 'node';
+    this.state.viewMode = mode;
+    if (wasNode && (mode === 'split' || mode === 'full')) {
+      const containerRect = this.container.getBoundingClientRect();
+      const widgetWidth = this.state.cornerWidgetSize.width;
+      const topBarHeight = this.getTopBarHeight();
+      if (this.state.cornerWidgetPosition.x === 0 && this.state.cornerWidgetPosition.y === 0) {
+        this.state.cornerWidgetPosition.x = containerRect.width - widgetWidth - this.SAFE_DISTANCE;
+        this.state.cornerWidgetPosition.y = topBarHeight;
+        this.snappedCorner = 'top-right';
+      }
+    }
+    this.updateViewModeButtonStates();
+    this.updateLayout();
+  }
+  
+  /** @deprecated Use setViewMode('node' | 'split') instead. */
   setPreviewState(state: PreviewState): void {
-    this.state.previewState = state;
+    this.state.viewMode = state === 'expanded' ? 'split' : 'node';
+    this.updateViewModeButtonStates();
     this.updateLayout();
   }
   

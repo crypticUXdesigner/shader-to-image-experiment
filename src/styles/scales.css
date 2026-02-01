@@ -59,13 +59,13 @@
 --text-xl: 1.1rem;
 
 /* Canvas text sizes (px-based for precise rendering) */
---canvas-text-xs: 11px;
---canvas-text-sm: 13px;
---canvas-text-md: 15px;
---canvas-text-lg: 18px;
---canvas-text-xl: 19px;
---canvas-text-2xl: 20px;
---canvas-text-3xl: 24px;
+--canvas-text-xs: 13px;
+--canvas-text-sm: 21px;
+--canvas-text-md: 24px;
+--canvas-text-lg: 30px;
+--canvas-text-xl: 36px;
+--canvas-text-2xl: 42px;
+--canvas-text-3xl: 48px;
 
 /* Border radius */
 /* Radius scale referencing the rem scale */

@@ -139,7 +139,10 @@ export class AudioManager implements Disposable {
   updateUniforms(
     setUniform: (nodeId: string, paramName: string, value: number) => void,
     setUniforms: (updates: Array<{ nodeId: string, paramName: string, value: number }>) => void,
-    graph?: { connections: Array<{ sourceNodeId: string; targetNodeId: string; targetPort?: string }> } | null
+    graph?: {
+      nodes: Array<{ id: string; type: string; parameters: Record<string, unknown> }>;
+      connections: Array<{ sourceNodeId: string; targetNodeId: string; targetPort?: string }>;
+    } | null
   ): void {
     const updates: Array<{ nodeId: string, paramName: string, value: number }> = [];
     const audioNodeStates = this.playbackController.getAllAudioNodeStates();
@@ -187,7 +190,34 @@ export class AudioManager implements Disposable {
       this.VALUE_CHANGE_THRESHOLD
     );
     updates.push(...frequencyUpdates);
-    
+
+    // Third pass: Compute and push per-band remapped values for audio-analyzer nodes
+    if (graph) {
+      for (const node of graph.nodes) {
+        if (node.type !== 'audio-analyzer') continue;
+        const analyzerState = this.frequencyAnalyzer.getAnalyzerNodeState(node.id);
+        if (!analyzerState?.smoothedBandValues?.length) continue;
+        const bandCount = analyzerState.smoothedBandValues.length;
+        for (let i = 0; i < bandCount; i++) {
+          const bandValue = analyzerState.smoothedBandValues[i];
+          const inMin = (typeof node.parameters[`band${i}RemapInMin`] === 'number' ? node.parameters[`band${i}RemapInMin`] : 0) as number;
+          const inMax = (typeof node.parameters[`band${i}RemapInMax`] === 'number' ? node.parameters[`band${i}RemapInMax`] : 1) as number;
+          const outMin = (typeof node.parameters[`band${i}RemapOutMin`] === 'number' ? node.parameters[`band${i}RemapOutMin`] : 0) as number;
+          const outMax = (typeof node.parameters[`band${i}RemapOutMax`] === 'number' ? node.parameters[`band${i}RemapOutMax`] : 1) as number;
+          const range = inMax - inMin;
+          const normalized = range !== 0 ? (bandValue - inMin) / range : 0;
+          const clamped = Math.max(0, Math.min(1, normalized));
+          const remapped = outMin + clamped * (outMax - outMin);
+          const key = `${node.id}.remap${i}`;
+          const prev = this.previousUniformValues.get(key);
+          if (prev === undefined || Math.abs(remapped - prev) > this.VALUE_CHANGE_THRESHOLD) {
+            updates.push({ nodeId: node.id, paramName: `remap${i}`, value: remapped });
+            this.previousUniformValues.set(key, remapped);
+          }
+        }
+      }
+    }
+
     // Batch update all changed uniforms
     if (updates.length > 0) {
       if (updates.length === 1) {

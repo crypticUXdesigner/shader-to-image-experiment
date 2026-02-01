@@ -50,13 +50,44 @@ export const fractalNodeSpec: NodeSpec = {
       max: 100.0,
       step: 0.05,
       label: 'Time Offset'
+    },
+    fractalAnimationSpeed: {
+      type: 'float',
+      default: 1.0,
+      min: 0.0,
+      max: 5.0,
+      step: 0.01,
+      label: 'Speed'
+    },
+    fractalRotationSpeed: {
+      type: 'float',
+      default: 0.5,
+      min: -2.0,
+      max: 2.0,
+      step: 0.01,
+      label: 'Rotation Speed'
+    },
+    fractalLayerPhase: {
+      type: 'float',
+      default: 0.1,
+      min: -1.0,
+      max: 1.0,
+      step: 0.01,
+      label: 'Layer Phase'
     }
   },
   parameterGroups: [
     {
       id: 'fractal-main',
       label: 'Fractal',
-      parameters: ['fractalIntensity', 'fractalLayers', 'fractalIterations', 'fractalTimeOffset'],
+      parameters: ['fractalIntensity', 'fractalLayers', 'fractalIterations'],
+      collapsible: true,
+      defaultCollapsed: false
+    },
+    {
+      id: 'fractal-animation',
+      label: 'Animation',
+      parameters: ['fractalAnimationSpeed', 'fractalRotationSpeed', 'fractalLayerPhase', 'fractalTimeOffset'],
       collapsible: true,
       defaultCollapsed: false
     }
@@ -70,9 +101,9 @@ float fractalDeform(vec2 p) {
   for (int i = 0; i < 16; i++) {
     if (i >= $param.fractalIterations) break;
     
-    // Rotate and scale
-    float t = $time + $param.fractalTimeOffset;
-    float angle = t * 0.5 + float(i) * 0.1;
+    // Rotate and scale (time scaled by speed, rotation and per-layer phase are controllable)
+    float t = ($time + $param.fractalTimeOffset) * $param.fractalAnimationSpeed;
+    float angle = t * $param.fractalRotationSpeed + float(i) * $param.fractalLayerPhase;
     mat2 rot = mat2(cos(angle), -sin(angle), sin(angle), cos(angle));
     z = rot * z;
     

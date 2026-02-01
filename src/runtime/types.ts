@@ -173,7 +173,10 @@ export interface IAudioManager {
   updateUniforms(
     setUniform: (nodeId: string, paramName: string, value: number) => void,
     setUniforms: (updates: Array<{ nodeId: string, paramName: string, value: number }>) => void,
-    graph?: { connections: Array<{ sourceNodeId: string; targetNodeId: string; targetPort?: string }> } | null
+    graph?: {
+      nodes: Array<{ id: string; type: string; parameters: Record<string, unknown> }>;
+      connections: Array<{ sourceNodeId: string; targetNodeId: string; targetPort?: string }>;
+    } | null
   ): void;
   
   /**

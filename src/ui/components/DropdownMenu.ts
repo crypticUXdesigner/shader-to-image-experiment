@@ -85,22 +85,38 @@ export class DropdownMenu {
     // This handles the case where mousedown opens the dropdown, and mouseup completes the click
     this.ignoreClicksUntil = Date.now() + 300;
     
-    // Position menu
+    // Position menu: apply initial position first so getBoundingClientRect() reflects it
+    const viewportPadding = 8;
+    this.menu.style.setProperty('--menu-top', `${y}px`);
+    this.menu.style.setProperty('--menu-left', `${x}px`);
+    this.menu.style.setProperty('--menu-transform', 'none');
+    void this.menu.offsetHeight; // force reflow so layout is applied
+    const rect = this.menu.getBoundingClientRect();
     let menuLeft = x;
     let menuTop = y;
     
-    // Ensure menu stays within viewport
-    const rect = this.menu.getBoundingClientRect();
-    if (rect.right > window.innerWidth) {
-      menuLeft = x - rect.width;
-    }
-    if (rect.bottom > window.innerHeight) {
+    // Vertical: prefer below anchor; flip above if not enough space below, then clamp to viewport
+    const spaceBelow = window.innerHeight - rect.bottom;
+    const spaceAbove = rect.top;
+    if (spaceBelow < 0 && spaceAbove >= rect.height) {
       menuTop = y - rect.height;
+    } else if (spaceBelow < 0) {
+      menuTop = Math.max(viewportPadding, window.innerHeight - rect.height - viewportPadding);
+    }
+    if (menuTop < viewportPadding) {
+      menuTop = viewportPadding;
+    }
+    
+    // Horizontal: keep aligned; clamp if overflowing left or right
+    if (rect.right > window.innerWidth - viewportPadding) {
+      menuLeft = window.innerWidth - rect.width - viewportPadding;
+    }
+    if (menuLeft < viewportPadding) {
+      menuLeft = viewportPadding;
     }
     
     this.menu.style.setProperty('--menu-top', `${menuTop}px`);
     this.menu.style.setProperty('--menu-left', `${menuLeft}px`);
-    this.menu.style.setProperty('--menu-transform', 'none');
   }
   
   hide(): void {

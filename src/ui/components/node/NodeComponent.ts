@@ -20,9 +20,13 @@ export interface NodeComponentState extends ComponentState {
   connectingPortName: string | null;
   isConnectingParameter: boolean | undefined;
   connectedParameters: Set<string>;
+  /** Header port keys that have a connection: "input:name" or "output:name" */
+  connectedHeaderPorts: Set<string>;
   skipPorts: boolean;
   /** Live incoming/outgoing values for audio-remap node (for needle markers) */
   audioRemapLiveValues?: { incoming: number | null; outgoing: number | null };
+  /** Per-band live values for audio-analyzer band remap UI (bandIndex -> { incoming, outgoing }) */
+  audioAnalyzerBandLiveValues?: Map<number, { incoming: number | null; outgoing: number | null }>;
 }
 
 /**
@@ -52,6 +56,7 @@ export class NodeComponent extends CanvasComponent {
       connectingPortName: null,
       isConnectingParameter: undefined,
       connectedParameters: new Set(),
+      connectedHeaderPorts: new Set(),
       skipPorts: false,
       ...initialState
     };
@@ -83,7 +88,8 @@ export class NodeComponent extends CanvasComponent {
       this.getState().isConnectingParameter,
       this.getState().connectedParameters,
       this.getState().skipPorts,
-      this.getState().audioRemapLiveValues
+      this.getState().audioRemapLiveValues,
+      this.getState().audioAnalyzerBandLiveValues
     );
   }
   
@@ -103,7 +109,8 @@ export class NodeComponent extends CanvasComponent {
       this.getState().isHoveredParameter,
       this.getState().connectingPortName,
       this.getState().isConnectingParameter,
-      this.getState().connectedParameters
+      this.getState().connectedParameters,
+      this.getState().connectedHeaderPorts
     );
   }
   

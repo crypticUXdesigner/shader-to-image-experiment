@@ -14,6 +14,7 @@ import { createRuntimeManager } from './runtime/factories';
 import { nodeSystemSpecs } from './shaders/nodes/index';
 import { listPresets, loadPreset, copyGraphToClipboard } from './utils/presetManager';
 import { exportImage } from './utils/export';
+import { runVideoExportFlow, isSupported as isVideoExportSupported } from './video-export';
 import { getCSSColor } from './utils/cssTokens';
 import { loadTablerIconData } from './utils/tabler-icons-loader';
 import { globalErrorHandler } from './utils/errorHandling';
@@ -117,8 +118,8 @@ class App {
     try {
       const presets = await listPresets();
       if (presets.length > 0) {
-        // Prefer "hexagon" preset, otherwise load the first preset alphabetically
-        let selectedPreset = presets.find(p => p.name === 'hexagon');
+        // Prefer "glue" preset, otherwise load the first preset alphabetically
+        let selectedPreset = presets.find(p => p.name === 'glue');
         if (!selectedPreset) {
           selectedPreset = presets[0];
         }
@@ -193,8 +194,24 @@ class App {
         onConnectionRemoved: (connectionId) => {
           this.runtimeManager.onConnectionRemoved(connectionId);
         },
-        onParameterChanged: (nodeId, paramName, value, graph) => {
+        onParameterChanged: async (nodeId, paramName, value, graph) => {
           this.runtimeManager.updateParameter(nodeId, paramName, value, graph);
+          // Force full runtime sync when audio-analyzer config changes so visualizer and output
+          // update immediately (same path as when adding a node), without requiring an extra action.
+          if (graph) {
+            const node = graph.nodes.find((n) => n.id === nodeId);
+            const isAudioAnalyzerRuntimeParam =
+              node?.type === 'audio-analyzer' &&
+              (paramName === 'frequencyBands' ||
+                paramName === 'smoothing' ||
+                paramName === 'fftSize' ||
+                /^band\d+Remap(InMin|InMax|OutMin|OutMax)$/.test(paramName));
+            if (isAudioAnalyzerRuntimeParam) {
+              await this.runtimeManager.setGraph(graph);
+              this.runtimeManager.syncAudioAnalyzers();
+              this.nodeEditor.getCanvasComponent().requestRender();
+            }
+          }
         },
         onFileParameterChanged: async (nodeId, paramName, file) => {
           console.log(`[main] onFileParameterChanged callback: nodeId=${nodeId}, paramName=${paramName}, file=`, file.name);
@@ -259,7 +276,31 @@ class App {
         quality: 1.0
       });
     });
-    
+
+    // Setup video export callback
+    this.layout.setVideoExportCallback(async () => {
+      if (!isVideoExportSupported()) {
+        throw new Error('Video export is not supported in this browser. WebCodecs (VideoEncoder/AudioEncoder) is required.');
+      }
+      const graph = this.nodeEditor.getGraph();
+      const audioManager = this.runtimeManager.getAudioManager();
+      const getPrimaryAudio = (): { nodeId: string; buffer: AudioBuffer } | null => {
+        for (const node of graph.nodes) {
+          if (node.type !== 'audio-file-input') continue;
+          const state = audioManager.getAudioNodeState(node.id);
+          if (state?.audioBuffer) {
+            return { nodeId: node.id, buffer: state.audioBuffer };
+          }
+        }
+        return null;
+      };
+      await runVideoExportFlow({
+        graph,
+        compiler: this.compiler,
+        getPrimaryAudio,
+      });
+    });
+
     // Setup panel toggle callback and add panel to layout
     const panel = this.nodeEditor.getNodePanel();
     const panelContainer = this.layout.getPanelContainer();
@@ -268,6 +309,14 @@ class App {
     this.layout.setPanelToggleCallback(() => {
       panel.toggle();
       this.layout.setPanelToggleActive(panel.isPanelVisible());
+    });
+    
+    this.nodeEditor.setOpenPanelAndFocusSearchCallback(() => {
+      if (!panel.isPanelVisible()) {
+        panel.show();
+        this.layout.setPanelToggleActive(true);
+      }
+      panel.focusSearch();
     });
     
     // Set initial panel state to match default (panel is visible by default)

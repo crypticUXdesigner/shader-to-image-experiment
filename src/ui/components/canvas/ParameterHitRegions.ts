@@ -55,7 +55,7 @@ export function getValueBoxHitRect(
   y: number,
   options?: { width?: number }
 ): HitRegionRect {
-  const fontSize = getCSSVariableAsNumber('input-value-font-size', 20);
+  const fontSize = getCSSVariableAsNumber('input-value-font-size', 18);
   const paddingH = getCSSVariableAsNumber('input-value-padding-horizontal', 16);
   const paddingV = getCSSVariableAsNumber('input-value-padding-vertical', 6);
   const boxHeight = fontSize + paddingV * 2;
@@ -132,7 +132,7 @@ export function getParameterControlHitRegions(
     });
   } else if (uiType === 'enum') {
     const cellPadding = getCSSVariableAsNumber('param-cell-padding', 12);
-    const labelFontSize = getCSSVariableAsNumber('param-label-font-size', 11);
+    const labelFontSize = getCSSVariableAsNumber('param-label-font-size', 18);
     const selectorSpacing = getCSSVariableAsNumber('param-label-knob-spacing', 20);
     const selectorHeight = getCSSVariableAsNumber('enum-selector-height', 32);
     const labelBottom = gridPos.labelY + labelFontSize;
@@ -187,7 +187,8 @@ export interface RemapHitRegionsResult {
 /**
  * Get remap hit regions using the same token names and layout math as RemapRangeElement.render().
  * Tokens: remap-range-padding, remap-range-slider-row-height, remap-range-editor-padding,
- * remap-range-slider-width, remap-range-input-*; range-editor-handle-size for handle radius.
+ * remap-range-slider-width, remap-range-input-* (including remap-range-input-label-in-width,
+ * remap-range-input-label-out-width); range-editor-handle-size for handle radius.
  * zoom is used to scale interaction radii so hit areas match visual size.
  */
 export function getRemapHitRegions(
@@ -200,7 +201,7 @@ export function getRemapHitRegions(
   const padding = getCSSVariableAsNumber('remap-range-padding', 12);
   const gap = padding;
   const sliderRowHeight = getCSSVariableAsNumber('remap-range-slider-row-height', 228);
-  const inputRowHeight = getCSSVariableAsNumber('remap-range-input-row-height', 28);
+  const inputRowHeight = getCSSVariableAsNumber('remap-range-input-row-height', 30);
   const editorPadding = getCSSVariableAsNumber('remap-range-editor-padding', 12);
   const sliderWidth = getCSSVariableAsNumber('remap-range-slider-width', 120);
   const handleSize = getCSSVariableAsNumber('range-editor-handle-size', 12);
@@ -276,32 +277,34 @@ export function getRemapHitRegions(
   const groupGap = getCSSVariableAsNumber('remap-range-input-group-gap', 24);
   const dashWidth = getCSSVariableAsNumber('remap-range-input-dash-width', 20);
   const itemSpacing = getCSSVariableAsNumber('remap-range-input-item-spacing', 6);
-  const labelW = getCSSVariableAsNumber('remap-range-input-label-width', 24);
+  const labelInWidth = getCSSVariableAsNumber('remap-range-input-label-in-width', 30);
+  const labelOutWidth = getCSSVariableAsNumber('remap-range-input-label-out-width', 30);
   const groupWidth = (row2ContentWidth - groupGap) / 2;
   const leftGroupX = row2ContentX;
   const rightGroupX = row2ContentX + groupWidth + groupGap;
-  const valueSlotWidth = (groupWidth - labelW - dashWidth - 3 * itemSpacing) / 2;
+  const valueSlotWidthLeft = (groupWidth - labelInWidth - dashWidth - 3 * itemSpacing) / 2;
+  const valueSlotWidthRight = (groupWidth - labelOutWidth - dashWidth - 3 * itemSpacing) / 2;
 
-  const inMinX = leftGroupX + labelW + itemSpacing;
-  const inMaxX = inMinX + valueSlotWidth + itemSpacing + dashWidth + itemSpacing;
+  const inMinX = leftGroupX + labelInWidth + itemSpacing;
+  const inMaxX = inMinX + valueSlotWidthLeft + itemSpacing + dashWidth + itemSpacing;
   const outMinX = rightGroupX;
-  const outMaxX = rightGroupX + valueSlotWidth + itemSpacing + dashWidth + itemSpacing;
+  const outMaxX = rightGroupX + valueSlotWidthRight + itemSpacing + dashWidth + itemSpacing;
 
   regions.push({
     paramName: 'inMin',
-    rect: { x: inMinX, y: row2Y, w: valueSlotWidth, h: inputRowHeight }
+    rect: { x: inMinX, y: row2Y, w: valueSlotWidthLeft, h: inputRowHeight }
   });
   regions.push({
     paramName: 'inMax',
-    rect: { x: inMaxX, y: row2Y, w: valueSlotWidth, h: inputRowHeight }
+    rect: { x: inMaxX, y: row2Y, w: valueSlotWidthLeft, h: inputRowHeight }
   });
   regions.push({
     paramName: 'outMin',
-    rect: { x: outMinX, y: row2Y, w: valueSlotWidth, h: inputRowHeight }
+    rect: { x: outMinX, y: row2Y, w: valueSlotWidthRight, h: inputRowHeight }
   });
   regions.push({
     paramName: 'outMax',
-    rect: { x: outMaxX, y: row2Y, w: valueSlotWidth, h: inputRowHeight }
+    rect: { x: outMaxX, y: row2Y, w: valueSlotWidthRight, h: inputRowHeight }
   });
 
   return {
@@ -330,6 +333,120 @@ export function testRemapHit(
   );
 }
 
+function bandRemapParamKey(bandIndex: number, suffix: string): string {
+  return `band${bandIndex}Remap${suffix}`;
+}
+
+/**
+ * Get remap hit regions for audio-analyzer band remap (same layout as getRemapHitRegions,
+ * but reads band{N}RemapInMin/InMax/OutMin/OutMax and returns regions with those param names).
+ */
+export function getAnalyzerBandRemapHitRegions(
+  node: NodeInstance,
+  spec: NodeSpec,
+  elementMetrics: RemapElementMetrics,
+  bandIndex: number,
+  zoom: number
+): RemapHitRegionsResult {
+  const regions: RemapHitRegion[] = [];
+  const padding = getCSSVariableAsNumber('remap-range-padding', 12);
+  const gap = padding;
+  const sliderRowHeight = getCSSVariableAsNumber('remap-range-slider-row-height', 228);
+  const inputRowHeight = getCSSVariableAsNumber('remap-range-input-row-height', 30);
+  const editorPadding = getCSSVariableAsNumber('remap-range-editor-padding', 12);
+  const sliderWidth = getCSSVariableAsNumber('remap-range-slider-width', 120);
+  const handleSize = getCSSVariableAsNumber('range-editor-handle-size', 12);
+  const topMargin = 12;
+  const bottomMargin = 12;
+
+  const remapRangeX = elementMetrics.x;
+  const remapRangeY = elementMetrics.y;
+  const remapRangeWidth = elementMetrics.width;
+  const row1X = remapRangeX + padding;
+  const row1Y = remapRangeY + padding;
+  const row1Width = remapRangeWidth - padding * 2;
+  const row1Height = sliderRowHeight;
+  const sliderHeight = row1Height - topMargin - bottomMargin;
+  const sliderY = row1Y + topMargin;
+
+  const inputSliderLeftEdge = row1X + editorPadding;
+  const inputSliderCenter = inputSliderLeftEdge + sliderWidth / 2;
+  const outputSliderRightEdge = row1X + row1Width - editorPadding;
+  const outputSliderCenter = outputSliderRightEdge - sliderWidth / 2;
+
+  const handleInteractionRadius = (handleSize / 2 + 10) / zoom;
+  const sliderInteractionWidth = (sliderWidth + 20) / zoom;
+
+  const inMin = (node.parameters[bandRemapParamKey(bandIndex, 'InMin')] ?? spec.parameters[bandRemapParamKey(bandIndex, 'InMin')]?.default ?? 0) as number;
+  const inMax = (node.parameters[bandRemapParamKey(bandIndex, 'InMax')] ?? spec.parameters[bandRemapParamKey(bandIndex, 'InMax')]?.default ?? 1) as number;
+  const outMin = (node.parameters[bandRemapParamKey(bandIndex, 'OutMin')] ?? spec.parameters[bandRemapParamKey(bandIndex, 'OutMin')]?.default ?? 0) as number;
+  const outMax = (node.parameters[bandRemapParamKey(bandIndex, 'OutMax')] ?? spec.parameters[bandRemapParamKey(bandIndex, 'OutMax')]?.default ?? 1) as number;
+  const inMinSpec = spec.parameters[bandRemapParamKey(bandIndex, 'InMin')];
+  const inMaxSpec = spec.parameters[bandRemapParamKey(bandIndex, 'InMax')];
+  const outMinSpec = spec.parameters[bandRemapParamKey(bandIndex, 'OutMin')];
+  const outMaxSpec = spec.parameters[bandRemapParamKey(bandIndex, 'OutMax')];
+  const inMinValue = inMinSpec?.min ?? 0;
+  const inMaxValue = inMaxSpec?.max ?? 1;
+  const outMinValue = outMinSpec?.min ?? 0;
+  const outMaxValue = outMaxSpec?.max ?? 1;
+  const normalizeIn = (v: number) =>
+    inMaxValue - inMinValue > 0 ? (v - inMinValue) / (inMaxValue - inMinValue) : 0;
+  const normalizeOut = (v: number) =>
+    outMaxValue - outMinValue > 0 ? (v - outMinValue) / (outMaxValue - outMinValue) : 0;
+  const inMinNorm = Math.max(0, Math.min(1, normalizeIn(inMin)));
+  const inMaxNorm = Math.max(0, Math.min(1, normalizeIn(inMax)));
+  const outMinNorm = Math.max(0, Math.min(1, normalizeOut(outMin)));
+  const outMaxNorm = Math.max(0, Math.min(1, normalizeOut(outMax)));
+
+  const inMinParam = bandRemapParamKey(bandIndex, 'InMin');
+  const inMaxParam = bandRemapParamKey(bandIndex, 'InMax');
+  const outMinParam = bandRemapParamKey(bandIndex, 'OutMin');
+  const outMaxParam = bandRemapParamKey(bandIndex, 'OutMax');
+
+  const handleYInMin = sliderY + (1 - inMinNorm) * sliderHeight;
+  const handleYInMax = sliderY + (1 - inMaxNorm) * sliderHeight;
+  const handleYOutMin = sliderY + (1 - outMinNorm) * sliderHeight;
+  const handleYOutMax = sliderY + (1 - outMaxNorm) * sliderHeight;
+
+  regions.push({ paramName: inMinParam, circle: { cx: inputSliderCenter, cy: handleYInMin, r: handleInteractionRadius } });
+  regions.push({ paramName: inMaxParam, circle: { cx: inputSliderCenter, cy: handleYInMax, r: handleInteractionRadius } });
+  regions.push({ paramName: outMinParam, circle: { cx: outputSliderCenter, cy: handleYOutMin, r: handleInteractionRadius } });
+  regions.push({ paramName: outMaxParam, circle: { cx: outputSliderCenter, cy: handleYOutMax, r: handleInteractionRadius } });
+
+  const row2Y = remapRangeY + padding + sliderRowHeight + gap;
+  const row2X = remapRangeX + padding;
+  const row2Width = remapRangeWidth - padding * 2;
+  const row2ContentX = row2X + editorPadding;
+  const row2ContentWidth = row2Width - editorPadding * 2;
+  const groupGap = getCSSVariableAsNumber('remap-range-input-group-gap', 24);
+  const dashWidth = getCSSVariableAsNumber('remap-range-input-dash-width', 20);
+  const itemSpacing = getCSSVariableAsNumber('remap-range-input-item-spacing', 6);
+  const labelInWidth = getCSSVariableAsNumber('remap-range-input-label-in-width', 30);
+  const labelOutWidth = getCSSVariableAsNumber('remap-range-input-label-out-width', 30);
+  const groupWidth = (row2ContentWidth - groupGap) / 2;
+  const leftGroupX = row2ContentX;
+  const rightGroupX = row2ContentX + groupWidth + groupGap;
+  const valueSlotWidthLeft = (groupWidth - labelInWidth - dashWidth - 3 * itemSpacing) / 2;
+  const valueSlotWidthRight = (groupWidth - labelOutWidth - dashWidth - 3 * itemSpacing) / 2;
+
+  const inMinX = leftGroupX + labelInWidth + itemSpacing;
+  const inMaxX = inMinX + valueSlotWidthLeft + itemSpacing + dashWidth + itemSpacing;
+  const outMinX = rightGroupX;
+  const outMaxX = rightGroupX + valueSlotWidthRight + itemSpacing + dashWidth + itemSpacing;
+
+  regions.push({ paramName: inMinParam, rect: { x: inMinX, y: row2Y, w: valueSlotWidthLeft, h: inputRowHeight } });
+  regions.push({ paramName: inMaxParam, rect: { x: inMaxX, y: row2Y, w: valueSlotWidthLeft, h: inputRowHeight } });
+  regions.push({ paramName: outMinParam, rect: { x: outMinX, y: row2Y, w: valueSlotWidthRight, h: inputRowHeight } });
+  regions.push({ paramName: outMaxParam, rect: { x: outMaxX, y: row2Y, w: valueSlotWidthRight, h: inputRowHeight } });
+
+  return {
+    regions,
+    inputSliderCenter,
+    outputSliderCenter,
+    sliderInteractionWidth
+  };
+}
+
 /**
  * Test (px, py) against remap regions. Slider handles are tested first (by distance to cursor),
  * then row-2 boxes. Returns the first matching paramName or null.
@@ -351,8 +468,11 @@ function testRemapHitRegions(
   const handleRegions = regions.filter((r) => r.circle != null);
   const boxRegions = regions.filter((r) => r.rect != null);
 
+  const isInHandle = (p: string) => p === 'inMin' || p === 'inMax' || p.endsWith('RemapInMin') || p.endsWith('RemapInMax');
+  const isOutHandle = (p: string) => p === 'outMin' || p === 'outMax' || p.endsWith('RemapOutMin') || p.endsWith('RemapOutMax');
+
   if (isNearInput && (!isNearOutput || distToInput < distToOutput)) {
-    const inHandles = handleRegions.filter((r) => r.paramName === 'inMin' || r.paramName === 'inMax');
+    const inHandles = handleRegions.filter((r) => isInHandle(r.paramName));
     let best: { paramName: string; dist: number } | null = null;
     for (const r of inHandles) {
       if (!r.circle) continue;
@@ -364,9 +484,7 @@ function testRemapHitRegions(
     if (best) return best.paramName;
   }
   if (isNearOutput && (!isNearInput || distToOutput < distToInput)) {
-    const outHandles = handleRegions.filter(
-      (r) => r.paramName === 'outMin' || r.paramName === 'outMax'
-    );
+    const outHandles = handleRegions.filter((r) => isOutHandle(r.paramName));
     let best: { paramName: string; dist: number } | null = null;
     for (const r of outHandles) {
       if (!r.circle) continue;

@@ -127,7 +127,7 @@ export const bayerDitherNodeSpec: NodeSpec = {
     pixelSize: {
       type: 'float',
       default: 1.0,
-      min: 0.1,
+      min: 0,
       max: 10.0,
       step: 0.5
     }
@@ -300,7 +300,7 @@ export const oklchColorMapThresholdNodeSpec: NodeSpec = {
     pixelSize: {
       type: 'float',
       default: 1.0,
-      min: 0.1,
+      min: 0,
       max: 10.0,
       step: 0.5
     }

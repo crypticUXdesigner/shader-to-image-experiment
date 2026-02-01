@@ -1,7 +1,7 @@
 /**
  * Frequency Range Element Renderer
  *
- * Simplified range editor: label + horizontal range slider + start/end frequency inputs.
+ * Simplified range editor: label + [optional frequency scale when scale=audio] + horizontal range slider + start/end frequency inputs.
  * Layout: embed-slot with --embed-slot-pd for padding and gap, direction column.
  * Used for editing one band of an array parameter (e.g. frequencyBands[bandIndex]).
  */
@@ -15,6 +15,17 @@ import { drawRoundedRect, drawHorizontalRangeSlider } from '../../RenderingUtils
 
 export const FREQ_MIN = 20;
 export const FREQ_MAX = 20000;
+
+/** Ticks for the frequency scale in audio (log) mode — music-production–friendly Hz values. */
+const FREQ_SCALE_TICKS: { hz: number; label: string }[] = [
+  { hz: 20, label: '20' },
+  { hz: 100, label: '100' },
+  { hz: 250, label: '250' },
+  { hz: 1000, label: '1k' },
+  { hz: 4000, label: '4k' },
+  { hz: 10000, label: '10k' },
+  { hz: 20000, label: '20k' }
+];
 
 const LOG_FREQ_MIN = Math.log10(FREQ_MIN);
 const LOG_FREQ_MAX = Math.log10(FREQ_MAX);
@@ -63,7 +74,7 @@ export class FrequencyRangeElementRenderer implements LayoutElementRenderer {
   }
 
   calculateMetrics(
-    _element: FrequencyRangeElementType,
+    element: FrequencyRangeElementType,
     node: NodeInstance,
     _spec: NodeSpec,
     availableWidth: number,
@@ -72,12 +83,16 @@ export class FrequencyRangeElementRenderer implements LayoutElementRenderer {
   ): ElementMetrics {
     const pd = getCSSVariableAsNumber('embed-slot-pd', 12);
     const gap = pd;
-    const labelFontSize = getCSSVariableAsNumber('frequency-range-label-font-size', 11);
+    const labelFontSize = getCSSVariableAsNumber('frequency-range-label-font-size', 18);
     const labelHeight = labelFontSize + 2;
     const sliderHeight = getCSSVariableAsNumber('frequency-range-slider-height', 16);
     const inputRowHeight = getCSSVariableAsNumber('frequency-range-input-row-height', 28);
+    const scale = element.scale ?? 'linear';
+    const scaleHeight =
+      scale === 'audio' ? getCSSVariableAsNumber('frequency-range-scale-height', 22) + gap : 0;
 
-    const height = pd + labelHeight + gap + sliderHeight + gap + inputRowHeight + pd;
+    const height =
+      pd + labelHeight + gap + scaleHeight + sliderHeight + gap + inputRowHeight + pd;
     const gridPadding = getCSSVariableAsNumber('node-body-padding', 18);
     const containerX = node.position.x + gridPadding;
     const containerY = node.position.y + metrics.headerHeight + startY;
@@ -117,8 +132,12 @@ export class FrequencyRangeElementRenderer implements LayoutElementRenderer {
 
     const pd = getCSSVariableAsNumber('embed-slot-pd', 12);
     const gap = pd;
-    const labelFontSize = getCSSVariableAsNumber('frequency-range-label-font-size', 11);
+    const labelFontSize = getCSSVariableAsNumber('frequency-range-label-font-size', 18);
+    const labelFontWeight = getCSSVariableAsNumber('frequency-range-label-font-weight', 600);
     const labelHeight = labelFontSize + 2;
+    const scaleHeightToken = getCSSVariableAsNumber('frequency-range-scale-height', 22);
+    const scaleFontSize = getCSSVariableAsNumber('frequency-range-scale-font-size', 15);
+    const scaleFontWeight = getCSSVariableAsNumber('frequency-range-scale-font-weight', 500);
     const sliderHeight = getCSSVariableAsNumber('frequency-range-slider-height', 16);
     const inputRowHeight = getCSSVariableAsNumber('frequency-range-input-row-height', 28);
 
@@ -156,13 +175,17 @@ export class FrequencyRangeElementRenderer implements LayoutElementRenderer {
       getCSSColor('range-editor-slider-input-active-color', getCSSColor('color-green-90', '#6ee7b7'))
     );
     const sliderRadius = getCSSVariableAsNumber('frequency-range-slider-radius', 4);
+    const sliderEdgeThickness = getCSSVariableAsNumber('frequency-range-slider-edge-thickness', 0);
+    const sliderEdgeColor = getCSSColor('frequency-range-slider-edge-color', 'transparent');
+    const sliderActiveEdgeThickness = getCSSVariableAsNumber('frequency-range-slider-active-edge-thickness', 0);
+    const sliderActiveEdgeColor = getCSSColor('frequency-range-slider-active-edge-color', 'transparent');
     const labelColor = getCSSColor(
       'frequency-range-label-color',
       getCSSColor('range-editor-label-color', getCSSColor('color-gray-110', '#a3aeb5'))
     );
     const valueColor = getCSSColor('knob-value-color', getCSSColor('color-gray-130', '#ebeff0'));
     const valueBg = getCSSColor('knob-value-bg', getCSSColor('color-gray-30', '#0a0b0d'));
-    const valueFontSize = getCSSVariableAsNumber('knob-value-font-size', 11);
+    const valueFontSize = getCSSVariableAsNumber('knob-value-font-size', 18);
     const valueRadius = getCSSVariableAsNumber('knob-value-radius', 4);
     const valuePaddingH = getCSSVariableAsNumber('knob-value-padding-horizontal', 8);
     const valuePaddingV = getCSSVariableAsNumber('knob-value-padding-vertical', 4);
@@ -174,15 +197,42 @@ export class FrequencyRangeElementRenderer implements LayoutElementRenderer {
 
     let currY = y + pd;
 
-    // 1) Label
-    this.ctx.font = `${labelFontSize}px "Space Grotesk", sans-serif`;
+    // 1) Label (headline-md)
+    this.ctx.font = `${labelFontWeight} ${labelFontSize}px "Space Grotesk", sans-serif`;
     this.ctx.textBaseline = 'middle';
     this.ctx.textAlign = 'left';
     this.ctx.fillStyle = labelColor;
     this.ctx.fillText(label, x + pd, currY + labelHeight / 2);
     currY += labelHeight + gap;
 
-    // 2) Horizontal range slider
+    // 2) Frequency scale (audio/log mode only): line + ticks + labels
+    if (scale === 'audio') {
+      const scaleLineY = currY + 4;
+      const scaleLineH = 1;
+      const scaleLabelY = currY + 4 + scaleLineH + 2 + scaleFontSize / 2;
+      const scaleColor = getCSSColor(
+        'frequency-range-scale-color',
+        getCSSColor('frequency-range-label-color', getCSSColor('color-gray-90', '#5a5f66'))
+      );
+      this.ctx.fillStyle = scaleColor;
+      this.ctx.fillRect(x + pd, scaleLineY, contentWidth, scaleLineH);
+      this.ctx.font = `${scaleFontWeight} ${scaleFontSize}px "Space Grotesk", sans-serif`;
+      this.ctx.textBaseline = 'middle';
+      const tickCount = FREQ_SCALE_TICKS.length;
+      FREQ_SCALE_TICKS.forEach(({ hz, label: tickLabel }, i) => {
+        const norm = Math.max(0, Math.min(1, hzToNorm(hz, 'audio')));
+        const tickX = x + pd + norm * contentWidth;
+        this.ctx.fillStyle = scaleColor;
+        if (i === 0) this.ctx.textAlign = 'left';
+        else if (i === tickCount - 1) this.ctx.textAlign = 'right';
+        else this.ctx.textAlign = 'center';
+        this.ctx.fillText(tickLabel, tickX, scaleLabelY);
+      });
+      this.ctx.textAlign = 'left';
+      currY += scaleHeightToken + gap;
+    }
+
+    // 3) Horizontal range slider
     const sliderX = x + pd;
     const sliderW = contentWidth;
     drawHorizontalRangeSlider(
@@ -198,11 +248,15 @@ export class FrequencyRangeElementRenderer implements LayoutElementRenderer {
       sliderActiveColor,
       sliderRadius,
       false,
-      false
+      false,
+      sliderEdgeThickness,
+      sliderEdgeColor,
+      sliderActiveEdgeThickness,
+      sliderActiveEdgeColor
     );
     currY += sliderHeight + gap;
 
-    // 3) Row: (start) GAP (end) — start left-aligned, end right-aligned
+    // 4) Row: (start) GAP (end) — start left-aligned, end right-aligned
     const rowY = currY;
     const rowCenterY = rowY + inputRowHeight / 2;
     const rowLeft = x + pd;

@@ -16,7 +16,7 @@ import { ViewStateManager } from './ViewStateManager';
 import { ConnectionStateManager } from './ConnectionStateManager';
 import { getCSSColor, getCSSVariableAsNumber } from '../../../utils/cssTokens';
 import { isRectVisibleWithMargin, type Viewport } from '../../../utils/viewport';
-import { computeEffectiveParameterValue, getAudioRemapLiveValues } from '../../../utils/parameterValueCalculator';
+import { computeEffectiveParameterValue, getAudioRemapLiveValues, getAudioAnalyzerBandLiveValues } from '../../../utils/parameterValueCalculator';
 import type { IAudioManager } from '../../../runtime/types';
 
 export interface RenderingOrchestratorDependencies {
@@ -282,6 +282,17 @@ export class RenderingOrchestrator {
       );
     }
 
+    // Compute per-band live values for audio-analyzer band remap UI (needle markers)
+    let audioAnalyzerBandLiveValues: Map<number, { incoming: number | null; outgoing: number | null }> | undefined;
+    if (node.type === 'audio-analyzer') {
+      audioAnalyzerBandLiveValues = getAudioAnalyzerBandLiveValues(
+        node,
+        this.dependencies.graph,
+        this.dependencies.nodeSpecs,
+        this.dependencies.audioManager
+      );
+    }
+
     // Update component state
     component.setState({
       isSelected,
@@ -292,7 +303,8 @@ export class RenderingOrchestrator {
       isConnectingParameter,
       connectedParameters,
       skipPorts,
-      audioRemapLiveValues
+      audioRemapLiveValues,
+      audioAnalyzerBandLiveValues
     });
     
     // Always invalidate and recalculate metrics - they depend on node.position which changes when dragging
@@ -365,6 +377,17 @@ export class RenderingOrchestrator {
         }
       }
       
+      // Calculate connected header ports (input/output port names that have a wire)
+      const connectedHeaderPorts = new Set<string>();
+      for (const conn of this.dependencies.graph.connections) {
+        if (conn.sourceNodeId === node.id) {
+          connectedHeaderPorts.add(`output:${conn.sourcePort}`);
+        }
+        if (conn.targetNodeId === node.id && conn.targetPort != null) {
+          connectedHeaderPorts.add(`input:${conn.targetPort}`);
+        }
+      }
+      
       // Update component state for ports
       const currentState = component.getState();
       component.setState({
@@ -373,7 +396,8 @@ export class RenderingOrchestrator {
         isHoveredParameter,
         connectingPortName,
         isConnectingParameter,
-        connectedParameters
+        connectedParameters,
+        connectedHeaderPorts
       });
       
       // Render ports

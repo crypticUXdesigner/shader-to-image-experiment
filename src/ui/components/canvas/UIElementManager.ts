@@ -3,6 +3,7 @@
  * 
  * Manages UI elements overlaying the canvas (input fields, dropdowns, frequency bands editor, color picker).
  */
+import { getCSSVariableAsNumber } from '../../../utils/cssTokens';
 import { DropdownMenu, type DropdownMenuItem } from '../DropdownMenu';
 import { FrequencyBandsEditor } from '../FrequencyBandsEditor';
 import { ColorPickerPopover, type OKLCHTriple } from '../ColorPickerPopover';
@@ -55,18 +56,16 @@ export class UIElementManager {
     const input = document.createElement('input');
     input.type = 'number';
     input.value = value.toString();
+    input.className = 'input primary parameter-value-overlay';
     input.style.position = 'absolute';
     input.style.left = `${screenPos.x}px`;
     input.style.top = `${screenPos.y}px`;
-    input.style.width = `${size.width * zoom}px`;
-    input.style.height = `${size.height * zoom}px`;
-    input.style.fontSize = `${12 * zoom}px`;
-    input.style.padding = `${4 * zoom}px ${8 * zoom}px`;
-    input.style.border = '1px solid var(--color-border, #333)';
-    input.style.borderRadius = '4px';
-    input.style.backgroundColor = 'var(--color-bg, #1a1a1a)';
-    input.style.color = 'var(--color-text, #fff)';
-    input.style.fontFamily = '"Space Grotesk", sans-serif';
+    const w = Math.max(size.width * zoom, 140);
+    const h = size.height * zoom;
+    input.style.width = `${w}px`;
+    input.style.height = `${h}px`;
+    input.style.fontSize = `${getCSSVariableAsNumber('input-value-font-size', 18) * zoom}px`;
+    input.style.boxSizing = 'border-box';
     input.style.zIndex = '1000';
     input.style.outline = 'none';
 

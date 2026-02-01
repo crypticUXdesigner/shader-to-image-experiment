@@ -150,9 +150,9 @@ export class ParameterConnectionLayerRenderer implements LayerRenderer {
     const sourcePortSpec = sourceSpec.outputs.find(p => p.name === conn.sourcePort);
     const portType = sourcePortSpec?.type || 'float';
     
-    // Map port type to connection color token
+    // Map port type to connection color token (float→parameter port uses dedicated token)
     const connectionColorMap: Record<string, string> = {
-      'float': 'connection-color-float',
+      'float': 'connection-color-float-parameter',
       'vec2': 'connection-color-vec2',
       'vec3': 'connection-color-vec3',
       'vec4': 'connection-color-vec4',

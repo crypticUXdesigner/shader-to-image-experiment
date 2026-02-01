@@ -184,3 +184,21 @@
   transform: translate(-50%, -70%);
   width: 240px;
 }
+
+/* Parameter value overlay (double-click value box) – normal input shape, no spinners */
+.input.parameter-value-overlay {
+  position: absolute;
+  z-index: 1000;
+  min-width: 140px;
+  padding: var(--pd-sm) var(--pd-md);
+  border-radius: var(--radius-md);
+  height: var(--size-lg);
+  text-align: center;
+  -moz-appearance: textfield;
+  appearance: textfield;
+}
+.input.parameter-value-overlay::-webkit-inner-spin-button,
+.input.parameter-value-overlay::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}

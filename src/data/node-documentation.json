@@ -2226,38 +2226,7 @@
       ],
       "relatedItems": [
         "node:simplex-noise",
-        "node:fbm-value-noise",
         "node:voronoi-noise",
-        "type:vec2",
-        "node:time"
-      ]
-    },
-    "node:fbm-value-noise": {
-      "title": "fBm Value Noise",
-      "titleType": "node",
-      "category": "Patterns",
-      "icon": "noise",
-      "tagline": "Ideal for generating smoother, more uniform fractal noise patterns compared to standard fBm",
-      "description": "Generates fractal Brownian motion noise using value noise instead of gradient noise, resulting in smoother, more uniform patterns. Value noise uses random values at grid points rather than gradients, creating a different aesthetic that's less directional and more uniform. Like standard fBm noise, it combines multiple octaves with configurable scale, lacunarity, and gain parameters. This variant is useful when you want the organic quality of fBm noise but with a smoother, less directional appearance.",
-      "inputs": [
-        {
-          "name": "in",
-          "type": "vec2",
-          "description": "The input UV coordinates to sample the value noise pattern",
-          "suggestedSources": ["type:vec2", "node:uv-coordinates", "node:translate", "node:scale", "node:time"]
-        }
-      ],
-      "outputs": [
-        {
-          "name": "out",
-          "type": "float",
-          "description": "The fBm value noise result (typically 0.0 to 1.0 range)",
-          "suggestedTargets": ["node:color-map", "node:mix", "node:smoothstep", "node:remap"]
-        }
-      ],
-      "relatedItems": [
-        "node:fbm-noise",
-        "node:simplex-noise",
         "type:vec2",
         "node:time"
       ]

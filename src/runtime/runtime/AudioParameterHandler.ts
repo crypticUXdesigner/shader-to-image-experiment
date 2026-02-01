@@ -492,6 +492,19 @@ export class AudioParameterHandler {
   }
 
   /**
+   * Tick audio analyzers (run frequency analysis and fill smoothedBandValues) without pushing uniforms.
+   * Use after recreating an analyzer so the node-editor canvas (e.g. audio-remap needles) sees fresh
+   * values immediately even when the main animation loop is not running (e.g. preview off-screen).
+   */
+  tickAudioAnalyzers(graph: NodeGraph | null): void {
+    this.audioManager.updateUniforms(
+      () => {},
+      () => {},
+      graph
+    );
+  }
+
+  /**
    * Update audio uniforms (called each frame).
    * 
    * @param shaderInstance - Shader instance to update

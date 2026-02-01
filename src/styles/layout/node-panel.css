@@ -118,6 +118,35 @@
         flex-shrink: 0;
       }
 
+      .input-wrapper-search {
+        .input {
+          padding-right: var(--pd-lg);
+        }
+
+        .input-clear {
+          /* Layout */
+          position: absolute;
+          right: var(--pd-sm);
+          top: 50%;
+          transform: translateY(-50%);
+          z-index: 1;
+
+          /* Box model */
+          width: var(--size-md);
+          height: var(--size-md);
+          padding: 0;
+          min-width: var(--size-md);
+
+          /* Visual */
+          color: var(--color-gray-110);
+          opacity: 0.8;
+
+          &.is-hidden {
+            display: none;
+          }
+        }
+      }
+
       .input {
         /* Layout */
         width: 100%;

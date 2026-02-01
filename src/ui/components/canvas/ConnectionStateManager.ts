@@ -305,7 +305,7 @@ export class ConnectionStateManager {
       }
     }
     
-    // Map port type to connection color token
+    // Map port type to connection color token (float→parameter port uses dedicated token when hovering a param)
     const connectionColorMap: Record<string, string> = {
       'float': 'connection-color-float',
       'vec2': 'connection-color-vec2',
@@ -314,7 +314,10 @@ export class ConnectionStateManager {
       'int': 'connection-color-int',
       'bool': 'connection-color-bool'
     };
-    const connectionColorToken = connectionColorMap[portType] || 'connection-color-default';
+    let connectionColorToken = connectionColorMap[portType] || 'connection-color-default';
+    if (portType === 'float' && this.state.hoveredPort?.parameter) {
+      connectionColorToken = 'connection-color-float-parameter';
+    }
     const connectionColor = getCSSColor(connectionColorToken, getCSSColor('connection-color-default', getCSSColor('color-gray-100', '#747e87')));
     
     // Draw preview port at cursor position first (smaller, slightly transparent)

@@ -13,9 +13,11 @@ import { autoGenerateLayout } from '../../../../utils/layoutMigration';
 import { AutoGridElementRenderer } from './elements/AutoGridElement';
 import { GridElementRenderer } from './elements/GridElement';
 import { RemapRangeElementRenderer } from './elements/RemapRangeElement';
+import { AnalyzerBandRemapElementRenderer } from './elements/AnalyzerBandRemapElement';
 import { FrequencyRangeElementRenderer } from './elements/FrequencyRangeElement';
 import { BezierEditorElementRenderer } from './elements/BezierEditorElement';
 import { ColorPickerElementRenderer } from './elements/ColorPickerElement';
+import { AudioFileInputElementRenderer } from './elements/AudioFileInputElement';
 import type { LayoutElementRenderer, ElementMetrics } from './LayoutElementRenderer';
 import { BodyFlexboxLayout } from '../BodyFlexboxLayout';
 
@@ -35,6 +37,14 @@ function getElementKey(element: LayoutElement, index: number): string {
   if (type === 'frequency-range' && 'bandIndex' in element) {
     return `${type}-${index}-${(element as any).bandIndex ?? 0}`;
   }
+  // For analyzer-band-remap, include bandIndex
+  if (type === 'analyzer-band-remap' && 'bandIndex' in element) {
+    return `${type}-${index}-${(element as any).bandIndex ?? 0}`;
+  }
+  // For audio-file-input-slot, type + index
+  if (type === 'audio-file-input-slot') {
+    return `${type}-${index}`;
+  }
   // For other elements, type + index is sufficient
   return `${type}-${index}`;
 }
@@ -50,9 +60,11 @@ export class ParameterLayoutManager {
       new AutoGridElementRenderer(ctx),
       new GridElementRenderer(ctx),
       new RemapRangeElementRenderer(ctx),
+      new AnalyzerBandRemapElementRenderer(ctx),
       new FrequencyRangeElementRenderer(ctx),
       new BezierEditorElementRenderer(ctx),
-      new ColorPickerElementRenderer(ctx)
+      new ColorPickerElementRenderer(ctx),
+      new AudioFileInputElementRenderer(ctx)
     ];
     
     this.bodyLayout = new BodyFlexboxLayout();
@@ -229,10 +241,23 @@ export class ParameterLayoutManager {
         height: slotLayout.height
       });
       
-      // Extract parameter positions from correctly positioned metrics
+      // Extract parameter positions. Elements return canvas-space positions, so use as-is (do not add slotLayout).
       if (metrics.parameterGridPositions) {
         for (const [paramName, pos] of metrics.parameterGridPositions) {
-          parameterGridPositions.set(paramName, pos);
+          parameterGridPositions.set(paramName, {
+            cellX: pos.cellX,
+            cellY: pos.cellY,
+            cellWidth: pos.cellWidth,
+            cellHeight: pos.cellHeight,
+            knobX: pos.knobX,
+            knobY: pos.knobY,
+            portX: pos.portX,
+            portY: pos.portY,
+            labelX: pos.labelX,
+            labelY: pos.labelY,
+            valueX: pos.valueX,
+            valueY: pos.valueY
+          });
         }
       }
     }
@@ -268,6 +293,8 @@ export class ParameterLayoutManager {
       effectiveParameterValues?: Map<string, number | null>;
       skipPorts?: boolean;
       audioRemapLiveValues?: { incoming: number | null; outgoing: number | null };
+      audioAnalyzerBandLiveValues?: Map<number, { incoming: number | null; outgoing: number | null }>;
+      hoveredAudioFileInputControl?: 'upload' | 'toggle' | null;
     }
   ): void {
     // Use the same layout generation logic as calculateMetrics
