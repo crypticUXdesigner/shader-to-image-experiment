@@ -1,6 +1,8 @@
 import type { ErrorHandler } from '../../utils/errorHandling';
-import { WebGlRenderBackend } from './WebGlRenderBackend';
+import type { ShaderInstance } from '../ShaderInstance';
+import type { IRenderBackend } from './IRenderBackend';
 import type { RenderBackendSelection } from './renderBackendTypes';
+import { PreviewFrameLayoutHost } from './PreviewFrameLayoutHost';
 import { WebGpuContext } from './WebGpuContext';
 import type { CompilationResult, PreviewProgramInstance, WebGpuPassPlan } from '../types';
 import {
@@ -31,12 +33,8 @@ import {
   destroyCrepuscularRaysV1Runtime,
   encodeCrepuscularRaysV1Frame,
 } from './crepuscularRaysPassPlanRuntime';
-import {
-  previewPerformanceMark,
-  PreviewPerfMark,
-  previewPerfCounters,
-  WEBGPU_PREVIEW_CACHE_MAX_MODULES
-} from '../previewPerformanceMarks';
+import { previewPerformanceMark, PreviewPerfMark, previewPerfCounters } from '../previewPerformanceMarks';
+import { trimWebGpuShaderPipelineCaches, webGpuParamLayoutsEqual } from './webGpuFullscreenPreviewCache';
 import { getPreviewScheduler } from '../PreviewScheduler';
 import { FrameGraph, ResourcePool, swapPingPong, textureDescKey, type WebGpuTextureDesc as FrameGraphTextureDesc } from '../webgpuFrameGraph';
 
@@ -358,12 +356,16 @@ type ComputeSmokeState = {
 };
 
 /**
- * Task 02A:
- * - Initializes and owns the WebGPU adapter/device/canvas context lifecycle.
- * - For now (until Task 03), it still renders via the legacy WebGL `Renderer` path so the app remains usable.
+ * WebGPU-only preview backend (Task 03): owns adapter/device/canvas context and WGSL pipelines
+ * without constructing a parallel WebGL2 context or off-screen GL backing canvas.
+ *
+ * **Related modules (ownership):**
+ * - `./webGpuFullscreenPreviewCache.ts` — fullscreen single-pass shader/pipeline LRU trim; param-layout
+ *   equality for safe pipeline reuse across recompiles.
  */
-export class WebGpuRenderBackend extends WebGlRenderBackend {
+export class WebGpuRenderBackend implements IRenderBackend {
   private readonly errorHandler?: ErrorHandler;
+  private readonly layout: PreviewFrameLayoutHost;
   private webgpu: WebGpuInitState = { status: 'pending' };
   private pipeline: WebGpuPipelineState | null = null;
   private program: PreviewProgramInstance | null = null;
@@ -384,40 +386,89 @@ export class WebGpuRenderBackend extends WebGlRenderBackend {
   private readonly shaderModuleCache = new Map<string, GPUShaderModule>();
   private readonly renderPipelineCache = new Map<string, GPURenderPipeline>();
 
-  constructor(presentationCanvas: HTMLCanvasElement, selection: RenderBackendSelection, errorHandler?: ErrorHandler) {
-    /**
-     * WebGL2 binds first in Renderer; Chromium then refuses `canvas.getContext('webgpu')` on the same element.
-     * Keep WebGL on an off-screen backing canvas; WebGPU + `getCanvas()` use the presentation element.
-     */
-    const glBacking = document.createElement('canvas');
-    glBacking.width = Math.max(1, presentationCanvas.width);
-    glBacking.height = Math.max(1, presentationCanvas.height);
+  private onContextLostCallback: (() => void) | null = null;
 
-    super(glBacking, selection, { presentationCanvas: presentationCanvas });
+  constructor(
+    presentationCanvas: HTMLCanvasElement,
+    public readonly selection: RenderBackendSelection,
+    errorHandler?: ErrorHandler
+  ) {
     this.errorHandler = errorHandler;
+    this.layout = new PreviewFrameLayoutHost(presentationCanvas, {
+      dirtySource: 'WebGpuRenderBackend',
+      isLayoutBlocked: () => this.webgpu.status === 'failed'
+    });
 
     void this.initWebGpu(presentationCanvas);
   }
 
-  /**
-   * Do not call `getContext('2d')` on the presentation canvas while WebGPU may own it (pending or ready).
-   */
-  protected override allow2dPresentationBlitAfterWebGl(): boolean {
+  isWebGpuPreviewBlocked(): boolean {
     return this.webgpu.status === 'failed';
   }
 
-  /**
-   * Drop oldest fullscreen shader+pairs when the caches grow past the Task 12 cap.
-   * WebGPU lacks `GPUShaderModule.destroy()`; eviction releases JS references so the driver can reclaim.
-   */
-  private trimWebGpuShaderAndPipelineCaches(): void {
-    while (this.shaderModuleCache.size > WEBGPU_PREVIEW_CACHE_MAX_MODULES) {
-      const oldest = this.shaderModuleCache.keys().next().value;
-      if (oldest === undefined) break;
-      this.shaderModuleCache.delete(oldest);
-      this.renderPipelineCache.delete(oldest);
-      previewPerfCounters.webgpuShaderPipelineCacheEvictions += 1;
+  markDirty(reason?: string): void {
+    this.layout.markDirty(reason ?? 'unknown');
+  }
+
+  getCanvas(): HTMLCanvasElement {
+    return this.layout.getCanvas();
+  }
+
+  getGLContext(): WebGL2RenderingContext | null {
+    return null;
+  }
+
+  getPreviewCompileExclusiveGpu(): RenderBackendSelection['selected'] {
+    return this.selection.selected;
+  }
+
+  notifyPreviewLayoutChanged(): void {
+    this.layout.notifyPreviewLayoutChanged();
+  }
+
+  needsPresentationFlush(): boolean {
+    return this.layout.needsPresentationFlush();
+  }
+
+  setShaderInstance(_instance: ShaderInstance): void {
+    // WebGPU preview uses WGSL pipelines via setWebGpuProgram; no WebGL ShaderInstance.
+  }
+
+  setOnContextRestored(_callback: () => void): void {
+    // WebGL-style context restore is not wired for WebGPU-only preview yet.
+  }
+
+  setOnContextLost(callback: () => void): void {
+    this.onContextLostCallback = callback;
+  }
+
+  startAnimation(): void {
+    // Main app owns the animation loop.
+  }
+
+  stopAnimation(): void {
+    // Main app owns the animation loop.
+  }
+
+  destroy(): void {
+    this.clearWebGpuPassPlanRuntimeState();
+    if (this.pipeline) {
+      this.disposePipelineState(this.pipeline);
+      this.pipeline = null;
     }
+    this.program = null;
+    this.shaderModuleCache.clear();
+    this.renderPipelineCache.clear();
+    this.singlePassLayouts = null;
+    if (this.webgpu.status === 'ready') {
+      try {
+        this.webgpu.context.canvasContext.unconfigure();
+      } catch {
+        // ignore
+      }
+    }
+    this.webgpu = { status: 'failed', reason: 'destroyed' };
+    this.layout.destroy();
   }
 
   private disposePipelineState(state: WebGpuPipelineState): void {
@@ -439,28 +490,27 @@ export class WebGpuRenderBackend extends WebGlRenderBackend {
     const result = await WebGpuContext.init(canvas, this.errorHandler);
     if (!result.ok) {
       this.webgpu = { status: 'failed', reason: result.reason };
-      // Task 11: keep backend selection metadata aligned with actual behavior.
-      // When WebGPU cannot be initialized, this backend continues rendering via the legacy WebGL path.
-      this.selection.selected = 'webgl2';
-      this.selection.reason = `fallback.webgl2.webgpu.initFailed.${result.reason}`;
+      const forced = this.selection.mode === 'webgpu';
+      this.selection.reason = `webgpu.initFailed.${result.reason}`;
       this.errorHandler?.report(
         'runtime',
-        'warning',
-        `WebGPU init failed (${result.reason}); continuing with WebGL preview fallback.`,
+        forced ? 'error' : 'warning',
+        forced
+          ? `WebGPU preview cannot start (${result.reason}). Add ?renderBackend=webgl to the URL and reload to use WebGL preview.`
+          : `WebGPU init failed (${result.reason}). Add ?renderBackend=webgl to the URL and reload to use WebGL preview.`,
         result.error
           ? {
-              context: { webgpu: { reason: result.reason } },
+              context: { webgpu: { reason: result.reason, mode: this.selection.mode } },
               originalError: result.error
             }
-          : { context: { webgpu: { reason: result.reason } } }
+          : { context: { webgpu: { reason: result.reason, mode: this.selection.mode } } }
       );
+      getPreviewScheduler().setEffectiveBackend('webgpu', `preview.unavailable.init.${result.reason}`);
       return;
     }
 
     this.webgpu = { status: 'ready', context: result.context };
 
-    // Task 11: if the device is lost, fall back to WebGL for the remainder of the session.
-    // Higher layers can decide to recreate the runtime later; for now, keep the app usable.
     void result.context.device.lost.then((info: GPUDeviceLostInfo) => {
       // If we already fell back (e.g. multiple device-lost notifications), avoid churn.
       if (this.webgpu.status !== 'ready') return;
@@ -479,8 +529,15 @@ export class WebGpuRenderBackend extends WebGlRenderBackend {
       this.singlePassLayouts = null;
       this.shaderModuleCache.clear();
       this.renderPipelineCache.clear();
-      this.selection.selected = 'webgl2';
-      this.selection.reason = `fallback.webgl2.webgpu.deviceLost.${info.reason}`;
+      this.selection.reason = `webgpu.deviceLost.${info.reason}`;
+      getPreviewScheduler().setEffectiveBackend('webgpu', `preview.unavailable.deviceLost.${info.reason}`);
+      this.errorHandler?.report(
+        'runtime',
+        'error',
+        `WebGPU device lost (${info.reason}). Reload the page or switch to WebGL preview (?renderBackend=webgl).`,
+        { context: { webgpu: { reason: info.reason, message: info.message } } }
+      );
+      this.onContextLostCallback?.();
       this.markDirty('webgpu.device.lost');
     });
 
@@ -603,6 +660,7 @@ export class WebGpuRenderBackend extends WebGlRenderBackend {
 
     const history = smoke.history!;
 
+    previewPerformanceMark(PreviewPerfMark.previewUniformsStart);
     // globals.v0 = (time, timelineTime, res.x, res.y)
     smoke.globalsData[0] = time;
     smoke.globalsData[1] = timelineTime;
@@ -619,7 +677,9 @@ export class WebGpuRenderBackend extends WebGlRenderBackend {
       smoke.globalsData.byteOffset,
       smoke.globalsData.byteLength
     );
+    previewPerformanceMark(PreviewPerfMark.previewUniformsEnd);
 
+    previewPerformanceMark(PreviewPerfMark.previewDrawStart);
     const encoder = device.createCommandEncoder();
     const fg = new FrameGraph();
 
@@ -691,6 +751,7 @@ export class WebGpuRenderBackend extends WebGlRenderBackend {
 
     fg.execute();
     queue.submit([encoder.finish()]);
+    previewPerformanceMark(PreviewPerfMark.previewDrawEnd);
 
     smoke.history = swapPingPong(history);
   }
@@ -810,6 +871,7 @@ export class WebGpuRenderBackend extends WebGlRenderBackend {
 
     const pp = smoke.pingpong!;
 
+    previewPerformanceMark(PreviewPerfMark.previewUniformsStart);
     smoke.globalsData[0] = time;
     smoke.globalsData[1] = timelineTime;
     smoke.globalsData[2] = width;
@@ -836,10 +898,12 @@ export class WebGpuRenderBackend extends WebGlRenderBackend {
       );
       smoke.paramsDirty = false;
     }
+    previewPerformanceMark(PreviewPerfMark.previewUniformsEnd);
 
     const stepsVal = Math.max(1, Math.min(5, Math.round(smoke.paramsData[5 * 4] ?? 3)));
     let stepPair = pp;
 
+    previewPerformanceMark(PreviewPerfMark.previewDrawStart);
     const encoder = device.createCommandEncoder();
 
     // Compute passes: update state for N steps, ping-ponging each step.
@@ -893,6 +957,7 @@ export class WebGpuRenderBackend extends WebGlRenderBackend {
     }
 
     queue.submit([encoder.finish()]);
+    previewPerformanceMark(PreviewPerfMark.previewDrawEnd);
 
     // Persist state for next frame: the pair's read should be the latest state.
     smoke.pingpong = stepPair;
@@ -1329,7 +1394,12 @@ export class WebGpuRenderBackend extends WebGlRenderBackend {
 
       const key = result.code;
       const existing = this.pipeline;
-      if (existing && existing.key === key && !existing.destroyed) {
+      if (
+        existing &&
+        existing.key === key &&
+        !existing.destroyed &&
+        webGpuParamLayoutsEqual(existing.paramsLayout, result.paramLayout)
+      ) {
         this.program = this.program ?? new WebGpuPreviewProgram(existing);
         return this.program;
       }
@@ -1344,7 +1414,7 @@ export class WebGpuRenderBackend extends WebGlRenderBackend {
         previewPerfCounters.webgpuShaderModuleCreates += 1;
         module = device.createShaderModule({ code: result.code });
         this.shaderModuleCache.set(cacheKey, module);
-        this.trimWebGpuShaderAndPipelineCaches();
+        trimWebGpuShaderPipelineCaches(this.shaderModuleCache, this.renderPipelineCache);
       }
 
       const globalsBuffer = device.createBuffer({
@@ -1385,7 +1455,7 @@ export class WebGpuRenderBackend extends WebGlRenderBackend {
           primitive: { topology: 'triangle-list' }
         });
         this.renderPipelineCache.set(cacheKey, pipeline);
-        this.trimWebGpuShaderAndPipelineCaches();
+        trimWebGpuShaderPipelineCaches(this.shaderModuleCache, this.renderPipelineCache);
       }
 
       const bindGroup = device.createBindGroup({
@@ -1420,7 +1490,7 @@ export class WebGpuRenderBackend extends WebGlRenderBackend {
       return this.program;
     } catch (e) {
       const err = e instanceof Error ? e : new Error('WebGPU set program failed', { cause: e });
-      this.errorHandler?.report('runtime', 'warning', 'WebGPU pipeline creation failed; continuing with WebGL preview fallback.', {
+      this.errorHandler?.report('runtime', 'warning', 'WebGPU pipeline creation failed; preview may stay on the previous program until the graph compiles for WebGPU.', {
         context: { webgpu: { reason: 'pipeline.create.failed' } },
         originalError: err
       });
@@ -1428,35 +1498,41 @@ export class WebGpuRenderBackend extends WebGlRenderBackend {
     }
   }
 
-  public override render(): void {
-    // Matches `Renderer.render` prelude: ResizeObserver marks `pendingResize`; this path overrides
-    // `render()` and would otherwise skip `setupViewport()`, leaving backing size / globals mismatched.
-    this.applyPendingViewportLayout();
+  public render(): void {
+    // Matches `Renderer.render` prelude: ResizeObserver marks `pendingResize`; apply canvas backing size
+    // before reading `getCanvas().width` / encoding WebGPU work.
+    this.layout.applyPendingViewportLayout();
+
+    if (this.webgpu.status === 'pending') {
+      this.layout.clearPresentationDirtyAfterDraw();
+      return;
+    }
+
+    if (this.webgpu.status === 'failed') {
+      this.layout.clearPresentationDirtyAfterDraw();
+      return;
+    }
 
     // Keep WebGPU canvas context configured as the backing store size changes.
-    if (this.webgpu.status === 'ready') {
-      this.webgpu.context.configureToCanvasSize();
-    }
+    this.webgpu.context.configureToCanvasSize();
 
     // Task 09 smoke: optional frame-graph path for exercising multi-pass + ping-pong.
     if (this.webgpu.status === 'ready' && isFrameGraphSmokeEnabled()) {
-      previewPerformanceMark(PreviewPerfMark.previewDrawStart);
       this.renderFrameGraphSmoke(this.webgpu.context, this.pipeline?.time ?? 0, this.pipeline?.timelineTime ?? 0);
-      previewPerformanceMark(PreviewPerfMark.previewDrawEnd);
       previewPerfCounters.previewFrameCommits += 1;
+      previewPerfCounters.webgpuPreviewCommitsSmokeFramegraph += 1;
       getPreviewScheduler().recordPreviewFrameCommit();
-      this.clearPresentationDirtyAfterDraw();
+      this.layout.clearPresentationDirtyAfterDraw();
       return;
     }
 
     // Task 10 smoke: optional compute + ping-pong path to validate compute plumbing.
     if (this.webgpu.status === 'ready' && isComputeSmokeEnabled()) {
-      previewPerformanceMark(PreviewPerfMark.previewDrawStart);
       this.renderComputeSmoke(this.webgpu.context, this.pipeline?.time ?? 0, this.pipeline?.timelineTime ?? 0);
-      previewPerformanceMark(PreviewPerfMark.previewDrawEnd);
       previewPerfCounters.previewFrameCommits += 1;
+      previewPerfCounters.webgpuPreviewCommitsSmokeCompute += 1;
       getPreviewScheduler().recordPreviewFrameCommit();
-      this.clearPresentationDirtyAfterDraw();
+      this.layout.clearPresentationDirtyAfterDraw();
       return;
     }
 
@@ -1464,12 +1540,11 @@ export class WebGpuRenderBackend extends WebGlRenderBackend {
     if (this.webgpu.status === 'ready' && this.activePassPlan?.kind === 'pass.blur.gaussian-separable.v1') {
       const rt = this.blurGaussianSeparable;
       if (rt) {
-        previewPerformanceMark(PreviewPerfMark.previewDrawStart);
         this.renderBlurGaussianSeparable(this.webgpu.context, rt);
-        previewPerformanceMark(PreviewPerfMark.previewDrawEnd);
         previewPerfCounters.previewFrameCommits += 1;
+        previewPerfCounters.webgpuPreviewCommitsPassBlur += 1;
         getPreviewScheduler().recordPreviewFrameCommit();
-        this.clearPresentationDirtyAfterDraw();
+        this.layout.clearPresentationDirtyAfterDraw();
         return;
       }
     }
@@ -1477,12 +1552,11 @@ export class WebGpuRenderBackend extends WebGlRenderBackend {
     if (this.webgpu.status === 'ready' && this.activePassPlan?.kind === 'pass.glow-bloom.v1') {
       const rt = this.glowBloom;
       if (rt) {
-        previewPerformanceMark(PreviewPerfMark.previewDrawStart);
         this.renderGlowBloom(this.webgpu.context, rt);
-        previewPerformanceMark(PreviewPerfMark.previewDrawEnd);
         previewPerfCounters.previewFrameCommits += 1;
+        previewPerfCounters.webgpuPreviewCommitsPassGlowBloom += 1;
         getPreviewScheduler().recordPreviewFrameCommit();
-        this.clearPresentationDirtyAfterDraw();
+        this.layout.clearPresentationDirtyAfterDraw();
         return;
       }
     }
@@ -1490,12 +1564,11 @@ export class WebGpuRenderBackend extends WebGlRenderBackend {
     if (this.webgpu.status === 'ready' && this.activePassPlan?.kind === 'pass.bokeh.v1') {
       const rt = this.bokeh;
       if (rt) {
-        previewPerformanceMark(PreviewPerfMark.previewDrawStart);
         this.renderBokeh(this.webgpu.context, rt);
-        previewPerformanceMark(PreviewPerfMark.previewDrawEnd);
         previewPerfCounters.previewFrameCommits += 1;
+        previewPerfCounters.webgpuPreviewCommitsPassBokeh += 1;
         getPreviewScheduler().recordPreviewFrameCommit();
-        this.clearPresentationDirtyAfterDraw();
+        this.layout.clearPresentationDirtyAfterDraw();
         return;
       }
     }
@@ -1503,12 +1576,11 @@ export class WebGpuRenderBackend extends WebGlRenderBackend {
     if (this.webgpu.status === 'ready' && this.activePassPlan?.kind === 'pass.crepuscular-rays.v1') {
       const rt = this.crepuscularRays;
       if (rt) {
-        previewPerformanceMark(PreviewPerfMark.previewDrawStart);
         this.renderCrepuscularRays(this.webgpu.context, rt);
-        previewPerformanceMark(PreviewPerfMark.previewDrawEnd);
         previewPerfCounters.previewFrameCommits += 1;
+        previewPerfCounters.webgpuPreviewCommitsPassCrepuscular += 1;
         getPreviewScheduler().recordPreviewFrameCommit();
-        this.clearPresentationDirtyAfterDraw();
+        this.layout.clearPresentationDirtyAfterDraw();
         return;
       }
     }
@@ -1575,8 +1647,9 @@ export class WebGpuRenderBackend extends WebGlRenderBackend {
       previewPerformanceMark(PreviewPerfMark.previewDrawEnd);
 
       previewPerfCounters.previewFrameCommits += 1;
+      previewPerfCounters.webgpuPreviewCommitsSimple += 1;
       getPreviewScheduler().recordPreviewFrameCommit();
-      this.clearPresentationDirtyAfterDraw();
+      this.layout.clearPresentationDirtyAfterDraw();
       return;
     }
 
@@ -1586,8 +1659,8 @@ export class WebGpuRenderBackend extends WebGlRenderBackend {
       this.pipeline = null;
     }
 
-    // Fallback: keep the app usable via the WebGL renderer.
-    super.render();
+    // No drawable WebGPU pipeline this frame (e.g. awaiting compile); do not touch WebGL.
+    this.layout.clearPresentationDirtyAfterDraw();
   }
 }
 

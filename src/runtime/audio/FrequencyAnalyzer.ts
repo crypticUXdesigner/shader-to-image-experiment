@@ -42,6 +42,13 @@ export interface AnalyzerNodeState {
 export class FrequencyAnalyzer extends BaseDisposable {
   private contextManager: AudioContextManager;
   private analyzerNodes: Map<string, AnalyzerNodeState> = new Map();
+  /** Cleared each `updateFrequencyAnalysis`; avoids per-frame `new Map()` allocation. */
+  private readonly audioFileFrequencyScratch = new Map<string, Uint8Array>();
+  /** Reused when an analyzer cannot read from `AudioNodeState.frequencyData` (avoids per-frame `ArrayBuffer`). */
+  private fallbackFrequencyScratch: Uint8Array | null = null;
+  private fallbackFrequencyBinCount = 0;
+  /** Ephemeral return buffer; cleared at start of each `updateFrequencyAnalysis` (consumers must copy in the same tick). */
+  private readonly frequencyUniformUpdatesScratch: Array<{ nodeId: string; paramName: string; value: number }> = [];
   // errorHandler parameter kept for API consistency but not currently used
 
   constructor(contextManager: AudioContextManager, _errorHandler?: ErrorHandler) {
@@ -169,6 +176,7 @@ export class FrequencyAnalyzer extends BaseDisposable {
    * Update frequency analysis for all analyzer nodes.
    * Returns updates for uniforms that changed.
    * @param forcePushAll - When true, always add every band to updates (for a new shader instance).
+   * @returns Ephemeral array reused on the next call; treat like a fresh array within the same synchronous consumer (e.g. spread into your buffer immediately).
    */
   updateFrequencyAnalysis(
     audioNodeStates: Map<string, AudioNodeState>,
@@ -178,15 +186,17 @@ export class FrequencyAnalyzer extends BaseDisposable {
     forcePushAll: boolean = false
   ): Array<{ nodeId: string, paramName: string, value: number }> {
     this.ensureNotDestroyed();
-    
-    const updates: Array<{ nodeId: string, paramName: string, value: number }> = [];
+
+    const updates = this.frequencyUniformUpdatesScratch;
+    updates.length = 0;
     const sampleRate = this.contextManager.getSampleRate();
-    
+
     // First pass: Get frequency data from all audio nodes that have an analyser
     // (Use analyser output regardless of isPlaying so reactivity works when playback
     // state and actual sound are out of sync, e.g. after context resume.)
-    const audioFileFrequencyData = new Map<string, Uint8Array>();
-    
+    const audioFileFrequencyData = this.audioFileFrequencyScratch;
+    audioFileFrequencyData.clear();
+
     for (const [nodeId, state] of audioNodeStates.entries()) {
       if (state.analyserNode && state.frequencyData) {
         state.analyserNode.getByteFrequencyData(state.frequencyData as Uint8Array<ArrayBuffer>);
@@ -229,10 +239,18 @@ export class FrequencyAnalyzer extends BaseDisposable {
       
       // Fallback: read directly from analyser when not in first-pass map
       if (!frequencyData && analyzerState.analyserNode) {
-        const buffer = new ArrayBuffer(analyzerState.analyserNode.frequencyBinCount);
-        const tempFrequencyData = new Uint8Array(buffer);
-        analyzerState.analyserNode.getByteFrequencyData(tempFrequencyData);
-        frequencyData = tempFrequencyData;
+        const binCount = analyzerState.analyserNode.frequencyBinCount;
+        if (
+          this.fallbackFrequencyScratch == null ||
+          this.fallbackFrequencyBinCount !== binCount
+        ) {
+          this.fallbackFrequencyScratch = new Uint8Array(binCount);
+          this.fallbackFrequencyBinCount = binCount;
+        }
+        analyzerState.analyserNode.getByteFrequencyData(
+          this.fallbackFrequencyScratch as Uint8Array<ArrayBuffer>
+        );
+        frequencyData = this.fallbackFrequencyScratch;
       }
       
       if (!frequencyData) continue;

@@ -27,6 +27,7 @@
   import { RemapRangeEditor } from '../ui';
   import FrequencyRangeEditor from '../audio/FrequencyRangeEditor.svelte';
   import CoordPadCell from './parameters/CoordPadCell.svelte';
+  import MixedWaveHeaderViz from './MixedWaveHeaderViz.svelte';
   import type { NodeGraph } from '../../../data-model/types';
   import type { NodeSpec, ParameterSpec, ParameterUISelection, ParameterInputMode } from '../../../types/nodeSpec';
   import type { AudioSetup } from '../../../data-model/audioSetupTypes';
@@ -149,6 +150,16 @@
   }
 
   const isDistort = $derived(getCategorySlug(spec.category) === 'distort');
+  const isMixedWaveSignal = $derived(spec.id === 'mixed-wave-signal');
+
+  function mixedWaveVizKindForLabel(label: string | undefined): { kind: 'combined' } | { kind: 'wave'; waveIndex: 0 | 1 | 2 } | null {
+    if (!label) return null;
+    if (label === 'Global') return { kind: 'combined' };
+    if (label === 'Wave 1') return { kind: 'wave', waveIndex: 0 };
+    if (label === 'Wave 2') return { kind: 'wave', waveIndex: 1 };
+    if (label === 'Wave 3') return { kind: 'wave', waveIndex: 2 };
+    return null;
+  }
 
   function paramGridCols(node: HTMLElement) {
     if (!isDistort) return;
@@ -252,23 +263,355 @@
             headerToggleSpec &&
             headerToggleUi === 'toggle'
         )}
+        {@const validParams = gridEl.parameters.filter(
+          (p) => spec.parameters[p] && (!useHeaderToggle || p !== gridEl.headerToggleParameter)
+        )}
+        {@const gridCols = gridEl.layout?.columns}
+        {@const mixedWaveViz = isMixedWaveSignal ? mixedWaveVizKindForLabel(gridEl.label) : null}
         {#if gridEl.label}
-          {#if useHeaderToggle}
-            <div class="group-header group-header-with-actions">
-              <span class="group-header-label">{gridEl.label}</span>
-              <div class="group-header-actions">
+          <div class="layout-group">
+            {#if useHeaderToggle}
+              <div class="group-header group-header-with-actions">
+                <span class="group-header-label">{gridEl.label}</span>
+                <div class="group-header-actions">
+                  <ParamPortWithAudioState
+                    nodeId={nodeId}
+                    paramName={headerToggle}
+                    label={headerToggleSpec.label ?? headerToggle}
+                    portId="{nodeId}-{headerToggle}"
+                    portType="float"
+                    showPort={false}
+                    inlineControl={true}
+                    inputMode={getInputMode(headerToggle)}
+                    onParameterInputModeChanged={onParameterInputModeChanged
+                      ? (mode) => onParameterInputModeChanged(headerToggle, mode)
+                      : undefined}
+                    {node}
+                    {graph}
+                    {audioSetup}
+                    {nodeSpecs}
+                    {getAudioManager}
+                    getTimelineCurrentTime={getTimelineCurrentTime}
+                    disabled={false}
+                  >
+                    {#snippet children({ displayValue, useConfigForInput })}
+                      <Toggle
+                        value={displayValue}
+                        onChange={(v) =>
+                          onParameterChange(headerToggle, useConfigForInput ? v : effectiveToConfig(headerToggle, v))}
+                      />
+                    {/snippet}
+                  </ParamPortWithAudioState>
+                </div>
+              </div>
+            {:else}
+              {#if mixedWaveViz}
+                <div class="group-header group-header-with-center">
+                  <span class="group-header-label">{gridEl.label}</span>
+                  <div class="group-header-center">
+                    {#if mixedWaveViz.kind === 'combined'}
+                      <MixedWaveHeaderViz
+                        node={node}
+                        kind="combined"
+                        previewContext={{
+                          graph,
+                          nodeSpecs,
+                          getAudioManager,
+                          getTimelineCurrentTime,
+                        }}
+                      />
+                    {:else}
+                      <MixedWaveHeaderViz
+                        node={node}
+                        kind="wave"
+                        waveIndex={mixedWaveViz.waveIndex}
+                        previewContext={{
+                          graph,
+                          nodeSpecs,
+                          getAudioManager,
+                          getTimelineCurrentTime,
+                        }}
+                      />
+                    {/if}
+                  </div>
+                  <div class="group-header-actions"></div>
+                </div>
+              {:else}
+                <div class="group-header">{gridEl.label}</div>
+              {/if}
+            {/if}
+            <div
+              class="param-grid"
+              class:grid-cols-1={typeof gridCols === 'number' && gridCols === 1}
+              class:grid-cols-2={typeof gridCols === 'number' && gridCols === 2}
+              class:grid-cols-3={typeof gridCols === 'number' && gridCols === 3}
+              class:grid-cols-4={typeof gridCols === 'number' && gridCols === 4}
+              data-explicit-cols={typeof gridCols === 'number' ? String(gridCols) : undefined}
+              use:paramGridCols
+            >
+              {#each validParams as paramName, i}
+                {@const paramSpec = spec.parameters[paramName]}
+                {@const prevParam = validParams[i - 1]}
+                {@const prevIsCoords = prevParam && getParamUIType(prevParam, spec.parameters[prevParam], gridEl.parameterUI) === 'coords'}
+                {@const prevIsCoordX = prevParam && (prevParam.endsWith('X') || prevParam.endsWith('x'))}
+                {@const thisIsCoordY = paramName.endsWith('Y') || paramName.endsWith('y')}
+                {@const skipAsCoordY = i > 0 && prevIsCoords && prevIsCoordX && thisIsCoordY}
+                {@const paramSpanClass = gridEl.layout?.parameterSpan?.[paramName] ? `span-${gridEl.layout.parameterSpan[paramName]}-cols` : ''}
+                {#if paramSpec && !skipAsCoordY}
+                  {@const uiType = getParamUIType(paramName, paramSpec, gridEl.parameterUI)}
+                  {#if uiType === 'bezier' || uiType === 'range'}
+                    <!-- Handled by layout elements -->
+                  {:else if uiType === 'coords'}
+                    {@const paramY = validParams[i + 1]}
+                    {@const coordsSpan = gridEl.layout?.coordsSpan ?? 2}
+                    {@const rawOrigin = gridEl.layout?.coordsOrigin}
+                    {@const coordsOrigin = typeof rawOrigin === 'object' && rawOrigin != null
+                      ? (rawOrigin[paramName] ?? 'center')
+                      : (rawOrigin ?? 'center')}
+                    {#if paramY && spec.parameters[paramY]}
+                      {@const displacementAnchor =
+                        gridEl.layout?.coordsDisplacementAnchor?.[paramName] ?? undefined}
+                      <CoordPadCell
+                        {nodeId}
+                        {node}
+                        {spec}
+                        paramX={paramName}
+                        paramY={paramY}
+                        {coordsOrigin}
+                        {displacementAnchor}
+                        {graph}
+                        {audioSetup}
+                        {nodeSpecs}
+                        {getAudioManager}
+                        getTimelineCurrentTime={getTimelineCurrentTime}
+                        onPortPointerDownForConnection={(sx, sy, pointerId) => onPortPointerDownForConnection?.(sx, sy, pointerId)}
+                        onPortDoubleClick={(e, p) =>
+                          onPortClickForSignalPicker?.(e.clientX, e.clientY, nodeId, p, e.currentTarget as HTMLElement)}
+                        onParameterInputModeChanged={onParameterInputModeChanged}
+                        onParameterChange={onParameterChange}
+                        class="coord-pad-cell span-{coordsSpan}-cols"
+                      />
+                    {/if}
+                  {:else if uiType === 'toggle'}
+                  <ParamPortWithAudioState
+                    nodeId={nodeId}
+                    paramName={paramName}
+                    label={paramSpec.label ?? paramName}
+                    portId="{nodeId}-{paramName}"
+                    portType="float"
+                    showPort={false}
+                    class={paramSpanClass}
+                    {node}
+                    {graph}
+                    {audioSetup}
+                    {nodeSpecs}
+                    {getAudioManager}
+                    getTimelineCurrentTime={getTimelineCurrentTime}
+                    disabled={false}
+                  >
+                    {#snippet children({ displayValue, useConfigForInput })}
+                      <Toggle
+                        value={displayValue}
+                        onChange={(v) => onParameterChange(paramName, useConfigForInput ? v : effectiveToConfig(paramName, v))}
+                      />
+                    {/snippet}
+                  </ParamPortWithAudioState>
+                {:else if uiType === 'enum'}
+                  <ParamPortWithAudioState
+                    nodeId={nodeId}
+                    paramName={paramName}
+                    label={paramSpec.label ?? paramName}
+                    portId="{nodeId}-{paramName}"
+                    portType="float"
+                    showPort={false}
+                    class={paramSpanClass}
+                    {node}
+                    {graph}
+                    {audioSetup}
+                    {nodeSpecs}
+                    {getAudioManager}
+                    getTimelineCurrentTime={getTimelineCurrentTime}
+                    disabled={false}
+                  >
+                    {#snippet children({ displayValue, useConfigForInput })}
+                      {@const enumMap = getParameterEnumMappings(spec.id, paramName)}
+                      {#if enumMap}
+                        <EnumSelector
+                          value={displayValue}
+                          options={enumMap}
+                          onChange={(v) => onParameterChange(paramName, useConfigForInput ? v : effectiveToConfig(paramName, v))}
+                        />
+                      {/if}
+                    {/snippet}
+                  </ParamPortWithAudioState>
+                {:else if uiType === 'input'}
+                  <ParamPortWithAudioState
+                    nodeId={nodeId}
+                    paramName={paramName}
+                    label={paramSpec.label ?? paramName}
+                    portId="{nodeId}-{paramName}"
+                    portType="float"
+                    showPort={showParamPort(paramName, paramSpec)}
+                    inputMode={getInputMode(paramName)}
+                    class={paramSpanClass}
+                    onParameterInputModeChanged={onParameterInputModeChanged ? (mode) => onParameterInputModeChanged(paramName, mode) : undefined}
+                    onPortPointerDown={(e) => onPortPointerDownForConnection?.(e.clientX, e.clientY, e.pointerId)}
+                    onPortDoubleClick={(e) => onPortClickForSignalPicker?.(e.clientX, e.clientY, nodeId, paramName, e.currentTarget as HTMLElement)}
+                    {node}
+                    {graph}
+                    {audioSetup}
+                    {nodeSpecs}
+                    {getAudioManager}
+                    getTimelineCurrentTime={getTimelineCurrentTime}
+                    disabled={false}
+                  >
+                    {#snippet children({ displayValue, useConfigForInput, configValue })}
+                      <ValueInput
+                        value={displayValue}
+                        min={paramSpec.min ?? 0}
+                        max={paramSpec.max ?? 1}
+                        step={paramSpec.type === 'int' ? (paramSpec.step ?? 1) : (paramSpec.step ?? 0.01)}
+                        decimals={paramSpec.type === 'int' ? 0 : (paramSpec.step && paramSpec.step >= 1 ? 0 : 3)}
+                        onChange={(v) => onParameterChange(paramName, useConfigForInput ? v : effectiveToConfig(paramName, v))}
+                      />
+                    {/snippet}
+                  </ParamPortWithAudioState>
+                {:else if uiType === 'knob'}
+                  {@const connInfo = getParamPortConnectionState(nodeId, paramName, graph, audioSetup)}
+                  <ParamPortWithAudioState
+                    nodeId={nodeId}
+                    paramName={paramName}
+                    label={paramSpec.label ?? paramName}
+                    portId="{nodeId}-{paramName}"
+                    portType="float"
+                    showPort={showParamPort(paramName, paramSpec)}
+                    inputMode={getInputMode(paramName)}
+                    class={paramSpanClass}
+                    onParameterInputModeChanged={onParameterInputModeChanged ? (mode) => onParameterInputModeChanged(paramName, mode) : undefined}
+                    onPortPointerDown={(e) => onPortPointerDownForConnection?.(e.clientX, e.clientY, e.pointerId)}
+                    onPortDoubleClick={(e) => onPortClickForSignalPicker?.(e.clientX, e.clientY, nodeId, paramName, e.currentTarget as HTMLElement)}
+                    {node}
+                    {graph}
+                    {audioSetup}
+                    {nodeSpecs}
+                    {getAudioManager}
+                    getTimelineCurrentTime={getTimelineCurrentTime}
+                    disabled={false}
+                  >
+                    {#snippet children({ displayValue, useConfigForInput, configValue })}
+                      <Knob
+                        value={displayValue}
+                        min={paramSpec.min ?? 0}
+                        max={paramSpec.max ?? 1}
+                        step={paramSpec.type === 'int' ? (paramSpec.step ?? 1) : (paramSpec.step ?? 0.01)}
+                        decimals={paramSpec.type === 'int' ? 0 : (paramSpec.step && paramSpec.step >= 1 ? 0 : 3)}
+                        connected={connInfo.state !== 'default'}
+                        knobPolarity={paramSpec.knobPolarity ?? 'one-sided'}
+                        knobCenter={paramSpec.knobCenter ?? 0}
+                        onChange={(v) => onParameterChange(paramName, useConfigForInput ? v : effectiveToConfig(paramName, v))}
+                      />
+                    {/snippet}
+                  </ParamPortWithAudioState>
+                {:else}
+                  <!-- Unknown UI type, fallback to ValueInput -->
+                  <ParamPortWithAudioState
+                    nodeId={nodeId}
+                    paramName={paramName}
+                    label={paramSpec.label ?? paramName}
+                    portId="{nodeId}-{paramName}"
+                    portType="float"
+                    showPort={showParamPort(paramName, paramSpec)}
+                    inputMode={getInputMode(paramName)}
+                    class={paramSpanClass}
+                    onParameterInputModeChanged={onParameterInputModeChanged ? (mode) => onParameterInputModeChanged(paramName, mode) : undefined}
+                    onPortPointerDown={(e) => onPortPointerDownForConnection?.(e.clientX, e.clientY, e.pointerId)}
+                    onPortDoubleClick={(e) => onPortClickForSignalPicker?.(e.clientX, e.clientY, nodeId, paramName, e.currentTarget as HTMLElement)}
+                    {node}
+                    {graph}
+                    {audioSetup}
+                    {nodeSpecs}
+                    {getAudioManager}
+                    getTimelineCurrentTime={getTimelineCurrentTime}
+                    disabled={false}
+                  >
+                    {#snippet children({ displayValue, useConfigForInput, configValue })}
+                      <ValueInput
+                        value={displayValue}
+                        min={paramSpec.min ?? 0}
+                        max={paramSpec.max ?? 1}
+                        step={paramSpec.type === 'int' ? (paramSpec.step ?? 1) : (paramSpec.step ?? 0.01)}
+                        decimals={paramSpec.type === 'int' ? 0 : (paramSpec.step && paramSpec.step >= 1 ? 0 : 3)}
+                        onChange={(v) => onParameterChange(paramName, useConfigForInput ? v : effectiveToConfig(paramName, v))}
+                      />
+                    {/snippet}
+                  </ParamPortWithAudioState>
+                {/if}
+              {/if}
+            {/each}
+            </div>
+          </div>
+        {:else}
+          <div
+            class="param-grid"
+            class:grid-cols-1={typeof gridCols === 'number' && gridCols === 1}
+            class:grid-cols-2={typeof gridCols === 'number' && gridCols === 2}
+            class:grid-cols-3={typeof gridCols === 'number' && gridCols === 3}
+            class:grid-cols-4={typeof gridCols === 'number' && gridCols === 4}
+            data-explicit-cols={typeof gridCols === 'number' ? String(gridCols) : undefined}
+            use:paramGridCols
+          >
+            {#each validParams as paramName, i}
+              {@const paramSpec = spec.parameters[paramName]}
+              {@const prevParam = validParams[i - 1]}
+              {@const prevIsCoords = prevParam && getParamUIType(prevParam, spec.parameters[prevParam], gridEl.parameterUI) === 'coords'}
+              {@const prevIsCoordX = prevParam && (prevParam.endsWith('X') || prevParam.endsWith('x'))}
+              {@const thisIsCoordY = paramName.endsWith('Y') || paramName.endsWith('y')}
+              {@const skipAsCoordY = i > 0 && prevIsCoords && prevIsCoordX && thisIsCoordY}
+              {@const paramSpanClass = gridEl.layout?.parameterSpan?.[paramName] ? `span-${gridEl.layout.parameterSpan[paramName]}-cols` : ''}
+              {#if paramSpec && !skipAsCoordY}
+                {@const uiType = getParamUIType(paramName, paramSpec, gridEl.parameterUI)}
+                {#if uiType === 'bezier' || uiType === 'range'}
+                  <!-- Handled by layout elements -->
+                {:else if uiType === 'coords'}
+                  {@const paramY = validParams[i + 1]}
+                  {@const coordsSpan = gridEl.layout?.coordsSpan ?? 2}
+                  {@const rawOrigin = gridEl.layout?.coordsOrigin}
+                  {@const coordsOrigin = typeof rawOrigin === 'object' && rawOrigin != null
+                    ? (rawOrigin[paramName] ?? 'center')
+                    : (rawOrigin ?? 'center')}
+                  {#if paramY && spec.parameters[paramY]}
+                    {@const displacementAnchor =
+                      gridEl.layout?.coordsDisplacementAnchor?.[paramName] ?? undefined}
+                    <CoordPadCell
+                      {nodeId}
+                      {node}
+                      {spec}
+                      paramX={paramName}
+                      paramY={paramY}
+                      {coordsOrigin}
+                      {displacementAnchor}
+                      {graph}
+                      {audioSetup}
+                      {nodeSpecs}
+                      {getAudioManager}
+                      getTimelineCurrentTime={getTimelineCurrentTime}
+                      onPortPointerDownForConnection={(sx, sy, pointerId) => onPortPointerDownForConnection?.(sx, sy, pointerId)}
+                      onPortDoubleClick={(e, p) =>
+                        onPortClickForSignalPicker?.(e.clientX, e.clientY, nodeId, p, e.currentTarget as HTMLElement)}
+                      onParameterInputModeChanged={onParameterInputModeChanged}
+                      onParameterChange={onParameterChange}
+                      class="coord-pad-cell span-{coordsSpan}-cols"
+                    />
+                  {/if}
+                {:else if uiType === 'toggle'}
                 <ParamPortWithAudioState
                   nodeId={nodeId}
-                  paramName={headerToggle}
-                  label={headerToggleSpec.label ?? headerToggle}
-                  portId="{nodeId}-{headerToggle}"
+                  paramName={paramName}
+                  label={paramSpec.label ?? paramName}
+                  portId="{nodeId}-{paramName}"
                   portType="float"
                   showPort={false}
-                  inlineControl={true}
-                  inputMode={getInputMode(headerToggle)}
-                  onParameterInputModeChanged={onParameterInputModeChanged
-                    ? (mode) => onParameterInputModeChanged(headerToggle, mode)
-                    : undefined}
+                  class={paramSpanClass}
                   {node}
                   {graph}
                   {audioSetup}
@@ -280,233 +623,144 @@
                   {#snippet children({ displayValue, useConfigForInput })}
                     <Toggle
                       value={displayValue}
-                      onChange={(v) =>
-                        onParameterChange(headerToggle, useConfigForInput ? v : effectiveToConfig(headerToggle, v))}
+                      onChange={(v) => onParameterChange(paramName, useConfigForInput ? v : effectiveToConfig(paramName, v))}
                     />
                   {/snippet}
                 </ParamPortWithAudioState>
-              </div>
-            </div>
-          {:else}
-            <div class="group-header">{gridEl.label}</div>
-          {/if}
-        {/if}
-        {@const validParams = gridEl.parameters.filter(
-          (p) => spec.parameters[p] && (!useHeaderToggle || p !== gridEl.headerToggleParameter)
-        )}
-        {@const gridCols = gridEl.layout?.columns}
-        <div
-          class="param-grid"
-          class:grid-cols-1={typeof gridCols === 'number' && gridCols === 1}
-          class:grid-cols-2={typeof gridCols === 'number' && gridCols === 2}
-          class:grid-cols-3={typeof gridCols === 'number' && gridCols === 3}
-          class:grid-cols-4={typeof gridCols === 'number' && gridCols === 4}
-          data-explicit-cols={typeof gridCols === 'number' ? String(gridCols) : undefined}
-          use:paramGridCols
-        >
-          {#each validParams as paramName, i}
-            {@const paramSpec = spec.parameters[paramName]}
-            {@const prevParam = validParams[i - 1]}
-            {@const prevIsCoords = prevParam && getParamUIType(prevParam, spec.parameters[prevParam], gridEl.parameterUI) === 'coords'}
-            {@const prevIsCoordX = prevParam && (prevParam.endsWith('X') || prevParam.endsWith('x'))}
-            {@const thisIsCoordY = paramName.endsWith('Y') || paramName.endsWith('y')}
-            {@const skipAsCoordY = i > 0 && prevIsCoords && prevIsCoordX && thisIsCoordY}
-            {@const paramSpanClass = gridEl.layout?.parameterSpan?.[paramName] ? `span-${gridEl.layout.parameterSpan[paramName]}-cols` : ''}
-            {#if paramSpec && !skipAsCoordY}
-              {@const uiType = getParamUIType(paramName, paramSpec, gridEl.parameterUI)}
-              {#if uiType === 'bezier' || uiType === 'range'}
-                <!-- Handled by layout elements -->
-              {:else if uiType === 'coords'}
-                {@const paramY = validParams[i + 1]}
-                {@const coordsSpan = gridEl.layout?.coordsSpan ?? 2}
-                {@const rawOrigin = gridEl.layout?.coordsOrigin}
-                {@const coordsOrigin = typeof rawOrigin === 'object' && rawOrigin != null
-                  ? (rawOrigin[paramName] ?? 'center')
-                  : (rawOrigin ?? 'center')}
-                {#if paramY && spec.parameters[paramY]}
-                  {@const displacementAnchor =
-                    gridEl.layout?.coordsDisplacementAnchor?.[paramName] ?? undefined}
-                  <CoordPadCell
-                    {nodeId}
-                    {node}
-                    {spec}
-                    paramX={paramName}
-                    paramY={paramY}
-                    {coordsOrigin}
-                    {displacementAnchor}
-                    {graph}
-                    {audioSetup}
-                    {nodeSpecs}
-                    {getAudioManager}
-                    getTimelineCurrentTime={getTimelineCurrentTime}
-                    onPortPointerDownForConnection={(sx, sy, pointerId) => onPortPointerDownForConnection?.(sx, sy, pointerId)}
-                    onPortDoubleClick={(e, p) =>
-                      onPortClickForSignalPicker?.(e.clientX, e.clientY, nodeId, p, e.currentTarget as HTMLElement)}
-                    onParameterInputModeChanged={onParameterInputModeChanged}
-                    onParameterChange={onParameterChange}
-                    class="coord-pad-cell span-{coordsSpan}-cols"
-                  />
-                {/if}
-              {:else if uiType === 'toggle'}
-              <ParamPortWithAudioState
-                nodeId={nodeId}
-                paramName={paramName}
-                label={paramSpec.label ?? paramName}
-                portId="{nodeId}-{paramName}"
-                portType="float"
-                showPort={false}
-                class={paramSpanClass}
-                {node}
-                {graph}
-                {audioSetup}
-                {nodeSpecs}
-                {getAudioManager}
-                getTimelineCurrentTime={getTimelineCurrentTime}
-                disabled={false}
-              >
-                {#snippet children({ displayValue, useConfigForInput })}
-                  <Toggle
-                    value={displayValue}
-                    onChange={(v) => onParameterChange(paramName, useConfigForInput ? v : effectiveToConfig(paramName, v))}
-                  />
-                {/snippet}
-              </ParamPortWithAudioState>
-            {:else if uiType === 'enum'}
-              <ParamPortWithAudioState
-                nodeId={nodeId}
-                paramName={paramName}
-                label={paramSpec.label ?? paramName}
-                portId="{nodeId}-{paramName}"
-                portType="float"
-                showPort={false}
-                class={paramSpanClass}
-                {node}
-                {graph}
-                {audioSetup}
-                {nodeSpecs}
-                {getAudioManager}
-                getTimelineCurrentTime={getTimelineCurrentTime}
-                disabled={false}
-              >
-                {#snippet children({ displayValue, useConfigForInput })}
-                  {@const enumMap = getParameterEnumMappings(spec.id, paramName)}
-                  {#if enumMap}
-                    <EnumSelector
+              {:else if uiType === 'enum'}
+                <ParamPortWithAudioState
+                  nodeId={nodeId}
+                  paramName={paramName}
+                  label={paramSpec.label ?? paramName}
+                  portId="{nodeId}-{paramName}"
+                  portType="float"
+                  showPort={false}
+                  class={paramSpanClass}
+                  {node}
+                  {graph}
+                  {audioSetup}
+                  {nodeSpecs}
+                  {getAudioManager}
+                  getTimelineCurrentTime={getTimelineCurrentTime}
+                  disabled={false}
+                >
+                  {#snippet children({ displayValue, useConfigForInput })}
+                    {@const enumMap = getParameterEnumMappings(spec.id, paramName)}
+                    {#if enumMap}
+                      <EnumSelector
+                        value={displayValue}
+                        options={enumMap}
+                        onChange={(v) => onParameterChange(paramName, useConfigForInput ? v : effectiveToConfig(paramName, v))}
+                      />
+                    {/if}
+                  {/snippet}
+                </ParamPortWithAudioState>
+              {:else if uiType === 'input'}
+                <ParamPortWithAudioState
+                  nodeId={nodeId}
+                  paramName={paramName}
+                  label={paramSpec.label ?? paramName}
+                  portId="{nodeId}-{paramName}"
+                  portType="float"
+                  showPort={showParamPort(paramName, paramSpec)}
+                  inputMode={getInputMode(paramName)}
+                  class={paramSpanClass}
+                  onParameterInputModeChanged={onParameterInputModeChanged ? (mode) => onParameterInputModeChanged(paramName, mode) : undefined}
+                  onPortPointerDown={(e) => onPortPointerDownForConnection?.(e.clientX, e.clientY, e.pointerId)}
+                  onPortDoubleClick={(e) => onPortClickForSignalPicker?.(e.clientX, e.clientY, nodeId, paramName, e.currentTarget as HTMLElement)}
+                  {node}
+                  {graph}
+                  {audioSetup}
+                  {nodeSpecs}
+                  {getAudioManager}
+                  getTimelineCurrentTime={getTimelineCurrentTime}
+                  disabled={false}
+                >
+                  {#snippet children({ displayValue, useConfigForInput, configValue })}
+                    <ValueInput
                       value={displayValue}
-                      options={enumMap}
+                      min={paramSpec.min ?? 0}
+                      max={paramSpec.max ?? 1}
+                      step={paramSpec.type === 'int' ? (paramSpec.step ?? 1) : (paramSpec.step ?? 0.01)}
+                      decimals={paramSpec.type === 'int' ? 0 : (paramSpec.step && paramSpec.step >= 1 ? 0 : 3)}
                       onChange={(v) => onParameterChange(paramName, useConfigForInput ? v : effectiveToConfig(paramName, v))}
                     />
-                  {/if}
-                {/snippet}
-              </ParamPortWithAudioState>
-            {:else if uiType === 'input'}
-              <ParamPortWithAudioState
-                nodeId={nodeId}
-                paramName={paramName}
-                label={paramSpec.label ?? paramName}
-                portId="{nodeId}-{paramName}"
-                portType="float"
-                showPort={showParamPort(paramName, paramSpec)}
-                inputMode={getInputMode(paramName)}
-                class={paramSpanClass}
-                onParameterInputModeChanged={onParameterInputModeChanged ? (mode) => onParameterInputModeChanged(paramName, mode) : undefined}
-                onPortPointerDown={(e) => onPortPointerDownForConnection?.(e.clientX, e.clientY, e.pointerId)}
-                onPortDoubleClick={(e) => onPortClickForSignalPicker?.(e.clientX, e.clientY, nodeId, paramName, e.currentTarget as HTMLElement)}
-                {node}
-                {graph}
-                {audioSetup}
-                {nodeSpecs}
-                {getAudioManager}
-                getTimelineCurrentTime={getTimelineCurrentTime}
-                disabled={false}
-              >
-                {#snippet children({ displayValue, useConfigForInput, configValue })}
-                  <ValueInput
-                    value={displayValue}
-                    valueForEdit={configValue}
-                    min={paramSpec.min ?? 0}
-                    max={paramSpec.max ?? 1}
-                    step={paramSpec.type === 'int' ? (paramSpec.step ?? 1) : (paramSpec.step ?? 0.01)}
-                    decimals={paramSpec.type === 'int' ? 0 : (paramSpec.step && paramSpec.step >= 1 ? 0 : 3)}
-                    onChange={(v) => onParameterChange(paramName, useConfigForInput ? v : effectiveToConfig(paramName, v))}
-                  />
-                {/snippet}
-              </ParamPortWithAudioState>
-            {:else if uiType === 'knob'}
-              {@const connInfo = getParamPortConnectionState(nodeId, paramName, graph, audioSetup)}
-              <ParamPortWithAudioState
-                nodeId={nodeId}
-                paramName={paramName}
-                label={paramSpec.label ?? paramName}
-                portId="{nodeId}-{paramName}"
-                portType="float"
-                showPort={showParamPort(paramName, paramSpec)}
-                inputMode={getInputMode(paramName)}
-                class={paramSpanClass}
-                onParameterInputModeChanged={onParameterInputModeChanged ? (mode) => onParameterInputModeChanged(paramName, mode) : undefined}
-                onPortPointerDown={(e) => onPortPointerDownForConnection?.(e.clientX, e.clientY, e.pointerId)}
-                onPortDoubleClick={(e) => onPortClickForSignalPicker?.(e.clientX, e.clientY, nodeId, paramName, e.currentTarget as HTMLElement)}
-                {node}
-                {graph}
-                {audioSetup}
-                {nodeSpecs}
-                {getAudioManager}
-                getTimelineCurrentTime={getTimelineCurrentTime}
-                disabled={false}
-              >
-                {#snippet children({ displayValue, useConfigForInput, configValue })}
-                  <Knob
-                    value={displayValue}
-                    valueForEdit={configValue}
-                    min={paramSpec.min ?? 0}
-                    max={paramSpec.max ?? 1}
-                    step={paramSpec.type === 'int' ? (paramSpec.step ?? 1) : (paramSpec.step ?? 0.01)}
-                    decimals={paramSpec.type === 'int' ? 0 : (paramSpec.step && paramSpec.step >= 1 ? 0 : 3)}
-                    connected={connInfo.state !== 'default'}
-                    knobPolarity={paramSpec.knobPolarity ?? 'one-sided'}
-                    knobCenter={paramSpec.knobCenter ?? 0}
-                    onChange={(v) => onParameterChange(paramName, useConfigForInput ? v : effectiveToConfig(paramName, v))}
-                  />
-                {/snippet}
-              </ParamPortWithAudioState>
-            {:else}
-              <!-- Unknown UI type, fallback to ValueInput -->
-              <ParamPortWithAudioState
-                nodeId={nodeId}
-                paramName={paramName}
-                label={paramSpec.label ?? paramName}
-                portId="{nodeId}-{paramName}"
-                portType="float"
-                showPort={showParamPort(paramName, paramSpec)}
-                inputMode={getInputMode(paramName)}
-                class={paramSpanClass}
-                onParameterInputModeChanged={onParameterInputModeChanged ? (mode) => onParameterInputModeChanged(paramName, mode) : undefined}
-                onPortPointerDown={(e) => onPortPointerDownForConnection?.(e.clientX, e.clientY, e.pointerId)}
-                onPortDoubleClick={(e) => onPortClickForSignalPicker?.(e.clientX, e.clientY, nodeId, paramName, e.currentTarget as HTMLElement)}
-                {node}
-                {graph}
-                {audioSetup}
-                {nodeSpecs}
-                {getAudioManager}
-                getTimelineCurrentTime={getTimelineCurrentTime}
-                disabled={false}
-              >
-                {#snippet children({ displayValue, useConfigForInput, configValue })}
-                  <ValueInput
-                    value={displayValue}
-                    valueForEdit={configValue}
-                    min={paramSpec.min ?? 0}
-                    max={paramSpec.max ?? 1}
-                    step={paramSpec.type === 'int' ? (paramSpec.step ?? 1) : (paramSpec.step ?? 0.01)}
-                    decimals={paramSpec.type === 'int' ? 0 : (paramSpec.step && paramSpec.step >= 1 ? 0 : 3)}
-                    onChange={(v) => onParameterChange(paramName, useConfigForInput ? v : effectiveToConfig(paramName, v))}
-                  />
-                {/snippet}
-              </ParamPortWithAudioState>
+                  {/snippet}
+                </ParamPortWithAudioState>
+              {:else if uiType === 'knob'}
+                {@const connInfo = getParamPortConnectionState(nodeId, paramName, graph, audioSetup)}
+                <ParamPortWithAudioState
+                  nodeId={nodeId}
+                  paramName={paramName}
+                  label={paramSpec.label ?? paramName}
+                  portId="{nodeId}-{paramName}"
+                  portType="float"
+                  showPort={showParamPort(paramName, paramSpec)}
+                  inputMode={getInputMode(paramName)}
+                  class={paramSpanClass}
+                  onParameterInputModeChanged={onParameterInputModeChanged ? (mode) => onParameterInputModeChanged(paramName, mode) : undefined}
+                  onPortPointerDown={(e) => onPortPointerDownForConnection?.(e.clientX, e.clientY, e.pointerId)}
+                  onPortDoubleClick={(e) => onPortClickForSignalPicker?.(e.clientX, e.clientY, nodeId, paramName, e.currentTarget as HTMLElement)}
+                  {node}
+                  {graph}
+                  {audioSetup}
+                  {nodeSpecs}
+                  {getAudioManager}
+                  getTimelineCurrentTime={getTimelineCurrentTime}
+                  disabled={false}
+                >
+                  {#snippet children({ displayValue, useConfigForInput, configValue })}
+                    <Knob
+                      value={displayValue}
+                      min={paramSpec.min ?? 0}
+                      max={paramSpec.max ?? 1}
+                      step={paramSpec.type === 'int' ? (paramSpec.step ?? 1) : (paramSpec.step ?? 0.01)}
+                      decimals={paramSpec.type === 'int' ? 0 : (paramSpec.step && paramSpec.step >= 1 ? 0 : 3)}
+                      connected={connInfo.state !== 'default'}
+                      knobPolarity={paramSpec.knobPolarity ?? 'one-sided'}
+                      knobCenter={paramSpec.knobCenter ?? 0}
+                      onChange={(v) => onParameterChange(paramName, useConfigForInput ? v : effectiveToConfig(paramName, v))}
+                    />
+                  {/snippet}
+                </ParamPortWithAudioState>
+              {:else}
+                <!-- Unknown UI type, fallback to ValueInput -->
+                <ParamPortWithAudioState
+                  nodeId={nodeId}
+                  paramName={paramName}
+                  label={paramSpec.label ?? paramName}
+                  portId="{nodeId}-{paramName}"
+                  portType="float"
+                  showPort={showParamPort(paramName, paramSpec)}
+                  inputMode={getInputMode(paramName)}
+                  class={paramSpanClass}
+                  onParameterInputModeChanged={onParameterInputModeChanged ? (mode) => onParameterInputModeChanged(paramName, mode) : undefined}
+                  onPortPointerDown={(e) => onPortPointerDownForConnection?.(e.clientX, e.clientY, e.pointerId)}
+                  onPortDoubleClick={(e) => onPortClickForSignalPicker?.(e.clientX, e.clientY, nodeId, paramName, e.currentTarget as HTMLElement)}
+                  {node}
+                  {graph}
+                  {audioSetup}
+                  {nodeSpecs}
+                  {getAudioManager}
+                  getTimelineCurrentTime={getTimelineCurrentTime}
+                  disabled={false}
+                >
+                  {#snippet children({ displayValue, useConfigForInput, configValue })}
+                    <ValueInput
+                      value={displayValue}
+                      min={paramSpec.min ?? 0}
+                      max={paramSpec.max ?? 1}
+                      step={paramSpec.type === 'int' ? (paramSpec.step ?? 1) : (paramSpec.step ?? 0.01)}
+                      decimals={paramSpec.type === 'int' ? 0 : (paramSpec.step && paramSpec.step >= 1 ? 0 : 3)}
+                      onChange={(v) => onParameterChange(paramName, useConfigForInput ? v : effectiveToConfig(paramName, v))}
+                    />
+                  {/snippet}
+                </ParamPortWithAudioState>
+              {/if}
             {/if}
-          {/if}
-        {/each}
-        </div>
+          {/each}
+          </div>
+        {/if}
         {/if}
       {:else if element.type === 'auto-grid'}
         {@const params = Object.keys(spec.parameters)}
@@ -590,7 +844,6 @@
                   {#snippet children({ displayValue, useConfigForInput, configValue })}
                     <ValueInput
                       value={displayValue}
-                      valueForEdit={configValue}
                       min={paramSpec.min ?? 0}
                       max={paramSpec.max ?? 1}
                       step={paramSpec.type === 'int' ? (paramSpec.step ?? 1) : (paramSpec.step ?? 0.01)}
@@ -623,7 +876,6 @@
                 {#snippet children({ displayValue, useConfigForInput, configValue })}
                   <Knob
                     value={displayValue}
-                    valueForEdit={configValue}
                     min={paramSpec.min ?? 0}
                     max={paramSpec.max ?? 1}
                     step={paramSpec.type === 'int' ? (paramSpec.step ?? 1) : (paramSpec.step ?? 0.01)}
@@ -659,7 +911,6 @@
                   {#snippet children({ displayValue, useConfigForInput, configValue })}
                     <ValueInput
                       value={displayValue}
-                      valueForEdit={configValue}
                       min={paramSpec.min ?? 0}
                       max={paramSpec.max ?? 1}
                       step={paramSpec.type === 'int' ? (paramSpec.step ?? 1) : (paramSpec.step ?? 0.01)}
@@ -728,40 +979,72 @@
           />
         </div>
       {:else if element.type === 'bezier-editor-row'}
-        {#if element.label}
-          <div class="group-header">{element.label}</div>
-        {/if}
         {@const editors = element.editors}
-        <div class="element bezier-row">
-          {#each editors as editorParams}
-            <div class="bezier-item">
-              <BezierEditor
-                x1={getParamValue(editorParams[0])}
-                y1={getParamValue(editorParams[1])}
-                x2={getParamValue(editorParams[2])}
-                y2={getParamValue(editorParams[3])}
-                onChange={(p) => {
-                  onParameterChange(editorParams[0], p.x1);
-                  onParameterChange(editorParams[1], p.y1);
-                  onParameterChange(editorParams[2], p.x2);
-                  onParameterChange(editorParams[3], p.y2);
-                }}
-              />
+        {#if element.label}
+          <div class="layout-group">
+            <div class="group-header">{element.label}</div>
+            <div class="element bezier-row">
+              {#each editors as editorParams}
+                <div class="bezier-item">
+                  <BezierEditor
+                    x1={getParamValue(editorParams[0])}
+                    y1={getParamValue(editorParams[1])}
+                    x2={getParamValue(editorParams[2])}
+                    y2={getParamValue(editorParams[3])}
+                    onChange={(p) => {
+                      onParameterChange(editorParams[0], p.x1);
+                      onParameterChange(editorParams[1], p.y1);
+                      onParameterChange(editorParams[2], p.x2);
+                      onParameterChange(editorParams[3], p.y2);
+                    }}
+                  />
+                </div>
+              {/each}
             </div>
-          {/each}
-        </div>
+          </div>
+        {:else}
+          <div class="element bezier-row">
+            {#each editors as editorParams}
+              <div class="bezier-item">
+                <BezierEditor
+                  x1={getParamValue(editorParams[0])}
+                  y1={getParamValue(editorParams[1])}
+                  x2={getParamValue(editorParams[2])}
+                  y2={getParamValue(editorParams[3])}
+                  onChange={(p) => {
+                    onParameterChange(editorParams[0], p.x1);
+                    onParameterChange(editorParams[1], p.y1);
+                    onParameterChange(editorParams[2], p.x2);
+                    onParameterChange(editorParams[3], p.y2);
+                  }}
+                />
+              </div>
+            {/each}
+          </div>
+        {/if}
       {:else if element.type === 'color-map-preview'}
         {#if element.label}
-          <div class="group-header">{element.label}</div>
+          <div class="layout-group">
+            <div class="group-header">{element.label}</div>
+            <div class="element color-map-preview-wrap">
+              <ColorMapPreview
+                node={node}
+                spec={spec}
+                mode={element.mode}
+                height={element.height}
+              />
+            </div>
+          </div>
+        {:else}
+          <div class="element color-map-preview-wrap">
+            <ColorMapPreview
+              node={node}
+              spec={spec}
+              mode={element.mode}
+              height={element.height}
+            />
+          </div>
         {/if}
-        <div class="element color-map-preview-wrap">
-          <ColorMapPreview
-            node={node}
-            spec={spec}
-            mode={element.mode}
-            height={element.height}
-          />
-        </div>
       {:else if element.type === 'color-picker'}
         {@const paramNames = element.parameters ?? ['l', 'c', 'h']}
         {@const color = {
@@ -782,45 +1065,6 @@
       {:else if element.type === 'color-picker-row'}
         {#if layoutSectionVisible(element.visibleWhen, node, spec)}
           {@const [startParams, endParams] = element.pickers}
-          {#if element.label}
-            <div class="group-header group-header-with-actions">
-              <span class="group-header-label">{element.label}</span>
-              <div class="group-header-actions">
-                <Button
-                  variant="secondary"
-                  size="sm"
-                  class="group-header-btn"
-                  onclick={() => {
-                    const sL = getParamValue(startParams[0]);
-                    const sC = getParamValue(startParams[1]);
-                    const sH = getParamValue(startParams[2]);
-                    const eL = getParamValue(endParams[0]);
-                    const eC = getParamValue(endParams[1]);
-                    const eH = getParamValue(endParams[2]);
-                    onParameterChange(startParams[0], eL);
-                    onParameterChange(startParams[1], eC);
-                    onParameterChange(startParams[2], eH);
-                    onParameterChange(endParams[0], sL);
-                    onParameterChange(endParams[1], sC);
-                    onParameterChange(endParams[2], sH);
-                  }}
-                >
-                  Swap Colors
-                </Button>
-                {#if spec.parameters?.reverseHue != null}
-                  {@const rev = getParamValue('reverseHue')}
-                  <Button
-                    variant="secondary"
-                    size="sm"
-                    class="group-header-btn group-header-btn-toggle {rev > 0 ? 'is-active' : ''}"
-                    onclick={() => onParameterChange('reverseHue', rev > 0 ? 0 : 1)}
-                  >
-                    Reverse Hue
-                  </Button>
-                {/if}
-              </div>
-            </div>
-          {/if}
           {@const startColor = {
             l: getParamValue(startParams[0]),
             c: getParamValue(startParams[1]),
@@ -831,22 +1075,80 @@
             c: getParamValue(endParams[1]),
             h: getParamValue(endParams[2])
           }}
-          <div class="element color-picker-row-wrap">
-            <ColorPickerRow
-              startColor={startColor}
-              endColor={endColor}
-              onStartColorClick={(sx, sy) => showColorPicker(startColor, sx, sy, (l, c, h) => {
-                onParameterChange(startParams[0], l);
-                onParameterChange(startParams[1], c);
-                onParameterChange(startParams[2], h);
-              })}
-              onEndColorClick={(sx, sy) => showColorPicker(endColor, sx, sy, (l, c, h) => {
-                onParameterChange(endParams[0], l);
-                onParameterChange(endParams[1], c);
-                onParameterChange(endParams[2], h);
-              })}
-            />
-          </div>
+          {#if element.label}
+            <div class="layout-group">
+              <div class="group-header group-header-with-actions">
+                <span class="group-header-label">{element.label}</span>
+                <div class="group-header-actions">
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    class="group-header-btn"
+                    onclick={() => {
+                      const sL = getParamValue(startParams[0]);
+                      const sC = getParamValue(startParams[1]);
+                      const sH = getParamValue(startParams[2]);
+                      const eL = getParamValue(endParams[0]);
+                      const eC = getParamValue(endParams[1]);
+                      const eH = getParamValue(endParams[2]);
+                      onParameterChange(startParams[0], eL);
+                      onParameterChange(startParams[1], eC);
+                      onParameterChange(startParams[2], eH);
+                      onParameterChange(endParams[0], sL);
+                      onParameterChange(endParams[1], sC);
+                      onParameterChange(endParams[2], sH);
+                    }}
+                  >
+                    Swap Colors
+                  </Button>
+                  {#if spec.parameters?.reverseHue != null}
+                    {@const rev = getParamValue('reverseHue')}
+                    <Button
+                      variant="secondary"
+                      size="sm"
+                      class="group-header-btn group-header-btn-toggle {rev > 0 ? 'is-active' : ''}"
+                      onclick={() => onParameterChange('reverseHue', rev > 0 ? 0 : 1)}
+                    >
+                      Reverse Hue
+                    </Button>
+                  {/if}
+                </div>
+              </div>
+              <div class="element color-picker-row-wrap">
+                <ColorPickerRow
+                  startColor={startColor}
+                  endColor={endColor}
+                  onStartColorClick={(sx, sy) => showColorPicker(startColor, sx, sy, (l, c, h) => {
+                    onParameterChange(startParams[0], l);
+                    onParameterChange(startParams[1], c);
+                    onParameterChange(startParams[2], h);
+                  })}
+                  onEndColorClick={(sx, sy) => showColorPicker(endColor, sx, sy, (l, c, h) => {
+                    onParameterChange(endParams[0], l);
+                    onParameterChange(endParams[1], c);
+                    onParameterChange(endParams[2], h);
+                  })}
+                />
+              </div>
+            </div>
+          {:else}
+            <div class="element color-picker-row-wrap">
+              <ColorPickerRow
+                startColor={startColor}
+                endColor={endColor}
+                onStartColorClick={(sx, sy) => showColorPicker(startColor, sx, sy, (l, c, h) => {
+                  onParameterChange(startParams[0], l);
+                  onParameterChange(startParams[1], c);
+                  onParameterChange(startParams[2], h);
+                })}
+                onEndColorClick={(sx, sy) => showColorPicker(endColor, sx, sy, (l, c, h) => {
+                  onParameterChange(endParams[0], l);
+                  onParameterChange(endParams[1], c);
+                  onParameterChange(endParams[2], h);
+                })}
+              />
+            </div>
+          {/if}
         {/if}
       {:else if element.type === 'color-picker-row-with-ports'}
         {@const [startParams, endParams] = element.pickers}
@@ -926,6 +1228,13 @@
       min-height: 0;
       gap: var(--param-grid-gap);
 
+      .layout-group {
+        /* Layout */
+        display: flex;
+        flex-direction: column;
+        gap: 0;
+      }
+
       .group-header {
         /* Box model */
         padding: var(--pd-md) var(--pd-xl);
@@ -934,6 +1243,33 @@
         font-size: var(--text-3xl);
         font-weight: 900;
         color: var(--param-group-header-color);
+
+        &.group-header-with-center {
+          /* Layout */
+          display: grid;
+          align-items: center;
+          grid-template-columns: 1fr auto 1fr;
+          gap: var(--pd-md);
+
+          .group-header-label {
+            justify-self: start;
+            min-width: 0;
+          }
+
+          .group-header-center {
+            justify-self: center;
+            display: flex;
+            align-items: center;
+          }
+
+          .group-header-actions {
+            justify-self: end;
+            display: flex;
+            align-items: center;
+            gap: var(--color-map-row-button-gap, var(--pd-sm));
+            min-width: 0;
+          }
+        }
 
         &.group-header-with-actions {
           /* Layout */

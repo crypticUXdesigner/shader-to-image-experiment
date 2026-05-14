@@ -1,26 +1,31 @@
 /**
  * Single-frame image export orchestrator.
  *
- * Uses the same render path as video export (ExportRenderPath) so "what a frame means"
- * stays aligned with the preview/video pipeline.
+ * Dialog preview and final still use the same exclusive raster API as the live session
+ * (`exportRasterBackend`): WebGL2 via `ExportRenderPath`, or WebGPU via `renderWebGpuExportRgba8`.
  */
 
 import { mount, unmount } from 'svelte';
 import type { NodeGraph } from '../data-model/types';
 import type { AudioSetup } from '../data-model/audioSetupTypes';
 import type { ShaderCompiler } from '../runtime/types';
-import { globalErrorHandler } from '../utils/errorHandling';
 import { createExportRenderPath } from '../video-export/ExportRenderPath';
 import type { FrameAudioState } from '../video-export/OfflineAudioProvider';
 import ImageExportDialog from '../lib/components/export/ImageExportDialog.svelte';
 import type { ImageExportConfirmPayload } from './types';
 import { renderWebGpuExportRgba8 } from './WebGpuExportRenderPath';
+import type { ExportRasterBackend } from '../runtime/renderBackends/renderBackendTypes';
+import { formatWebGpuRasterExportUserMessage } from '../export/webGpuRasterExportUserMessage';
+
+/** Same exclusive raster choice as live preview (`RuntimeManager.getExportRasterBackend`). */
+export type { ExportRasterBackend } from '../runtime/renderBackends/renderBackendTypes';
 
 export interface ImageExportOrchestratorOptions {
   graph: NodeGraph;
   audioSetup: AudioSetup;
   compiler: ShaderCompiler;
   getTimelineState: () => { currentTime: number; duration?: number } | null;
+  exportRasterBackend: ExportRasterBackend;
 }
 
 type DialogResult = ImageExportConfirmPayload;
@@ -180,7 +185,8 @@ interface PreviewController {
 function createPreviewController(
   graph: NodeGraph,
   compiler: ShaderCompiler,
-  audioSetup: AudioSetup
+  audioSetup: AudioSetup,
+  exportRasterBackend: ExportRasterBackend
 ): PreviewController {
   let cached: {
     width: number;
@@ -214,6 +220,33 @@ function createPreviewController(
   async function renderPreviewFrame(opts: ImageExportPreviewRenderOptions): Promise<HTMLCanvasElement | null> {
     if (disposed) return null;
     const [w, h] = previewSize(opts.targetWidth, opts.targetHeight);
+    const t = Math.max(0, Number.isFinite(opts.timeSeconds) ? opts.timeSeconds : 0);
+    const frameState: FrameAudioState = {
+      channelSamples: [],
+      uniformUpdates: [],
+      timelineTime: t,
+    };
+
+    if (exportRasterBackend === 'webgpu') {
+      try {
+        const wg = await renderWebGpuExportRgba8(graph, compiler, audioSetup, {
+          width: w,
+          height: h,
+          timeSeconds: t,
+          timelineTimeSeconds: frameState.timelineTime,
+          uniformUpdates: frameState.uniformUpdates,
+        });
+        if (!wg.ok) {
+          const detail = wg.compilation?.unsupportedReasons?.join('; ') ?? wg.reason;
+          console.error('[ImageExport] WebGPU preview render failed:', detail, wg.error);
+          return null;
+        }
+        return rgba8ToCanvas(w, h, wg.rgba8);
+      } catch (err) {
+        console.error('[ImageExport] WebGPU preview render failed:', err);
+        return null;
+      }
+    }
 
     if (!cached || cached.width !== w || cached.height !== h) {
       disposeCached();
@@ -231,15 +264,9 @@ function createPreviewController(
       }
     }
 
-    const t = Math.max(0, Number.isFinite(opts.timeSeconds) ? opts.timeSeconds : 0);
-    const frameState: FrameAudioState = {
-      channelSamples: [],
-      uniformUpdates: [],
-      timelineTime: t,
-    };
-
     try {
       // frameRate=1, startTimeSeconds=0, frameIndex=t makes uTime = t (no need to rebuild for time changes).
+      if (!cached) return null;
       const canvasLike = cached.path.renderFrame(t, frameState);
       return canvasLike as HTMLCanvasElement;
     } catch (err) {
@@ -266,7 +293,12 @@ export async function runImageExportFlow(options: ImageExportOrchestratorOptions
   const initialTimeSeconds = Math.max(0, timelineState?.currentTime ?? 0);
   const durationSeconds = Math.max(0, timelineState?.duration ?? 0);
 
-  const previewController = createPreviewController(options.graph, options.compiler, options.audioSetup);
+  const previewController = createPreviewController(
+    options.graph,
+    options.compiler,
+    options.audioSetup,
+    options.exportRasterBackend
+  );
 
   try {
     const dialog = showImageExportDialog({
@@ -278,15 +310,13 @@ export async function runImageExportFlow(options: ImageExportOrchestratorOptions
 
     const timeSeconds = config.mode === 'time' ? Math.max(0, config.timeSeconds) : initialTimeSeconds;
 
-    // Prefer WebGPU export when available and the graph is WGSL-supported; otherwise fall back to WebGL export unchanged.
     const frameState: FrameAudioState = {
       channelSamples: [],
       uniformUpdates: [],
       timelineTime: timeSeconds,
     };
 
-    let usedWebGpu = false;
-    try {
+    if (options.exportRasterBackend === 'webgpu') {
       const wg = await renderWebGpuExportRgba8(options.graph, options.compiler, options.audioSetup, {
         width: config.width,
         height: config.height,
@@ -294,31 +324,14 @@ export async function runImageExportFlow(options: ImageExportOrchestratorOptions
         timelineTimeSeconds: frameState.timelineTime,
         uniformUpdates: frameState.uniformUpdates,
       });
-
-      if (wg.ok) {
-        usedWebGpu = true;
-        const canvas = rgba8ToCanvas(config.width, config.height, wg.rgba8);
-        const blob = await canvasToBlob(canvas, config.format, config.quality);
-        downloadBlob(blob, defaultFilename(config.format));
-      } else {
+      if (!wg.ok) {
         const detail = wg.compilation?.unsupportedReasons?.join('; ') ?? wg.reason;
-        globalErrorHandler.report(
-          'runtime',
-          'warning',
-          'WebGPU image export unavailable; falling back to WebGL export.',
-          { context: { webgpuExport: { reason: wg.reason, detail } }, originalError: wg.error }
-        );
+        throw new Error(formatWebGpuRasterExportUserMessage(wg.reason, detail), { cause: wg.error });
       }
-    } catch (err) {
-      const e = err instanceof Error ? err : new Error('WebGPU image export failed', { cause: err });
-      globalErrorHandler.report('runtime', 'warning', 'WebGPU image export failed; falling back to WebGL export.', {
-        context: { webgpuExport: { reason: 'exception' } },
-        originalError: e,
-      });
-    }
-
-    if (!usedWebGpu) {
-      // Use frameRate=1 and startTimeSeconds=timeSeconds to hit the exact time with frameIndex=0.
+      const canvas = rgba8ToCanvas(config.width, config.height, wg.rgba8);
+      const blob = await canvasToBlob(canvas, config.format, config.quality);
+      downloadBlob(blob, defaultFilename(config.format));
+    } else {
       const frameRate = 1;
       const frameIndex = 0;
 

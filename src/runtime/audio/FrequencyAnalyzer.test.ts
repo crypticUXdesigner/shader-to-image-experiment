@@ -68,5 +68,42 @@ describe('FrequencyAnalyzer band extraction modes', () => {
     const expectedRms01 = Math.sqrt((10 * 10 + 20 * 20 + 30 * 30 + 40 * 40) / 4) / 255;
     expect(rmsUpdates[0]!.value).toBeCloseTo(expectedRms01, 6);
   });
+
+  it('reuses the uniform-updates scratch array across consecutive updateFrequencyAnalysis calls', () => {
+    const sampleRate = 48_000;
+    const fftSize = 8;
+    const spectrum = new Uint8Array([10, 20, 30, 40]);
+    const analyserNode = makeFakeAnalyserNode(spectrum) as unknown as AnalyserNode;
+
+    const analyzer = new FrequencyAnalyzer({ getSampleRate: () => sampleRate } as any);
+    const audioNodeStates = new Map<string, any>([
+      [
+        'f1',
+        {
+          analyserNode,
+          frequencyData: new Uint8Array(spectrum.length),
+        },
+      ],
+    ]);
+
+    const band = { minHz: 0, maxHz: (3 / fftSize) * sampleRate };
+    analyzer.createAnalyzer(
+      'band-1',
+      'f1',
+      [band],
+      ['mean'],
+      [0],
+      undefined,
+      undefined,
+      fftSize,
+      audioNodeStates.get('f1')
+    );
+
+    const previous = new Map<string, number>();
+    const a = analyzer.updateFrequencyAnalysis(audioNodeStates, null, previous, 0.00001, true);
+    const b = analyzer.updateFrequencyAnalysis(audioNodeStates, null, previous, 0.00001, true);
+    expect(a).toBe(b);
+    expect(a).toHaveLength(1);
+  });
 });
 

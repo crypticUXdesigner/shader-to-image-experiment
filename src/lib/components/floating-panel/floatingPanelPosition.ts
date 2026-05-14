@@ -106,6 +106,12 @@ export const AUDIO_SIGNAL_PICKER_LARGE_CLAMP_BOX = { width: 900, height: 800 } a
 export const AUDIO_SIGNAL_PICKER_COMPACT_CLAMP_BOX = { width: 440, height: 360 } as const;
 
 /**
+ * Conservative outer box for the draggable timeline + automation floating panel
+ * (`TimelinePanelFloatingShell` + `FloatingPanel` chrome + curve editor slot).
+ */
+export const TIMELINE_PANEL_FLOATING_CLAMP_BOX = { width: 1040, height: 640 } as const;
+
+/**
  * Clamp a fixed `Popover` / `FloatingPanel` center (`align="center"`, `alignY="center"`)
  * so the panel bounding box fits in the viewport with `inset` px margin.
  * Used when restoring stored coordinates that may be off-screen.

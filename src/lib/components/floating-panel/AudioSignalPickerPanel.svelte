@@ -43,6 +43,13 @@
     onAudioSetupChange: (setup: AudioSetup) => void;
     /** Optional: for live spectrum and remapper visualization in picker. */
     getAudioManager?: () => import('../../../runtime/types').IAudioManager | null;
+    /**
+     * Browse-only mode: opened from a global entry point (e.g. bottom-bar audio
+     * button) rather than a parameter port. Forces the large slot, hides
+     * Connect actions, and changes the aria label. `targetNodeId` /
+     * `targetParameter` can be empty strings in this mode.
+     */
+    browseOnly?: boolean;
     class?: string;
   }
 
@@ -64,6 +71,7 @@
     onClose,
     onAudioSetupChange,
     getAudioManager,
+    browseOnly = false,
     class: className = ''
   }: AudioSignalPickerPanelProps = $props();
 
@@ -72,7 +80,9 @@
   );
 
   const mode = $derived(
-    connectionState.state === 'audio-connected' ? 'compact' : 'large'
+    browseOnly
+      ? 'large'
+      : connectionState.state === 'audio-connected' ? 'compact' : 'large'
   );
 
   /** When set from compact "Open full", show large slot with this band pre-selected. */
@@ -96,6 +106,7 @@
       connectedVirtualNodeId: virtualNodeId,
       connectedSignalId: signalId,
       connectionId: connection.id,
+      connectionDisabled: !!connection.disabled,
     };
   });
 
@@ -122,6 +133,7 @@
     registerDeleteHandler: (handler: (() => void) | null) => {
       deleteHandler = handler;
     },
+    browseOnly,
   } satisfies LargeSlotProps);
 
   /** Props for compact slot. Only valid when compactConnectionInfo is set. */
@@ -211,7 +223,11 @@
   onClose={handleClose}
   onPositionChange={onPositionChange}
   onKeydown={handleKeydown}
-  ariaLabel={showingLarge ? 'Choose or create audio signal' : 'Configure connected audio signal'}
+  ariaLabel={showingLarge
+    ? browseOnly
+      ? 'Audio bands and remappers'
+      : 'Choose or create audio signal'
+    : 'Configure connected audio signal'}
   class="audio-signal-picker {className}"
 >
   {#snippet headerLeft()}

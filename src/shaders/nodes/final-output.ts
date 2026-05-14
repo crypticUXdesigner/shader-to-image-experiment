@@ -5,6 +5,7 @@ import type { NodeSpec } from '../../types/nodeSpec';
  * Marks a node as the final output for the shader.
  * This is a terminal node that marks where the rendering pipeline ends.
  * The compiler uses the input connection to determine the final shader output.
+ * Float inputs promote to vec3 (e.g. `vec3(scalar)`) via port typing / codegen—no separate adapter node.
  */
 export const finalOutputNodeSpec: NodeSpec = {
   id: 'final-output',
@@ -14,7 +15,7 @@ export const finalOutputNodeSpec: NodeSpec = {
   inputs: [
     {
       name: 'in',
-      type: 'vec3', // Accepts vec3 (use color-map node before this for float inputs)
+      type: 'vec3', // Accepts vec3; scalar inputs promote via TypeValidator / codegen
       label: 'Color',
       hideHeaderLabel: true
     }

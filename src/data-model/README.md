@@ -186,7 +186,7 @@ layer but still converge through the same serialize/deserialize path:
 
 - `presetManager.loadPreset(name, toValidationSpecs(nodeSystemSpecs))`:
   - Handles legacy preset shapes (raw `graph` vs `SerializedGraphFile` wrapper),
-  - Applies `migrateLegacyNodeGraph` (noise, kaleidoscope merge, displace 2D unify, bloom sphere colors, drive-home lights sky) to the in-memory `graph`,
+  - Applies `migrateLegacyNodeGraph` (noise, kaleidoscope merge, displace 2D unify, displace legacy port strip, bloom sphere colors, drive-home lights sky) to the in-memory `graph`,
   - Serializes via `serializeGraph` and immediately deserializes via `deserializeGraph` so
     `validateGraph` and the format-version–aware registry run on the final file shape.
 - `presetManager.loadPresetFromJson(json, toValidationSpecs(nodeSystemSpecs))`:

@@ -4,7 +4,9 @@
    * Lanes, regions, BPM, ruler, playhead, snap, add-lane dropdown.
    */
   import { DropdownMenu } from '../ui';
+  import { getContext } from 'svelte';
   import { wheelNonPassive } from '../../actions/wheelPassive';
+  import { portal } from '../../actions/portal';
   import {
     addAutomationLane,
     addAutomationRegion,
@@ -42,6 +44,10 @@
   import { buildTimelineRulerData } from './timelineRulerModel';
   import { paintRulerWaveformCanvas } from './paintRulerWaveformCanvas';
   import { pollOnAnimationFrame } from '../../utils/pollOnAnimationFrame';
+  import {
+    TIMELINE_FLOATING_HEADER_HOST,
+    type TimelineFloatingHeaderHostGetter,
+  } from './timelineFloatingHeaderContext';
 
   const DEFAULT_BPM = 120;
   const DEFAULT_BARS_NEW_REGION = 16;
@@ -90,6 +96,11 @@
     openCurveEditorRegion = null,
     onOpenCurveEditorRegionTimePreview,
   }: Props = $props();
+
+  const getFloatingHeaderHost = getContext<TimelineFloatingHeaderHostGetter | undefined>(
+    TIMELINE_FLOATING_HEADER_HOST
+  );
+  const floatingPanelHeaderMountEl = $derived(getFloatingHeaderHost?.() ?? null);
 
   const nodeSpecsMap = $derived(new Map(nodeSpecs.map((s) => [s.id, s])));
 
@@ -898,26 +909,37 @@
 </script>
 
 <div class="inner" style="--timeline-track-width: {trackWidth}px; --track-header-width: {TRACK_HEADER_WIDTH}px">
-  <TimelineHeaderControls
-    bpm={getBpm()}
-    onApplyBpm={(v) => applyBpm(v)}
-    snapEnabled={snapEnabled}
-    onToggleSnap={() => (snapEnabled = !snapEnabled)}
-    snapGridLabel={snapGridLabel}
-    snapGridEnabled={snapEnabled}
-    snapGridMenuItems={snapGridMenuItems}
-    filteredFloatParams={filteredFloatParams}
-    addLaneOpen={addLaneOpen}
-    addLaneSearch={addLaneSearch}
-    onToggleAddLaneOpen={() => (addLaneOpen = !addLaneOpen)}
-    onCloseAddLane={() => (addLaneOpen = false)}
-    onUpdateAddLaneSearch={(v) => (addLaneSearch = v)}
-    onAddLane={addLane}
-    snapGridOpen={snapGridOpen}
-    onToggleSnapGridOpen={() => (snapGridOpen = !snapGridOpen)}
-    onCloseSnapGrid={() => (snapGridOpen = false)}
-    onClose={onClose}
-  />
+  {#snippet timelineHeaderControlsSnippet(layoutVariant: 'default' | 'floatingPanel')}
+    <TimelineHeaderControls
+      bpm={getBpm()}
+      onApplyBpm={(v) => applyBpm(v)}
+      snapEnabled={snapEnabled}
+      onToggleSnap={() => (snapEnabled = !snapEnabled)}
+      snapGridLabel={snapGridLabel}
+      snapGridEnabled={snapEnabled}
+      snapGridMenuItems={snapGridMenuItems}
+      filteredFloatParams={filteredFloatParams}
+      addLaneOpen={addLaneOpen}
+      addLaneSearch={addLaneSearch}
+      onToggleAddLaneOpen={() => (addLaneOpen = !addLaneOpen)}
+      onCloseAddLane={() => (addLaneOpen = false)}
+      onUpdateAddLaneSearch={(v) => (addLaneSearch = v)}
+      onAddLane={addLane}
+      snapGridOpen={snapGridOpen}
+      onToggleSnapGridOpen={() => (snapGridOpen = !snapGridOpen)}
+      onCloseSnapGrid={() => (snapGridOpen = false)}
+      onClose={onClose}
+      {layoutVariant}
+    />
+  {/snippet}
+
+  {#if floatingPanelHeaderMountEl}
+    <div class="timeline-header-portal-root" use:portal={floatingPanelHeaderMountEl}>
+      {@render timelineHeaderControlsSnippet('floatingPanel')}
+    </div>
+  {:else}
+    {@render timelineHeaderControlsSnippet('default')}
+  {/if}
 
   {#snippet footerRight()}
     <TimelineScroller
@@ -986,6 +1008,13 @@
 
 <style>
   /* === Layout (component-owned: colocated from timeline layout) === */
+  .timeline-header-portal-root {
+    display: flex;
+    align-items: center;
+    width: 100%;
+    min-width: 0;
+  }
+
   .inner {
     display: flex;
     flex-direction: column;

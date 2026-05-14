@@ -332,13 +332,11 @@ describe('NodeShaderCompiler', () => {
               positionZ: 0.0,
             },
           },
-          { id: 'n-cm', type: 'color-map', position: { x: 0, y: 0 }, parameters: {} },
           { id: 'n-out', type: 'final-output', position: { x: 0, y: 0 }, parameters: {} },
         ],
         connections: [
           { id: 'c1', sourceNodeId: 'n-pos', sourcePort: 'out', targetNodeId: 'n-kifs', targetPort: 'position' },
-          { id: 'c2', sourceNodeId: 'n-kifs', sourcePort: 'out', targetNodeId: 'n-cm', targetPort: 'in' },
-          { id: 'c3', sourceNodeId: 'n-cm', sourcePort: 'out', targetNodeId: 'n-out', targetPort: 'in' },
+          { id: 'c2', sourceNodeId: 'n-kifs', sourcePort: 'out', targetNodeId: 'n-out', targetPort: 'in' },
         ],
       };
 
@@ -367,13 +365,11 @@ describe('NodeShaderCompiler', () => {
             parameters: { shapeType: 2 },
             parameterInputModes: {},
           },
-          { id: 'n-cm', type: 'color-map', position: { x: 0, y: 0 }, parameters: {} },
           { id: 'n-out', type: 'final-output', position: { x: 0, y: 0 }, parameters: {} },
         ],
         connections: [
           { id: 'c1', sourceNodeId: 'n-uv', sourcePort: 'out', targetNodeId: 'n-x', targetPort: 'in' },
-          { id: 'c2', sourceNodeId: 'n-x', sourcePort: 'out', targetNodeId: 'n-cm', targetPort: 'in' },
-          { id: 'c3', sourceNodeId: 'n-cm', sourcePort: 'out', targetNodeId: 'n-out', targetPort: 'in' },
+          { id: 'c2', sourceNodeId: 'n-x', sourcePort: 'out', targetNodeId: 'n-out', targetPort: 'in' },
         ],
       };
 
@@ -531,7 +527,7 @@ describe('NodeShaderCompiler', () => {
       expect(result.backend).toBe('webgpu');
       expect(result.supported).toBe(true);
       expect(WGSL_WEBGPU_PASS_PLAN_NODE_TYPES.has('blur')).toBe(true);
-      expect(WGSL_SUPPORTED_NODE_TYPES.has('blur')).toBe(false);
+      expect(WGSL_SUPPORTED_NODE_TYPES.has('blur')).toBe(true);
 
       const plan = result.webgpuPassPlan;
       expect(plan?.kind).toBe('pass.blur.gaussian-separable.v1');
@@ -951,13 +947,11 @@ describe('NodeShaderCompiler', () => {
             parameters: { hexRadius: 0.25, halfHeight: 0.75, positionX: 0, positionY: 0, positionZ: 0 },
             parameterInputModes: {},
           },
-          { id: 'n-cm', type: 'color-map', position: { x: 0, y: 0 }, parameters: {} },
           { id: 'n-out', type: 'final-output', position: { x: 0, y: 0 }, parameters: {} },
         ],
         connections: [
           { id: 'c1', sourceNodeId: 'n-pos', sourcePort: 'out', targetNodeId: 'n-hex', targetPort: 'position' },
-          { id: 'c2', sourceNodeId: 'n-hex', sourcePort: 'out', targetNodeId: 'n-cm', targetPort: 'in' },
-          { id: 'c3', sourceNodeId: 'n-cm', sourcePort: 'out', targetNodeId: 'n-out', targetPort: 'in' },
+          { id: 'c2', sourceNodeId: 'n-hex', sourcePort: 'out', targetNodeId: 'n-out', targetPort: 'in' },
         ],
       };
 
@@ -1000,13 +994,11 @@ describe('NodeShaderCompiler', () => {
             },
             parameterInputModes: {},
           },
-          { id: 'n-cm', type: 'color-map', position: { x: 0, y: 0 }, parameters: {} },
           { id: 'n-out', type: 'final-output', position: { x: 0, y: 0 }, parameters: {} },
         ],
         connections: [
           { id: 'c1', sourceNodeId: 'n-pos', sourcePort: 'out', targetNodeId: 'n-hexr', targetPort: 'position' },
-          { id: 'c2', sourceNodeId: 'n-hexr', sourcePort: 'out', targetNodeId: 'n-cm', targetPort: 'in' },
-          { id: 'c3', sourceNodeId: 'n-cm', sourcePort: 'out', targetNodeId: 'n-out', targetPort: 'in' },
+          { id: 'c2', sourceNodeId: 'n-hexr', sourcePort: 'out', targetNodeId: 'n-out', targetPort: 'in' },
         ],
       };
 
@@ -1530,7 +1522,7 @@ describe('NodeShaderCompiler', () => {
       expect(joined).toMatch(/got 'gradient'/);
     });
 
-    it('reports `pass.blur.gaussian-separable.v1` unsupported when blur input is unconnected', () => {
+    it('compiles blur → final on WebGPU with inline WGSL when blur color input is unconnected', () => {
       const nodeSpecsMap = buildNodeSpecsMap();
       const compiler = new NodeShaderCompiler(nodeSpecsMap);
       const graph: NodeGraph = {
@@ -1549,11 +1541,13 @@ describe('NodeShaderCompiler', () => {
       const result = compiler.compile(graph, null, { backend: 'webgpu' });
 
       expect(result.backend).toBe('webgpu');
-      expect(result.supported).toBe(false);
-      expect(result.unsupportedReasons?.join('\n')).toContain('pass.blur.gaussian-separable.v1');
+      expect(result.supported).toBe(true);
+      expect(result.webgpuPassPlan).toBeUndefined();
+      expect(result.code).toContain('@fragment');
+      expect(result.code).toContain('0.2126');
     });
 
-    it('reports `pass.blur.gaussian-separable.v1` unsupported when upstream subgraph has unsupported nodes', () => {
+    it('compiles blur → final on WebGPU with inline path when pass-plan upstream is not WGSL-compatible', () => {
       const nodeSpecsMap = buildNodeSpecsMap();
       const compiler = new NodeShaderCompiler(nodeSpecsMap);
       const graph: NodeGraph = {
@@ -1576,7 +1570,6 @@ describe('NodeShaderCompiler', () => {
             parameters: {},
             parameterInputModes: {},
           },
-          { id: 'n-cm', type: 'color-map', position: { x: 0, y: 0 }, parameters: {} },
           { id: 'n-blur', type: 'blur', position: { x: 0, y: 0 }, parameters: {} },
           { id: 'n-out', type: 'final-output', position: { x: 0, y: 0 }, parameters: {} },
         ],
@@ -1590,8 +1583,7 @@ describe('NodeShaderCompiler', () => {
             targetNodeId: 'n-ray',
             targetPort: 'sdf',
           },
-          { id: 'c3', sourceNodeId: 'n-ray', sourcePort: 'out', targetNodeId: 'n-cm', targetPort: 'in' },
-          { id: 'c4', sourceNodeId: 'n-cm', sourcePort: 'out', targetNodeId: 'n-blur', targetPort: 'in' },
+          { id: 'c3', sourceNodeId: 'n-ray', sourcePort: 'out', targetNodeId: 'n-blur', targetPort: 'in' },
           { id: 'c5', sourceNodeId: 'n-blur', sourcePort: 'out', targetNodeId: 'n-out', targetPort: 'in' },
         ],
       };
@@ -1601,9 +1593,44 @@ describe('NodeShaderCompiler', () => {
       expect(result.backend).toBe('webgpu');
       expect(result.supported).toBe(false);
       const reasons = result.unsupportedReasons?.join('\n') ?? '';
-      expect(reasons).toContain('pass.blur.gaussian-separable.v1');
       expect(reasons).toMatch(/generic-raymarcher \(WebGPU MVP\): sdf source must be one of /);
       expect(reasons).toMatch(/got 'gradient'/);
+    });
+
+    it('compiles `constant-vec4 → blur → blend-color → final-output` on WebGPU (inline blur, no pass plan)', () => {
+      const nodeSpecsMap = buildNodeSpecsMap();
+      const compiler = new NodeShaderCompiler(nodeSpecsMap);
+      const graph: NodeGraph = {
+        id: 'graph-wgpu-blur-inline-chain',
+        name: 'Blur mid-chain',
+        version: '2.0',
+        nodes: [
+          { id: 'n-const', type: 'constant-vec4', position: { x: 0, y: 0 }, parameters: { x: 0.2, y: 0.6, z: 0.9, w: 1.0 } },
+          { id: 'n-blur', type: 'blur', position: { x: 0, y: 0 }, parameters: { blurAmount: 0.4, blurRadius: 6.0 } },
+          {
+            id: 'n-blend',
+            type: 'blend-color',
+            position: { x: 0, y: 0 },
+            parameters: { mode: 0, opacity: 0.5 },
+          },
+          { id: 'n-out', type: 'final-output', position: { x: 0, y: 0 }, parameters: {} },
+        ],
+        connections: [
+          { id: 'c1', sourceNodeId: 'n-const', sourcePort: 'out', targetNodeId: 'n-blur', targetPort: 'in' },
+          { id: 'c2', sourceNodeId: 'n-blur', sourcePort: 'out', targetNodeId: 'n-blend', targetPort: 'base' },
+          { id: 'c3', sourceNodeId: 'n-const', sourcePort: 'out', targetNodeId: 'n-blend', targetPort: 'blend' },
+          { id: 'c4', sourceNodeId: 'n-blend', sourcePort: 'out', targetNodeId: 'n-out', targetPort: 'in' },
+        ],
+      };
+
+      const result = compiler.compile(graph, null, { backend: 'webgpu' });
+
+      expect(result.backend).toBe('webgpu');
+      expect(result.supported).toBe(true);
+      expect(result.metadata.errors).toHaveLength(0);
+      expect(result.webgpuPassPlan).toBeUndefined();
+      expect(result.code).toContain('@fragment');
+      expect(result.code).toContain('0.2126');
     });
 
     /**
@@ -1710,7 +1737,7 @@ describe('NodeShaderCompiler', () => {
   });
 
   describe('box-torus-sdf', () => {
-    it('compiles UV → Primitives → color-map → final-output without mangling else-if into if_node_*', () => {
+    it('compiles UV → Primitives → final-output without mangling else-if into if_node_*', () => {
       const nodeSpecsMap = buildNodeSpecsMap();
       const compiler = new NodeShaderCompiler(nodeSpecsMap);
       const graph: NodeGraph = {
@@ -1720,13 +1747,11 @@ describe('NodeShaderCompiler', () => {
         nodes: [
           { id: 'n-uv', type: 'uv-coordinates', position: { x: 0, y: 0 }, parameters: {} },
           { id: 'n-bt', type: 'box-torus-sdf', position: { x: 0, y: 0 }, parameters: {} },
-          { id: 'n-cm', type: 'color-map', position: { x: 0, y: 0 }, parameters: {} },
           { id: 'n-out', type: 'final-output', position: { x: 0, y: 0 }, parameters: {} },
         ],
         connections: [
           { id: 'c1', sourceNodeId: 'n-uv', sourcePort: 'out', targetNodeId: 'n-bt', targetPort: 'in' },
-          { id: 'c2', sourceNodeId: 'n-bt', sourcePort: 'out', targetNodeId: 'n-cm', targetPort: 'in' },
-          { id: 'c3', sourceNodeId: 'n-cm', sourcePort: 'out', targetNodeId: 'n-out', targetPort: 'in' },
+          { id: 'c2', sourceNodeId: 'n-bt', sourcePort: 'out', targetNodeId: 'n-out', targetPort: 'in' },
         ],
       };
 
@@ -1754,7 +1779,6 @@ describe('NodeShaderCompiler', () => {
             position: { x: 0, y: 0 },
             parameters: { primitiveType: 0, primitiveSizeX: 1.5 },
           },
-          { id: 'n-cm', type: 'color-map', position: { x: 0, y: 0 }, parameters: {} },
           { id: 'n-out', type: 'final-output', position: { x: 0, y: 0 }, parameters: {} },
         ],
         connections: [
@@ -1767,8 +1791,7 @@ describe('NodeShaderCompiler', () => {
             targetNodeId: 'n-bt',
             targetParameter: 'primitiveSizeX',
           },
-          { id: 'c4', sourceNodeId: 'n-bt', sourcePort: 'out', targetNodeId: 'n-cm', targetPort: 'in' },
-          { id: 'c5', sourceNodeId: 'n-cm', sourcePort: 'out', targetNodeId: 'n-out', targetPort: 'in' },
+          { id: 'c4', sourceNodeId: 'n-bt', sourcePort: 'out', targetNodeId: 'n-out', targetPort: 'in' },
         ],
       };
 
@@ -1785,7 +1808,7 @@ describe('NodeShaderCompiler', () => {
       expect(sceneChunk).toContain(`vec3(clamp((${mulVar}),`);
     });
 
-    it('compiles UV → box-torus-sdf → color-map on WebGPU with scene distance + standalone pixel', () => {
+    it('compiles UV → box-torus-sdf → final-output on WebGPU with scene distance + standalone pixel', () => {
       const nodeSpecsMap = buildNodeSpecsMap();
       const compiler = new NodeShaderCompiler(nodeSpecsMap);
 
@@ -1801,13 +1824,11 @@ describe('NodeShaderCompiler', () => {
             position: { x: 0, y: 0 },
             parameters: { primitiveRaymarchSteps: 48, primitiveType: 1 },
           },
-          { id: 'n-cm', type: 'color-map', position: { x: 0, y: 0 }, parameters: {} },
           { id: 'n-out', type: 'final-output', position: { x: 0, y: 0 }, parameters: {} },
         ],
         connections: [
           { id: 'c1', sourceNodeId: 'n-uv', sourcePort: 'out', targetNodeId: 'n-bt', targetPort: 'in' },
-          { id: 'c2', sourceNodeId: 'n-bt', sourcePort: 'out', targetNodeId: 'n-cm', targetPort: 'in' },
-          { id: 'c3', sourceNodeId: 'n-cm', sourcePort: 'out', targetNodeId: 'n-out', targetPort: 'in' },
+          { id: 'c2', sourceNodeId: 'n-bt', sourcePort: 'out', targetNodeId: 'n-out', targetPort: 'in' },
         ],
       };
 
@@ -1819,8 +1840,98 @@ describe('NodeShaderCompiler', () => {
     });
   });
 
+  describe('uv glitch distort nodes (WebGPU)', () => {
+    it('compiles UV → uv-block-glitch → hash32 → final-output', () => {
+      const nodeSpecsMap = buildNodeSpecsMap();
+      const compiler = new NodeShaderCompiler(nodeSpecsMap);
+      const graph: NodeGraph = {
+        id: 'graph-uv-block-glitch-wgsl',
+        name: 'UV block glitch WGSL',
+        version: '2.0',
+        nodes: [
+          { id: 'n-uv', type: 'uv-coordinates', position: { x: 0, y: 0 }, parameters: {} },
+          {
+            id: 'n-bg',
+            type: 'uv-block-glitch',
+            position: { x: 0, y: 0 },
+            parameters: {
+              uvBlockGlitchSeed: 1.23,
+              uvBlockGlitchBlocks: 5,
+              uvBlockGlitchVariation: 0.9,
+              uvBlockGlitchCenterXMin: 0.1,
+              uvBlockGlitchCenterXMax: 0.9,
+              uvBlockGlitchCenterYMin: 0.1,
+              uvBlockGlitchCenterYMax: 0.9,
+              uvBlockGlitchHalfWMin: 0.02,
+              uvBlockGlitchHalfWMax: 0.1,
+              uvBlockGlitchAspectMin: 0.5,
+              uvBlockGlitchAspectMax: 2.0,
+              uvBlockGlitchOffXMin: -0.05,
+              uvBlockGlitchOffXMax: 0.05,
+              uvBlockGlitchOffYMin: -0.04,
+              uvBlockGlitchOffYMax: 0.04,
+            },
+          },
+          { id: 'n-h', type: 'hash32', position: { x: 0, y: 0 }, parameters: {} },
+          { id: 'n-out', type: 'final-output', position: { x: 0, y: 0 }, parameters: {} },
+        ],
+        connections: [
+          { id: 'c1', sourceNodeId: 'n-uv', sourcePort: 'out', targetNodeId: 'n-bg', targetPort: 'in' },
+          { id: 'c2', sourceNodeId: 'n-bg', sourcePort: 'out', targetNodeId: 'n-h', targetPort: 'in' },
+          { id: 'c3', sourceNodeId: 'n-h', sourcePort: 'out', targetNodeId: 'n-out', targetPort: 'in' },
+        ],
+      };
+
+      const result = compiler.compile(structuredClone(graph), null, { backend: 'webgpu' });
+      expect(result.supported).toBe(true);
+      expect(result.metadata.errors).toHaveLength(0);
+      expect(result.code).toContain('uvBlockGlitch_apply');
+    });
+
+    it('compiles UV → uv-band-shift → hash32 → final-output', () => {
+      const nodeSpecsMap = buildNodeSpecsMap();
+      const compiler = new NodeShaderCompiler(nodeSpecsMap);
+      const graph: NodeGraph = {
+        id: 'graph-uv-band-shift-wgsl',
+        name: 'UV band shift WGSL',
+        version: '2.0',
+        nodes: [
+          { id: 'n-uv', type: 'uv-coordinates', position: { x: 0, y: 0 }, parameters: {} },
+          {
+            id: 'n-bs',
+            type: 'uv-band-shift',
+            position: { x: 0, y: 0 },
+            parameters: {
+              uvBandShiftOrientation: 1,
+              uvBandShiftSeed: 2.5,
+              uvBandShiftBandCount: 18,
+              uvBandShiftPriOffMin: -0.04,
+              uvBandShiftPriOffMax: 0.04,
+              uvBandShiftPriSpread: 0.35,
+              uvBandShiftSecSizeMin: 0.4,
+              uvBandShiftSecSizeMax: 1.8,
+              uvBandShiftSecSpread: 0.25,
+            },
+          },
+          { id: 'n-h', type: 'hash32', position: { x: 0, y: 0 }, parameters: {} },
+          { id: 'n-out', type: 'final-output', position: { x: 0, y: 0 }, parameters: {} },
+        ],
+        connections: [
+          { id: 'c1', sourceNodeId: 'n-uv', sourcePort: 'out', targetNodeId: 'n-bs', targetPort: 'in' },
+          { id: 'c2', sourceNodeId: 'n-bs', sourcePort: 'out', targetNodeId: 'n-h', targetPort: 'in' },
+          { id: 'c3', sourceNodeId: 'n-h', sourcePort: 'out', targetNodeId: 'n-out', targetPort: 'in' },
+        ],
+      };
+
+      const result = compiler.compile(structuredClone(graph), null, { backend: 'webgpu' });
+      expect(result.supported).toBe(true);
+      expect(result.metadata.errors).toHaveLength(0);
+      expect(result.code).toContain('uvBandShift_applyVertical');
+    });
+  });
+
   describe('mixed-wave-signal input node', () => {
-    it('compiles mixed-wave-signal → color-map → final-output', () => {
+    it('compiles mixed-wave-signal → final-output', () => {
       const nodeSpecsMap = buildNodeSpecsMap();
       const compiler = new NodeShaderCompiler(nodeSpecsMap);
       const graph: NodeGraph = {
@@ -1829,20 +1940,12 @@ describe('NodeShaderCompiler', () => {
         version: '2.0',
         nodes: [
           { id: 'mws', type: 'mixed-wave-signal', position: { x: 0, y: 0 }, parameters: {} },
-          { id: 'cm', type: 'color-map', position: { x: 0, y: 0 }, parameters: {} },
           { id: 'n-out', type: 'final-output', position: { x: 0, y: 0 }, parameters: {} },
         ],
         connections: [
           {
             id: 'c1',
             sourceNodeId: 'mws',
-            sourcePort: 'out',
-            targetNodeId: 'cm',
-            targetPort: 'in',
-          },
-          {
-            id: 'c2',
-            sourceNodeId: 'cm',
             sourcePort: 'out',
             targetNodeId: 'n-out',
             targetPort: 'in',
@@ -1858,14 +1961,13 @@ describe('NodeShaderCompiler', () => {
   });
 
   describe('oscillator-2d input node', () => {
-    it('compiles UV → Vortex driven by oscillator x/y → length → color-map → final-output', () => {
+    it('compiles UV → Vortex driven by oscillator x/y → length → final-output', () => {
       const nodeSpecsMap = buildNodeSpecsMap();
       const compiler = new NodeShaderCompiler(nodeSpecsMap);
       const uvId = 'n-uv';
       const oscId = 'n-osc';
       const vortexId = 'n-vortex';
       const lenId = 'n-len';
-      const cmId = 'n-cm';
       const outId = 'n-out';
 
       const graph: NodeGraph = {
@@ -1889,7 +1991,6 @@ describe('NodeShaderCompiler', () => {
             },
           },
           { id: lenId, type: 'length', position: { x: 0, y: 0 }, parameters: {} },
-          { id: cmId, type: 'color-map', position: { x: 0, y: 0 }, parameters: {} },
           { id: outId, type: 'final-output', position: { x: 0, y: 0 }, parameters: {} },
         ],
         connections: [
@@ -1897,8 +1998,7 @@ describe('NodeShaderCompiler', () => {
           { id: 'cpx', sourceNodeId: oscId, sourcePort: 'x', targetNodeId: vortexId, targetParameter: 'vortexCenterX' },
           { id: 'cpy', sourceNodeId: oscId, sourcePort: 'y', targetNodeId: vortexId, targetParameter: 'vortexCenterY' },
           { id: 'c1', sourceNodeId: vortexId, sourcePort: 'out', targetNodeId: lenId, targetPort: 'in' },
-          { id: 'c2', sourceNodeId: lenId, sourcePort: 'out', targetNodeId: cmId, targetPort: 'in' },
-          { id: 'c3', sourceNodeId: cmId, sourcePort: 'out', targetNodeId: outId, targetPort: 'in' },
+          { id: 'c2', sourceNodeId: lenId, sourcePort: 'out', targetNodeId: outId, targetPort: 'in' },
         ],
       };
 
@@ -1917,7 +2017,6 @@ describe('NodeShaderCompiler', () => {
       const nodeSpecsMap = buildNodeSpecsMap();
       const compiler = new NodeShaderCompiler(nodeSpecsMap);
       const oscId = 'n-osc';
-      const cmId = 'n-cm';
       const outId = 'n-out';
 
       const graph: NodeGraph = {
@@ -1931,12 +2030,10 @@ describe('NodeShaderCompiler', () => {
             position: { x: 0, y: 0 },
             parameters: { layerCombine: 2 },
           },
-          { id: cmId, type: 'color-map', position: { x: 0, y: 0 }, parameters: {} },
           { id: outId, type: 'final-output', position: { x: 0, y: 0 }, parameters: {} },
         ],
         connections: [
-          { id: 'c0', sourceNodeId: oscId, sourcePort: 'x', targetNodeId: cmId, targetPort: 'in' },
-          { id: 'c1', sourceNodeId: cmId, sourcePort: 'out', targetNodeId: outId, targetPort: 'in' },
+          { id: 'c0', sourceNodeId: oscId, sourcePort: 'x', targetNodeId: outId, targetPort: 'in' },
         ],
       };
 

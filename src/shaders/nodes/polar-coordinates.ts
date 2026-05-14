@@ -60,23 +60,15 @@ export const polarCoordinatesNodeSpec: NodeSpec = {
       max: 6.28,
       step: 0.05,
       label: 'Rotation',
-      knobPolarity: 'two-sided' },
-    polarEnabled: {
-      type: 'float',
-      default: 1.0,
-      min: 0.0,
-      max: 1.0,
-      step: 1.0,
-      label: 'Enabled'
-    }
+      knobPolarity: 'two-sided' }
   },
   parameterLayout: {
     elements: [
       {
         type: 'grid',
-        parameters: ['polarCenterX', 'polarCenterY', 'polarScale', 'polarRadiusScale', 'polarRotation', 'polarEnabled'],
+        parameters: ['polarCenterX', 'polarCenterY', 'polarScale', 'polarRadiusScale', 'polarRotation'],
         parameterUI: { polarCenterX: 'coords', polarCenterY: 'coords' },
-        layout: { columns: 3, coordsSpan: 2 }
+        layout: { columns: 3, coordsSpan: 2, parameterSpan: { polarRotation: 2 } }
       }
     ]
   },
@@ -95,17 +87,11 @@ vec2 fromPolar(vec2 polar, vec2 center) {
 }
 `,
   mainCode: `
-  if ($param.polarEnabled > 0.5) {
     vec2 polarCenter = vec2($param.polarCenterX, $param.polarCenterY);
     vec2 polarP = toPolar($input.in, polarCenter);
-    // Apply scale and rotation
     polarP.x *= $param.polarScale;
     polarP.y *= $param.polarRadiusScale;
     polarP.x += $param.polarRotation;
-    // Convert back to Cartesian
     $output.out = fromPolar(polarP, polarCenter);
-  } else {
-    $output.out = $input.in;
-  }
-`
+  `
 };

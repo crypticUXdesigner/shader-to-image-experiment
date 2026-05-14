@@ -40,7 +40,6 @@ const CATEGORIES = [
   ['post-process/color', ['blur', 'glow-bloom', 'edge-detection', 'chromatic-aberration', 'rgb-separation', 'scanlines', 'color-grading', 'normal-mapping', 'lighting-shading']],
   ['utility', ['hash32', 'one-minus', 'negate', 'reciprocal', 'clamp-01', 'saturate', 'sign', 'round', 'truncate', 'lerp', 'swizzle', 'split-vector', 'combine-vector']],
   ['color-system', ['oklch-color-map-bezier', 'oklch-color-map-threshold', 'bayer-dither', 'tone-mapping']],
-  ['operation', ['color-map']],
   ['output', ['final-output']],
 ];
 

@@ -60,7 +60,7 @@
       displayValue: number;
       /** When true, user is editing config directly (e.g. multiply with 0 input); skip effectiveToConfig. */
       useConfigForInput: boolean;
-      /** Stored parameter value (config). Use for edit mode so double-click shows config, not live value. */
+      /** Stored parameter value (config / base). Display may be effective when wired; inline edit uses the same domain as drag (effective) unless {@link useConfigForInput}. */
       configValue: number;
     }]>;
   }
@@ -130,6 +130,8 @@
     const n = node;
     const setup = audioSetup;
     const specs = nodeSpecs;
+    const mode = inputMode;
+    void mode;
     const info = getParamPortConnectionState(nodeId, paramName, g, setup);
     const lane = g.automation?.lanes?.find((l) => l.nodeId === nodeId && l.paramName === paramName);
     const hasLane = Boolean(lane && automationLaneHasEvaluableRegions(lane));

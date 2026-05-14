@@ -1,9 +1,9 @@
 <script lang="ts">
   /**
-   * BottomBarScrubber - Timeline toggle, waveform strip, playhead, and time display.
+   * BottomBarScrubber - Audio + timeline toggles, waveform strip, playhead, and time display.
    */
   import { untrack } from 'svelte';
-  import { Button, IconSvg } from '../ui';
+  import { Button, ButtonGroup, IconSvg } from '../ui';
   import type { WaveformData } from '../../../runtime';
   import { pollOnAnimationFrame } from '../../utils/pollOnAnimationFrame';
 
@@ -23,6 +23,10 @@
     onTimeChange?: (time: number) => void;
     isTimelinePanelOpen: boolean;
     onToggleTimelinePanel?: () => void;
+    /** True when the global audio bands & remappers panel is open. */
+    isAudioPanelOpen?: boolean;
+    /** Toggle the global audio bands & remappers panel. */
+    onToggleAudioPanel?: () => void;
   }
 
   let {
@@ -33,6 +37,8 @@
     onTimeChange,
     isTimelinePanelOpen,
     onToggleTimelinePanel,
+    isAudioPanelOpen = false,
+    onToggleAudioPanel,
   }: Props = $props();
 
   let stripWrapperEl: HTMLDivElement;
@@ -371,6 +377,10 @@
     onToggleTimelinePanel?.();
   }
 
+  function handleToggleAudioPanel() {
+    onToggleAudioPanel?.();
+  }
+
   function handleStripKeydown(e: KeyboardEvent) {
     if (e.key !== ' ' && e.key !== 'Enter') return;
     e.preventDefault();
@@ -383,16 +393,32 @@
 
 <div class="playback-scrubber">
   <div class="timeline-preview-block">
-    <Button
-      class="timeline-toggle"
-      variant="ghost"
-      size="sm"
-      mode="icon-only"
-      title={isTimelinePanelOpen ? 'Close timeline' : 'Open timeline'}
-      onclick={handleToggleTimelinePanel}
-    >
-      <IconSvg name={isTimelinePanelOpen ? 'x' : 'chevron-down'} />
-    </Button>
+    <ButtonGroup class="panel-toggles" ariaLabel="Open panel">
+      <Button
+        class={`audio-toggle ${isAudioPanelOpen ? 'is-active' : ''}`}
+        variant="ghost"
+        size="sm"
+        mode="icon-only"
+        aria-pressed={isAudioPanelOpen}
+        title={isAudioPanelOpen ? 'Close audio bands & remappers' : 'Open audio bands & remappers'}
+        aria-label={isAudioPanelOpen ? 'Close audio bands and remappers' : 'Open audio bands and remappers'}
+        onclick={handleToggleAudioPanel}
+      >
+        <IconSvg name="waveform" variant="line" />
+      </Button>
+      <Button
+        class={`timeline-toggle ${isTimelinePanelOpen ? 'is-active' : ''}`}
+        variant="ghost"
+        size="sm"
+        mode="icon-only"
+        aria-pressed={isTimelinePanelOpen}
+        title={isTimelinePanelOpen ? 'Close timeline' : 'Open timeline'}
+        aria-label={isTimelinePanelOpen ? 'Close timeline' : 'Open timeline'}
+        onclick={handleToggleTimelinePanel}
+      >
+        <IconSvg name="line-segments" variant="line" />
+      </Button>
+    </ButtonGroup>
     <div class="timeline-preview control-strip" title="Scrub time">
       <div
         bind:this={stripWrapperEl}

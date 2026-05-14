@@ -1,7 +1,7 @@
 <script lang="ts">
   /**
    * BottomBar
-   * Composes BottomBarPlaybackControls, BottomBarScrubber, BottomBarToolSelector; hosts timeline panel and keyboard shortcuts.
+   * Composes BottomBarPlaybackControls, BottomBarScrubber, BottomBarToolSelector; timeline panel opens in App.
    */
   import { graphStore } from '../../stores';
   import type { ToolType } from '../../stores';
@@ -30,7 +30,15 @@
     onLoopToggle?: () => void;
     onTimeChange?: (time: number) => void;
     onToolChange?: (tool: ToolType) => void;
+    /** Called when the timeline floating panel is about to open (restore position, etc.). */
     onTimelinePanelOpen?: () => void;
+    /**
+     * True when the global audio bands & remappers panel is open (browse-mode
+     * picker). Drives the audio toggle's active state in the scrubber.
+     */
+    isAudioPanelOpen?: boolean;
+    /** Toggle the global audio bands & remappers panel. */
+    onAudioPanelToggle?: () => void;
     audioSetup?: AudioSetup;
     /** Primary track key from App (ensures waveform scrubber updates on track change when rendered via snippet). */
     primaryTrackKey?: string | null;
@@ -45,8 +53,8 @@
     audiotoolUserName?: string | null;
     /** Called when RPC indicates OAuth bearer is invalid (expired/revoked). */
     onAudiotoolSessionInvalidated?: () => void;
-    timelinePanel?: import('svelte').Snippet<[]>;
-    curveEditorSlot?: import('svelte').Snippet<[]>;
+    /** Bound to the floating timeline panel visibility (owned by App). */
+    timelinePanelOpen?: boolean;
   }
 
   let {
@@ -58,6 +66,8 @@
     onTimeChange,
     onToolChange,
     onTimelinePanelOpen,
+    isAudioPanelOpen = false,
+    onAudioPanelToggle,
     audioSetup = { files: [], bands: [], remappers: [] },
     primaryTrackKey = null,
     getTrackKey,
@@ -67,15 +77,11 @@
     audiotoolRpcClient = null,
     audiotoolUserName = null,
     onAudiotoolSessionInvalidated,
-    timelinePanel,
-    curveEditorSlot,
+    timelinePanelOpen = $bindable(false),
   }: Props = $props();
 
   let bottomBarEl: HTMLDivElement;
-  let contentEl: HTMLDivElement;
-  let curveSlotEl: HTMLDivElement;
 
-  let isTimelinePanelOpen = $state(false);
   let isSpacebarPressed = $state(false);
   let isPlaying = $state(false);
   /** Bumps when decoded primary audio attaches so the scrubber re-fetches waveform (reload race). */
@@ -116,10 +122,11 @@
   }
 
   function handleToggleTimelinePanel() {
-    isTimelinePanelOpen = !isTimelinePanelOpen;
-    if (isTimelinePanelOpen) {
+    const next = !timelinePanelOpen;
+    if (next) {
       onTimelinePanelOpen?.();
     }
+    timelinePanelOpen = next;
   }
 
   // Keyboard shortcuts
@@ -175,16 +182,13 @@
     isSpacebarPressed = isPressed;
   }
   export function setTimelinePanelOpen(open: boolean): void {
-    isTimelinePanelOpen = open;
+    if (open && !timelinePanelOpen) {
+      onTimelinePanelOpen?.();
+    }
+    timelinePanelOpen = open;
   }
   export function isTimelinePanelVisible(): boolean {
-    return isTimelinePanelOpen;
-  }
-  export function getTimelinePanelContentElement(): HTMLElement | null {
-    return contentEl ?? null;
-  }
-  export function getTimelineCurveEditorSlotElement(): HTMLElement | null {
-    return curveSlotEl ?? null;
+    return timelinePanelOpen;
   }
   export function getElement(): HTMLElement | null {
     return bottomBarEl ?? null;
@@ -212,29 +216,18 @@
       />
     </div>
 
-    <!-- Center: Timeline panel + scrubber -->
+    <!-- Center: Scrubber (timeline is a floating panel in App) -->
     <div class="section center timeline-center">
-      <div class="timeline-panel frame" class:is-open={isTimelinePanelOpen} aria-hidden={!isTimelinePanelOpen}>
-        <div bind:this={curveSlotEl} class="curve-slot">
-          {@render curveEditorSlot?.()}
-        </div>
-        <div bind:this={contentEl} class="content">
-          {#if timelinePanel}
-            {@render timelinePanel()}
-          {:else}
-            No lanes
-          {/if}
-        </div>
-      </div>
-
       <BottomBarScrubber
         trackKey={scrubberTrackKey}
         getTrackKey={getTrackKey}
         getState={getState}
         getWaveformForPrimary={getWaveformForPrimary}
         onTimeChange={onTimeChange}
-        isTimelinePanelOpen={isTimelinePanelOpen}
+        isTimelinePanelOpen={timelinePanelOpen}
         onToggleTimelinePanel={handleToggleTimelinePanel}
+        isAudioPanelOpen={isAudioPanelOpen}
+        onToggleAudioPanel={onAudioPanelToggle}
       />
     </div>
 
@@ -302,129 +295,14 @@
         align-items: center;
         pointer-events: none;
 
-        .timeline-panel,
+        :global(.playback-scrubber) {
+          pointer-events: auto;
+        }
+
         :global(.playback-scrubber .timeline-preview-block) {
           pointer-events: auto;
         }
       }
-    }
-  }
-
-  /* === Timeline panel shell (hosts TimelinePanel + curve editor slot) === */
-  .timeline-panel {
-    /* Region colors by node category — match node panel icon box colors (node-categories/*.css) */
-    --timeline-region-color-inputs: var(--node-icon-box-color-inputs);
-    --timeline-region-color-patterns: var(--node-icon-box-bg-patterns);
-    --timeline-region-color-sdf: var(--node-icon-box-color-sdf);
-    --timeline-region-color-shapes: var(--node-icon-box-color-shapes);
-    --timeline-region-color-math: var(--node-icon-box-color-math);
-    --timeline-region-color-utilities: var(--node-icon-box-color-utilities);
-    --timeline-region-color-distort: var(--node-icon-box-color-distort);
-    --timeline-region-color-blend: var(--node-icon-box-color-blend);
-    --timeline-region-color-mask: var(--node-icon-box-color-mask);
-    --timeline-region-color-effects: var(--node-icon-box-color-effects);
-    --timeline-region-color-output: var(--node-icon-box-color-output);
-    --timeline-region-color-audio: var(--node-icon-box-color-audio);
-    --timeline-region-color-default: var(--node-icon-box-color-default);
-
-    /* Sub-group colors (override category when data-subgroup is set) */
-    --timeline-region-color-inputs-system: var(--node-icon-box-color-inputs-system);
-    --timeline-region-color-patterns-structured: var(--node-icon-box-color-patterns-structured);
-    --timeline-region-color-shapes-derived: var(--node-icon-box-color-shapes-derived);
-    --timeline-region-color-math-functions: var(--node-icon-box-color-math-functions);
-    --timeline-region-color-math-advanced: var(--node-icon-box-color-math-advanced);
-    --timeline-region-color-distort-warp: var(--node-icon-box-color-distort-warp);
-    --timeline-region-color-effects-stylize: var(--node-icon-box-color-effects-stylize);
-
-    --timeline-panel-computed-width: min(
-      var(--timeline-panel-max-width),
-      max(
-        var(--timeline-panel-min-width),
-        calc(var(--timeline-viewport-width, 100vw) * var(--timeline-panel-width-ratio, 0.6))
-      )
-    );
-
-    /* Layout */
-    position: fixed;
-    bottom: calc(var(--bottom-bar-height) + var(--pd-xl));
-    left: calc(
-      var(--timeline-viewport-left, 0) +
-        (var(--timeline-viewport-width, 100vw) - var(--timeline-panel-computed-width)) / 2
-    );
-    display: none;
-    flex-direction: column;
-    min-height: 0;
-
-    /* Box model: width/height from here; frame look from layer .frame */
-    width: var(--timeline-panel-computed-width);
-    min-height: var(--timeline-panel-height);
-    height: auto;
-    max-height: min(80vh, 520px); /* One-off max height */
-    padding: 0;
-
-    /* Other */
-    z-index: var(--timeline-panel-z-index);
-    pointer-events: auto;
-    transition: left var(--motion-spatial-fast-duration) var(--motion-spatial-fast-easing);
-
-    &.is-open {
-      display: flex;
-      /* Use full available height so timeline body (and bg column) can fill it */
-      height: min(30vh, 360px);
-      min-height: var(--timeline-panel-height);
-    }
-
-    /* Total height = same lane stack as when closed + curve band (do not steal lane height). */
-    &:has(.curve-slot:not(:empty)) {
-      height: calc(min(30vh, 360px) + var(--timeline-curve-editor-slot-height));
-      min-height: var(--timeline-panel-height-with-editor);
-      max-height: min(80vh, calc(520px + var(--timeline-curve-editor-slot-height)));
-    }
-
-    /* With curve editor open: curve-slot has fixed height so graph stays within bounds, timeline below */
-    &:has(.curve-slot:not(:empty)) .curve-slot {
-      flex-shrink: 0;
-      height: var(--timeline-curve-editor-slot-height);
-      max-height: var(--timeline-curve-editor-slot-height);
-      min-height: 0;
-      overflow: hidden;
-      display: flex;
-      flex-direction: column;
-    }
-
-    &:has(.curve-slot:not(:empty)) .curve-slot :global(.curve-editor) {
-      flex: 1;
-      min-height: 0;
-      overflow: hidden;
-    }
-
-    &:has(.curve-slot:not(:empty)) .content {
-      flex: 1;
-      min-height: 0;
-    }
-
-    .curve-slot {
-      flex-shrink: 0;
-      min-height: 0;
-      overflow: hidden;
-    }
-
-    .curve-slot:empty {
-      display: none;
-    }
-
-    /* Curve editor inherits track header width when inside timeline panel */
-    --track-header-width: 200px;
-
-    /* Content: flex container for TimelinePanel (.inner) and curve-slot */
-    .content {
-      display: flex;
-      flex-direction: column;
-      align-items: stretch;
-      flex: 1;
-      min-height: 0;
-      overflow: hidden;
-      padding: 0;
     }
   }
 </style>

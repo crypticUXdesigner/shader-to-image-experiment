@@ -147,25 +147,25 @@ function testShaderCompilation() {
   const compiler = new NodeShaderCompiler(nodeSpecsMap);
   
   // Test a few representative nodes from each category
-  const testNodes: Array<{ 
-    type: string; 
-    name: string; 
-    requiresInput?: boolean; 
+  const testNodes: Array<{
+    type: string;
+    name: string;
+    requiresInput?: boolean;
     outputType?: string;
-    needsColorMap?: boolean; // For float outputs that need color-map before final-output
+    /** Float outputs: wire directly to final-output (float→vec3 promotion in compiler). */
+    wiresFloatToFinalOutput?: boolean;
   }> = [
-    { type: 'fbm-noise', name: 'Pattern node', requiresInput: true, outputType: 'float', needsColorMap: true },
-    { type: 'sphere-raymarch', name: 'Shape node', requiresInput: true, outputType: 'float', needsColorMap: true },
-    { type: 'polar-coordinates', name: 'Coordinate modifier', requiresInput: true, outputType: 'vec2', needsColorMap: false },
-    { type: 'blur', name: 'Post-processor', requiresInput: true, outputType: 'vec4', needsColorMap: false },
+    { type: 'fbm-noise', name: 'Pattern node', requiresInput: true, outputType: 'float', wiresFloatToFinalOutput: true },
+    { type: 'sphere-raymarch', name: 'Shape node', requiresInput: true, outputType: 'float', wiresFloatToFinalOutput: true },
+    { type: 'polar-coordinates', name: 'Coordinate modifier', requiresInput: true, outputType: 'vec2', wiresFloatToFinalOutput: false },
+    { type: 'blur', name: 'Post-processor', requiresInput: true, outputType: 'vec4', wiresFloatToFinalOutput: false },
   ];
   
   let compilationErrors = 0;
   
   for (const testNode of testNodes) {
     try {
-      // Determine if we need color-map node (for float outputs)
-      const needsColorMap = testNode.needsColorMap === true;
+      const wiresFloatToFinalOutput = testNode.wiresFloatToFinalOutput === true;
       
       // Create a minimal graph with the node
       const nodes: NodeInstance[] = [
@@ -196,35 +196,19 @@ function testShaderCompilation() {
         });
       }
       
-      // Handle different output types - use color-map for float, direct connection for others
-      // (compiler handles type conversion automatically)
-      if (needsColorMap) {
-        // Float output needs color-map before final-output
-        nodes.push({
-          id: 'color-map-node',
-          type: 'color-map',
-          position: { x: 200, y: 0 },
-          parameters: {}
-        });
+      if (wiresFloatToFinalOutput) {
         nodes.push({
           id: 'output-node',
           type: 'final-output',
-          position: { x: 300, y: 0 },
-          parameters: {}
+          position: { x: 200, y: 0 },
+          parameters: {},
         });
         connections.push({
           id: 'conn-2',
           sourceNodeId: 'test-node',
           sourcePort: 'out',
-          targetNodeId: 'color-map-node',
-          targetPort: 'in'
-        });
-        connections.push({
-          id: 'conn-3',
-          sourceNodeId: 'color-map-node',
-          sourcePort: 'out',
           targetNodeId: 'output-node',
-          targetPort: 'in'
+          targetPort: 'in',
         });
       } else {
         // vec2 or vec4 output - connect directly (compiler handles conversion)
@@ -266,7 +250,7 @@ function testShaderCompilation() {
       }
       
       // For nodes that need final-output, test with it
-      if (needsColorMap) {
+      if (wiresFloatToFinalOutput) {
         const result = compiler.compile(graph);
         if (result.metadata.errors.length > 0) {
           logResult(`${testNode.name} (${testNode.type})`, false, `Compilation errors: ${result.metadata.errors.join('; ')}`);

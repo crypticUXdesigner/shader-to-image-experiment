@@ -32,11 +32,25 @@
     onKeydown?: (e: KeyboardEvent) => void;
     /** Optional left-side content in the header (e.g. "New band" button). */
     headerLeft?: import('svelte').Snippet<[]>;
+    /**
+     * Full-width header row (e.g. timeline chrome). When set, replaces the default `headerLeft` column
+     * so consumers can merge custom chrome with the centered drag grip.
+     */
+    headerInset?: import('svelte').Snippet<[]>;
     /** Main content. */
     children?: import('svelte').Snippet<[]>;
     /** Optional footer (message, button row, etc.). */
     footer?: import('svelte').Snippet<[]>;
     class?: string;
+    /**
+     * `full` — mousedown on the panel body starts a drag (legacy).
+     * `grip-only` — only the header grip / explicit handle drags (dense editors like the timeline).
+     */
+    dragSurface?: 'full' | 'grip-only';
+    /** When false, hide the header Close control (consumer provides its own dismiss). */
+    showCloseButton?: boolean;
+    /** Scroll behavior for the main content region below the header. */
+    mainOverflow?: 'auto' | 'hidden';
   }
 
   let {
@@ -52,9 +66,13 @@
     ariaLabel = 'Panel',
     onKeydown,
     headerLeft,
+    headerInset,
     children,
     footer,
-    class: className = ''
+    class: className = '',
+    dragSurface = 'full',
+    showCloseButton = true,
+    mainOverflow = 'auto',
   }: Props = $props();
 
   let dragStart = $state<{
@@ -118,14 +136,20 @@
     aria-label={ariaLabel}
     tabindex="-1"
     onkeydown={onKeydown}
-    onmousedown={onPositionChange ? startDrag : undefined}
+    onmousedown={onPositionChange && dragSurface === 'full' ? startDrag : undefined}
   >
-    <header class="header">
-      <div class="header-left">
-        {#if headerLeft}
-          {@render headerLeft()}
-        {/if}
-      </div>
+    <header class="header" class:has-header-inset={!!headerInset}>
+      {#if headerInset}
+        <div class="header-inset-full">
+          {@render headerInset()}
+        </div>
+      {:else}
+        <div class="header-left">
+          {#if headerLeft}
+            {@render headerLeft()}
+          {/if}
+        </div>
+      {/if}
       {#if onPositionChange}
         <div
           class="drag-indicator"
@@ -138,21 +162,23 @@
           <IconSvg name="grip-horizontal" variant="line" class="drag-icon" />
         </div>
       {/if}
-      <div class="header-right">
-        <Button
-          variant="ghost"
-          size="sm"
-          mode="both"
-          onclick={onClose}
-          aria-label="Close panel"
-          class="close-btn"
-        >
-          Close
-          <IconSvg name="x" variant="line" />
-        </Button>
-      </div>
+      {#if showCloseButton}
+        <div class="header-right">
+          <Button
+            variant="ghost"
+            size="sm"
+            mode="both"
+            onclick={onClose}
+            aria-label="Close panel"
+            class="close-btn"
+          >
+            Close
+            <IconSvg name="x" variant="line" />
+          </Button>
+        </div>
+      {/if}
     </header>
-    <div class="main scrollbar-styled">
+    <div class="main scrollbar-styled" style:overflow={mainOverflow}>
       {#if children}
         {@render children()}
       {/if}
@@ -199,6 +225,15 @@
       padding: var(--pd-xs);
       min-height: var(--size-sm);
 
+      &.has-header-inset .header-inset-full {
+        flex: 1;
+        min-width: 0;
+        position: relative;
+        display: flex;
+        align-items: center;
+        min-height: var(--size-sm);
+      }
+
       :global(.close-btn) {
         border-radius: calc(var(--radius-md) - var(--pd-xs));
       }
@@ -217,6 +252,7 @@
       left: 50%;
       top: 0;
       transform: translateX(-50%);
+      z-index: 2;
       display: flex;
       align-items: center;
       justify-content: center;
@@ -259,7 +295,6 @@
       flex-direction: column;
       flex: 1;
       min-height: 0;
-      overflow: auto;
     }
 
     .footer {

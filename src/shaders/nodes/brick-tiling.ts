@@ -85,7 +85,9 @@ export const brickTilingNodeSpec: NodeSpec = {
           'brickAmount',
           'brickOffsetX',
         ],
-        parameterUI: { offsetX: 'coords', brickOffsetY: 'coords', brickOffsetX: 'coords' },
+        // `coords` pairs each X with the *next* grid parameter as Y. `brickOffsetX` is last, so marking
+        // it `coords` renders nothing (no paramY) and the value sticks at 0 — Brick Amount then has no effect.
+        parameterUI: { offsetX: 'coords', brickOffsetY: 'coords' },
         layout: { columns: 2, coordsSpan: 2, coordsOrigin: 'bottom-left' }
       }
     ]

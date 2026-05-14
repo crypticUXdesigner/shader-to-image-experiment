@@ -12,7 +12,7 @@
  */
 
 import type { NodeGraph } from './types';
-import type { AudioSetup, AudioRemapperEntry } from './audioSetupTypes';
+import type { AudioBandEntry, AudioSetup, AudioRemapperEntry } from './audioSetupTypes';
 import { getVirtualNodeId } from '../utils/virtualNodes';
 
 const BAND_REMAP_SIGNAL_PREFIX = 'band-';
@@ -36,8 +36,21 @@ function remapperVirtualNodeId(remapperId: string): string {
  * Stable remapper id for a band's default remap. Used so re-loading the same preset
  * does not create duplicate remappers.
  */
-function defaultRemapperIdForBand(bandId: string): string {
+export function defaultRemapperIdForBand(bandId: string): string {
   return `${BAND_REMAP_SIGNAL_PREFIX}${bandId}`;
+}
+
+/** Default remapper row for a band (same shape as migration adds). */
+export function defaultRemapperEntryForBand(band: AudioBandEntry): AudioRemapperEntry {
+  return {
+    id: defaultRemapperIdForBand(band.id),
+    name: 'Default',
+    bandId: band.id,
+    inMin: band.remapInMin ?? 0,
+    inMax: band.remapInMax ?? 1,
+    outMin: band.remapOutMin ?? 0,
+    outMax: band.remapOutMax ?? 1,
+  };
 }
 
 /**
@@ -60,16 +73,7 @@ export function migrateBandRemapToRemappers(
     const remapperId = defaultRemapperIdForBand(band.id);
     if (existingRemapperIds.has(remapperId)) continue;
 
-    const remapper: AudioRemapperEntry = {
-      id: remapperId,
-      name: 'Default',
-      bandId: band.id,
-      inMin: band.remapInMin ?? 0,
-      inMax: band.remapInMax ?? 1,
-      outMin: band.remapOutMin ?? 0,
-      outMax: band.remapOutMax ?? 1,
-    };
-    addedRemappers.push(remapper);
+    addedRemappers.push(defaultRemapperEntryForBand(band));
     existingRemapperIds.add(remapperId);
   }
 

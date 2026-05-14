@@ -12,6 +12,7 @@ import { migrateIridescentTunnelCenter } from './iridescentTunnelCenterMigration
 import { migrateDriveHomeLightsSkyGradient } from './driveHomeLightsSkyGradientMigration';
 import { migrateKaleidoscopeSmooth } from './kaleidoscopeMergeMigration';
 import { migrateDisplace2dUnify } from './displace2dUnifyMigration';
+import { migrateDisplaceRemoveLegacyInputPorts } from './displaceRemoveLegacyInputPortsMigration';
 import { migrateRingsNode } from './ringsNodeMigration';
 import { migrateDotsNodeParameterNames } from './dotsNodeMigration';
 import { migrateParticleSystemFoldScale } from './particleSystemGrainMigration';
@@ -25,12 +26,14 @@ import { migrateBoxTorusSdfLightMode } from './boxTorusSdfLightModeMigration';
 import { migrateInflatedIcosahedronColors } from './inflatedIcosahedronColorsMigration';
 import { migrateGlassShellColors } from './glassShellColorsMigration';
 import { migrateRadialRepeatSdfParameters } from './radialRepeatSdfMigration';
+import { migratePolarCoordinatesRemoveEnabled } from './polarCoordinatesRemoveEnabledMigration';
 
 export function migrateLegacyNodeGraph(graph: NodeGraph): NodeGraph {
   let g = migrateNoiseNodes(graph);
   g = migrateWorleyNoiseToVoronoi(g);
   g = migrateKaleidoscopeSmooth(g);
   g = migrateDisplace2dUnify(g);
+  g = migrateDisplaceRemoveLegacyInputPorts(g);
   g = migrateBloomSphereColors(g);
   g = migrateSkyDomeColors(g);
   g = migrateIridescentTunnelColors(g);
@@ -47,5 +50,6 @@ export function migrateLegacyNodeGraph(graph: NodeGraph): NodeGraph {
   g = migrateInflatedIcosahedronColors(g);
   g = migrateGlassShellColors(g);
   g = migrateRadialRepeatSdfParameters(g);
-  return migrateUnifiedStripesPattern(g);
+  g = migrateUnifiedStripesPattern(g);
+  return migratePolarCoordinatesRemoveEnabled(g);
 }

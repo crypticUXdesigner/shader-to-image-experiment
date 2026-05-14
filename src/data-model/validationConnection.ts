@@ -5,6 +5,8 @@
 import type { NodeGraph, Connection } from './types';
 import type { NodeSpecification } from './validationTypes';
 import { isPortConnection, isParameterConnection } from './connectionUtils';
+import type { ConnectionValidationContext } from './connectionValidationContext';
+import { validateWebGpuExclusiveWireRules } from './webGpuExclusiveConnectionValidation';
 
 /**
  * Validates a single connection.
@@ -14,7 +16,8 @@ export function validateConnection(
   graph: NodeGraph,
   nodeSpecs: NodeSpecification[],
   errors: string[],
-  warnings: string[]
+  warnings: string[],
+  connectionValidation?: ConnectionValidationContext
 ): void {
   if (!connection.id) {
     errors.push('Connection missing id');
@@ -110,5 +113,9 @@ export function validateConnection(
 
   if (connection.sourceNodeId === connection.targetNodeId) {
     warnings.push(`Connection ${connection.id} connects node to itself (may cause cycles)`);
+  }
+
+  if (errors.length === 0) {
+    validateWebGpuExclusiveWireRules(connection, graph, nodeSpecs, connectionValidation, errors);
   }
 }

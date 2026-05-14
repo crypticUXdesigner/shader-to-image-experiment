@@ -4,7 +4,7 @@ import { LEGACY_WORLEY_DRIFT_AMOUNT, LEGACY_WORLEY_DRIFT_DIRECTION_DEG } from '.
 import { linearRgbToOklch } from '../utils/colorConversion';
 
 /**
- * Per-node Power, Rule A (passthrough): `uv → rotate(bypassed) → noise → color-map → final-output`.
+ * Per-node Power, Rule A (passthrough): `uv → rotate(bypassed) → noise → final-output`.
  * The bypassed rotate is a vec2 → vec2 node (Rule A applies). After the rewrite, noise reads
  * its `in` directly from `uv`; rotate emits no WGSL.
  */
@@ -17,22 +17,20 @@ export function mvpBypassRuleARotateGraph(): NodeGraph {
       { id: 'n-uv', type: 'uv-coordinates', position: { x: 0, y: 0 }, parameters: {} },
       { id: 'n-rotate', type: 'rotate', position: { x: 0, y: 0 }, parameters: {}, bypassed: true },
       { id: 'n-noise', type: 'noise', position: { x: 0, y: 0 }, parameters: {} },
-      { id: 'n-cmap', type: 'color-map', position: { x: 0, y: 0 }, parameters: {} },
       { id: 'n-out', type: 'final-output', position: { x: 0, y: 0 }, parameters: {} },
     ],
     connections: [
       { id: 'c1', sourceNodeId: 'n-uv', sourcePort: 'out', targetNodeId: 'n-rotate', targetPort: 'in' },
       { id: 'c2', sourceNodeId: 'n-rotate', sourcePort: 'out', targetNodeId: 'n-noise', targetPort: 'in' },
-      { id: 'c3', sourceNodeId: 'n-noise', sourcePort: 'out', targetNodeId: 'n-cmap', targetPort: 'in' },
-      { id: 'c4', sourceNodeId: 'n-cmap', sourcePort: 'out', targetNodeId: 'n-out', targetPort: 'in' },
+      { id: 'c3', sourceNodeId: 'n-noise', sourcePort: 'out', targetNodeId: 'n-out', targetPort: 'in' },
     ],
   };
 }
 
 /**
- * Per-node Power, Rule B (disconnect): `uv → noise(bypassed) → color-map → final-output`.
- * The bypassed noise has vec2 → float (Rule B). All outgoing wires drop, so color-map's `in`
- * falls back to its port default (`0.0`); noise emits no WGSL.
+ * Per-node Power, Rule B (disconnect): `uv → noise(bypassed) → final-output`.
+ * The bypassed noise has vec2 → float (Rule B). All outgoing wires drop, so final-output falls
+ * back to its defaults; noise emits no WGSL.
  */
 export function mvpBypassRuleBNoiseGraph(): NodeGraph {
   return {
@@ -42,13 +40,11 @@ export function mvpBypassRuleBNoiseGraph(): NodeGraph {
     nodes: [
       { id: 'n-uv', type: 'uv-coordinates', position: { x: 0, y: 0 }, parameters: {} },
       { id: 'n-noise', type: 'noise', position: { x: 0, y: 0 }, parameters: {}, bypassed: true },
-      { id: 'n-cmap', type: 'color-map', position: { x: 0, y: 0 }, parameters: {} },
       { id: 'n-out', type: 'final-output', position: { x: 0, y: 0 }, parameters: {} },
     ],
     connections: [
       { id: 'c1', sourceNodeId: 'n-uv', sourcePort: 'out', targetNodeId: 'n-noise', targetPort: 'in' },
-      { id: 'c2', sourceNodeId: 'n-noise', sourcePort: 'out', targetNodeId: 'n-cmap', targetPort: 'in' },
-      { id: 'c3', sourceNodeId: 'n-cmap', sourcePort: 'out', targetNodeId: 'n-out', targetPort: 'in' },
+      { id: 'c2', sourceNodeId: 'n-noise', sourcePort: 'out', targetNodeId: 'n-out', targetPort: 'in' },
     ],
   };
 }
@@ -225,7 +221,6 @@ export function mvpUvTransformBatchGraph(): NodeGraph {
           polarScale: 1.1,
           polarRadiusScale: 1.0,
           polarRotation: 0.25,
-          polarEnabled: 1.0,
         },
       },
       { id: 'n-len', type: 'length', position: { x: 0, y: 0 }, parameters: {} },
@@ -868,7 +863,7 @@ export function mvpCompareSelectGraph(): NodeGraph {
         id: 'n-sel',
         type: 'select',
         position: { x: 0, y: 0 },
-        parameters: { trueValue: 1.0, falseValue: 0.0 },
+        parameters: {},
         parameterInputModes: {},
       },
       { id: 'n-out', type: 'final-output', position: { x: 0, y: 0 }, parameters: {} },
@@ -1142,21 +1137,17 @@ export function mvpOklchColorGraph(): NodeGraph {
   };
 }
 
-/** Color map: float -> vec3 grayscale. */
+/** Constant float → final-output (float→vec3 promotion); legacy `color-map` id kept for harness stability. */
 export function mvpColorMapGraph(): NodeGraph {
   return {
     id: 'fixture-mvp-color-map',
-    name: 'MVP color map',
+    name: 'MVP float scalar to output',
     version: '2.0',
     nodes: [
       { id: 'n-v', type: 'constant-float', position: { x: 0, y: 0 }, parameters: { value: 0.33 } },
-      { id: 'n-m', type: 'color-map', position: { x: 0, y: 0 }, parameters: {} },
       { id: 'n-out', type: 'final-output', position: { x: 0, y: 0 }, parameters: {} },
     ],
-    connections: [
-      { id: 'c1', sourceNodeId: 'n-v', sourcePort: 'out', targetNodeId: 'n-m', targetPort: 'in' },
-      { id: 'c2', sourceNodeId: 'n-m', sourcePort: 'out', targetNodeId: 'n-out', targetPort: 'in' },
-    ],
+    connections: [{ id: 'c1', sourceNodeId: 'n-v', sourcePort: 'out', targetNodeId: 'n-out', targetPort: 'in' }],
   };
 }
 
@@ -1898,13 +1889,18 @@ export function mvpDistortBatchGraph(): NodeGraph {
           spherizeStrength: 1,
         },
       },
-      { id: 'n-off', type: 'constant-vec2', position: { x: 0, y: 0 }, parameters: { x: 0.08, y: -0.03 } },
-      { id: 'n-amt', type: 'constant-float', position: { x: 0, y: 0 }, parameters: { value: 0.6 } },
       {
         id: 'n-dis',
         type: 'displace',
         position: { x: 0, y: 0 },
-        parameters: { displaceMode: 0, displaceScale: 1.0, offsetX: 0.0, offsetY: 0.0, directionalDisplaceAngle: 0.0, amount: 1.0 },
+        parameters: {
+          displaceMode: 0,
+          displaceScale: 1.0,
+          offsetX: 0.08,
+          offsetY: -0.03,
+          directionalDisplaceAngle: 0.0,
+          amount: 0.6,
+        },
         parameterInputModes: {},
       },
       {
@@ -2016,8 +2012,6 @@ export function mvpDistortBatchGraph(): NodeGraph {
       { id: 'c1', sourceNodeId: 'n-uv', sourcePort: 'out', targetNodeId: 'n-bulge', targetPort: 'in' },
       { id: 'c2', sourceNodeId: 'n-bulge', sourcePort: 'out', targetNodeId: 'n-fish', targetPort: 'in' },
       { id: 'c3', sourceNodeId: 'n-fish', sourcePort: 'out', targetNodeId: 'n-dis', targetPort: 'in' },
-      { id: 'c4', sourceNodeId: 'n-off', sourcePort: 'out', targetNodeId: 'n-dis', targetPort: 'offset' },
-      { id: 'c5', sourceNodeId: 'n-amt', sourcePort: 'out', targetNodeId: 'n-dis', targetPort: 'amount' },
       { id: 'c6', sourceNodeId: 'n-dis', sourcePort: 'out', targetNodeId: 'n-vortex-a', targetPort: 'in' },
       { id: 'c7', sourceNodeId: 'n-vortex-a', sourcePort: 'out', targetNodeId: 'n-vortex', targetPort: 'in' },
       { id: 'c8', sourceNodeId: 'n-vortex', sourcePort: 'out', targetNodeId: 'n-sph', targetPort: 'in' },

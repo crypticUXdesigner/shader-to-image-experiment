@@ -23,13 +23,19 @@ import {
   removeNode,
   addConnection,
   removeConnection,
+  setConnectionDisabled,
   updateViewState,
 } from '../../data-model/immutableUpdates';
 import type { NodeInstance } from '../../data-model/types';
 import type { NodeSpecification } from '../../data-model/validationTypes';
+import type { ConnectionValidationContext } from '../../data-model/connectionValidationContext';
 import type { ParameterInputMode, ParameterSpec } from '../../types/nodeSpec';
 import type { ToolType } from '../../types/editor';
-import { appToastStore } from './appToastStore';
+
+/** Passed to `graphChangedListener`; view-only updates set `recordUndo: false`. */
+export type GraphChangedOptions = {
+  recordUndo?: boolean;
+};
 
 export type { ToolType };
 
@@ -61,8 +67,11 @@ let patchWireConnectionId = $state<string | null>(null);
 /** Patch tool: node to insert, or null. */
 let patchInsertNodeId = $state<string | null>(null);
 
-/** Optional listener invoked whenever the graph is mutated (for undo integration). Set by App. */
-let graphChangedListener: ((g: NodeGraph) => void) | null = null;
+/** Optional listener invoked whenever the graph is mutated (undo + autosave revision). Set by App. */
+let graphChangedListener: ((g: NodeGraph, options?: GraphChangedOptions) => void) | null = null;
+
+/** Invoked when leaving patch tool so chrome (e.g. toasts) can clean up. Set by App; keep out of the store graph layer. */
+let patchToolExitListener: (() => void) | null = null;
 
 export type SetGraphOptions = {
   /** When true, `graphChangedListener` is not invoked (e.g. undo/redo restoring a snapshot). */
@@ -138,11 +147,21 @@ function addNodeAction(node: NodeInstance): void {
   graphChangedListener?.(graph);
 }
 
-function removeNodeAction(nodeId: string, nodeSpecs?: NodeSpecification[]): void {
+function removeNodeAction(
+  nodeId: string,
+  nodeSpecs?: NodeSpecification[],
+  connectionValidation?: ConnectionValidationContext
+): void {
+  const hasSpecs = nodeSpecs && nodeSpecs.length > 0;
   graph = removeNode(
     graph,
     nodeId,
-    nodeSpecs && nodeSpecs.length > 0 ? { nodeSpecs } : undefined
+    hasSpecs
+      ? {
+          nodeSpecs: nodeSpecs!,
+          ...(connectionValidation ? { connectionValidation } : {}),
+        }
+      : undefined
   );
   graphChangedListener?.(graph);
 }
@@ -157,9 +176,14 @@ function removeConnectionAction(connectionId: string): void {
   graphChangedListener?.(graph);
 }
 
+function setConnectionDisabledAction(connectionId: string, disabled: boolean): void {
+  graph = setConnectionDisabled(graph, connectionId, disabled);
+  graphChangedListener?.(graph);
+}
+
 function updateViewStateAction(partial: Partial<GraphViewState>): void {
   graph = updateViewState(graph, partial);
-  graphChangedListener?.(graph);
+  graphChangedListener?.(graph, { recordUndo: false });
 }
 
 function setTimelineStateAction(partial: Partial<TimelineState>): void {
@@ -181,7 +205,7 @@ function setPatchInsertNodePickAction(id: string | null): void {
 
 function setActiveToolAction(tool: ToolType): void {
   if (activeTool === 'patch' && tool !== 'patch') {
-    appToastStore.dismissBySource('patch-tool');
+    patchToolExitListener?.();
   }
   if (tool !== 'patch' || activeTool !== 'patch') {
     clearPatchPicksAction();
@@ -197,12 +221,16 @@ function setSpacebarPressedAction(pressed: boolean): void {
  * Sets the listener invoked whenever the graph is mutated via the store.
  * Used by the app to push undo state in one place. Pass null to clear.
  */
-function setGraphChangedListener(fn: ((g: NodeGraph) => void) | null): void {
+function setGraphChangedListener(fn: ((g: NodeGraph, options?: GraphChangedOptions) => void) | null): void {
   graphChangedListener = fn;
 }
 
 function setAudioChangedListener(fn: (() => void) | null): void {
   audioChangedListener = fn;
+}
+
+function setPatchToolExitListener(fn: (() => void) | null): void {
+  patchToolExitListener = fn;
 }
 
 /**
@@ -252,6 +280,7 @@ export const graphStore = {
   removeNode: removeNodeAction,
   addConnection: addConnectionAction,
   removeConnection: removeConnectionAction,
+  setConnectionDisabled: setConnectionDisabledAction,
   updateViewState: updateViewStateAction,
   setTimelineState: setTimelineStateAction,
   setActiveTool: setActiveToolAction,
@@ -261,4 +290,5 @@ export const graphStore = {
   setSpacebarPressed: setSpacebarPressedAction,
   setGraphChangedListener,
   setAudioChangedListener,
+  setPatchToolExitListener,
 };

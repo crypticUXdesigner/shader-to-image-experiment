@@ -10,6 +10,7 @@
  *   4. combine pass: source + rays * intensity -> swapchain / export target
  */
 import type { CompilationResult, WebGpuPassPlan } from '../types';
+import { previewPerformanceMark, PreviewPerfMark } from '../previewPerformanceMarks';
 import { ResourcePool, textureDescKey, type WebGpuTextureDesc as FrameGraphTextureDesc } from '../webgpuFrameGraph';
 
 export type CrepuscularRaysV1Plan = Extract<WebGpuPassPlan, { kind: 'pass.crepuscular-rays.v1' }>;
@@ -262,6 +263,7 @@ export function encodeCrepuscularRaysV1Frame(
     };
   }
 
+  previewPerformanceMark(PreviewPerfMark.previewUniformsStart);
   // globals.v0 = (time, timelineTime, width, height)
   rt.globalsData[0] = rt.time;
   rt.globalsData[1] = rt.timelineTime;
@@ -301,7 +303,9 @@ export function encodeCrepuscularRaysV1Frame(
     );
     rt.paramsDirty = false;
   }
+  previewPerformanceMark(PreviewPerfMark.previewUniformsEnd);
 
+  previewPerformanceMark(PreviewPerfMark.previewDrawStart);
   const encoder = device.createCommandEncoder();
   const { source, mask, rays } = rt.textures!;
 
@@ -416,4 +420,5 @@ export function encodeCrepuscularRaysV1Frame(
   }
 
   queue.submit([encoder.finish()]);
+  previewPerformanceMark(PreviewPerfMark.previewDrawEnd);
 }

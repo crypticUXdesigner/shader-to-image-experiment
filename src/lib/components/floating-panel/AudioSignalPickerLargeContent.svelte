@@ -32,6 +32,7 @@
     getAudioManager,
     initialBandId,
     registerDeleteHandler,
+    browseOnly = false,
   }: LargeSlotProps = $props();
 
   /** User override for band list selection; UNSET = follow auto rules (initial / growth). */
@@ -52,10 +53,10 @@
   const LIVE_UPDATE_INTERVAL_MS = 50;
 
   type BandMode = 'mean' | 'max' | 'rms';
-  const BAND_MODE_OPTIONS: ReadonlyArray<{ value: BandMode; label: string }> = [
-    { value: 'mean', label: 'Mean' },
-    { value: 'max', label: 'Max' },
-    { value: 'rms', label: 'RMS' },
+  const BAND_MODE_OPTIONS: ReadonlyArray<{ value: BandMode; label: string; desc: string }> = [
+    { value: 'mean', label: 'Mean', desc: 'Smooth response. Transients are softened.' },
+    { value: 'max', label: 'Max', desc: 'Snappy response. Reacts to transients.' },
+    { value: 'rms', label: 'RMS', desc: 'Balanced. Loudness-weighted average.' },
   ];
 
   let bandModeButtonEl: HTMLDivElement | undefined = $state();
@@ -297,7 +298,7 @@
             isSelected={selectedBandId === band.id}
             spectrumData={spectrumDataByBand.get(band.id) ?? null}
             onSelect={() => toggleBandSelection(band.id)}
-            onConnect={() => handleConnectBandRaw(band.id)}
+            onConnect={browseOnly ? undefined : () => handleConnectBandRaw(band.id)}
             onDelete={() => {
               onAudioSetupChange?.(removeAudioBand(audioSetup, band.id));
               if (selectedBandId === band.id) userBandChoice = null;
@@ -381,6 +382,8 @@
                   {#each BAND_MODE_OPTIONS as option (option.value)}
                     <MenuItem
                       label={option.label}
+                      desc={option.desc}
+                      selected={(selectedBand.bandMode ?? 'mean') === option.value}
                       onclick={() => {
                         handleBandChange(selectedBand.id, (b) => ({ ...b, bandMode: option.value }));
                         bandModeOpen = false;
@@ -420,7 +423,11 @@
           {#if bands.length === 0}
             Create your first band.
           {:else if selectedBand}
-            No remappers for this band. Add one or connect band (raw) on the left.
+            {#if browseOnly}
+              No remappers for this band. Add one.
+            {:else}
+              No remappers for this band. Add one or connect band (raw) on the left.
+            {/if}
           {:else}
             No remappers yet. Select a band on the left to add one.
           {/if}
@@ -434,7 +441,7 @@
               isSelected={selectedRemapperIds.has(remapper.id)}
               liveValues={liveValuesByRemapper.get(remapper.id) ?? null}
               onSelect={(e) => toggleRemapperSelection(remapper.id, e)}
-              onConnect={() => handleConnectRemapper(remapper.id)}
+              onConnect={browseOnly ? undefined : () => handleConnectRemapper(remapper.id)}
               onDelete={() => {
                 onAudioSetupChange?.(removeAudioRemapper(audioSetup, remapper.id));
                 selectedRemapperIds = new Set([...selectedRemapperIds].filter((id) => id !== remapper.id));

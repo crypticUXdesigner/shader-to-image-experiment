@@ -15,6 +15,7 @@ export type NodeIconIdentifier =
   | 'move'
   | 'layers'
   | 'square'
+  | 'square-split-vertical'
   | 'sparkles'
   | 'monitor'
   | 'video'
@@ -194,6 +195,7 @@ export type NodeIconIdentifier =
   | 'scribble-loop'
   | 'seal'
   | 'selection-all'
+  | 'selection-background'
   | 'shooting-star'
   | 'snowflake'
   | 'soccer-ball'
@@ -235,6 +237,7 @@ export const ALL_NODE_ICON_IDENTIFIERS: readonly NodeIconIdentifier[] = [
   'move',
   'layers',
   'square',
+  'square-split-vertical',
   'sparkles',
   'monitor',
   'video',
@@ -413,6 +416,7 @@ export const ALL_NODE_ICON_IDENTIFIERS: readonly NodeIconIdentifier[] = [
   'scribble-loop',
   'seal',
   'selection-all',
+  'selection-background',
   'shooting-star',
   'snowflake',
   'soccer-ball',

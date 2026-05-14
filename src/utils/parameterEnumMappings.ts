@@ -238,14 +238,19 @@ export function getParameterEnumMappings(
   if (nodeId === 'radial-uv-warp' && paramName === 'warpMode') {
     return {
       0: 'Bulge / pinch',
-      1: 'Fisheye (lens)',
-      2: 'Spherize (hemisphere)',
+      1: 'Fisheye',
+      2: 'Spherize',
     };
   }
 
   // displace
   if (nodeId === 'displace' && paramName === 'displaceMode') {
     return { 0: 'Vector offset', 1: 'Directional' };
+  }
+
+  // uv-band-shift
+  if (nodeId === 'uv-band-shift' && paramName === 'uvBandShiftOrientation') {
+    return { 0: 'Horizontal', 1: 'Vertical' };
   }
 
   // infinite-zoom

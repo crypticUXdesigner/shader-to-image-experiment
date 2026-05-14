@@ -30,6 +30,12 @@
     onClose: () => void;
     onAudioSetupChange: (setup: AudioSetup) => void;
     getAudioManager?: () => import('../../../runtime/types').IAudioManager | null;
+    /**
+     * Browse-only mode: opened from a global entry point (e.g. bottom-bar audio
+     * button) rather than a parameter port. Hides Connect actions; bands and
+     * remappers can still be created, edited, and deleted.
+     */
+    browseOnly?: boolean;
     class?: string;
   }
 
@@ -51,6 +57,7 @@
     onClose,
     onAudioSetupChange,
     getAudioManager,
+    browseOnly = false,
     class: className = ''
   }: Props = $props();
 </script>
@@ -73,5 +80,6 @@
   onClose={onClose}
   onAudioSetupChange={onAudioSetupChange}
   getAudioManager={getAudioManager}
+  browseOnly={browseOnly}
   class={className}
 />

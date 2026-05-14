@@ -35,11 +35,8 @@ import {
   previewPerfCounters
 } from './previewPerformanceMarks';
 import { getPreviewScheduler } from './PreviewScheduler';
-import {
-  beginPreviewCompileProgressToast,
-  clearPreviewCompileProgressToast,
-  shouldDeferPreviewCompileToast,
-} from '../lib/stores/previewCompileStatusStore';
+import { shouldDeferPreviewCompileToast } from './previewCompileDeferral';
+import type { PreviewCompileUiSink } from './previewCompileUiSink';
 import type { IRenderBackend } from './renderBackends/IRenderBackend';
 
 /** Debounce for {@link CompilationManager.onGraphStructureChange} when `immediate === true` (wiring, automation region times). */
@@ -89,6 +86,33 @@ export class CompilationManager implements Disposable {
   
   // Track if graph structure changed
   private lastGraphHash: string = '';
+
+  /**
+   * Bumped on every `onGraphStructureChange` (graph topology, automation, audio-driven compile, etc.).
+   * When equal to `lastSyncedCompileGraphIdentityRevision` and `lastGraphHash` is non-empty,
+   * uniform-only `onParameterChange` skips `hashGraph`. When ahead of `lastSynced…`, structure is
+   * known stale vs the last paired hash — recompile is required without hashing on each tick.
+   */
+  private compileGraphIdentityRevision = 0;
+  /** Revision value last paired with `lastGraphHash`; `-1` until first successful sync. */
+  private lastSyncedCompileGraphIdentityRevision = -1;
+
+  /**
+   * Cached {@link computePreviewParameterSurfaceNodeIds} for uniform-only `onParameterChange`.
+   * Invalid when graph identity revision advances, `setGraph` replaces the snapshot, or compile output metadata changes.
+   */
+  private previewParameterSurfaceNodeIdsCache: Set<string> | null = null;
+  private previewParameterSurfaceCacheKey: { outputNodeId: string; revision: number } | null = null;
+  /** Counts full surface walks; used by Vitest only (see {@link getPreviewParameterSurfaceFullWalkCountForTests}). */
+  private previewParameterSurfaceFullWalkCount = 0;
+
+  /**
+   * Fingerprint of {@link #audioSetup} last baked into a successful preview compile.
+   * `null` until the first successful apply so the first kick always compiles.
+   * (Graph-only change detection uses reference equality; audio lives outside the graph, so we must
+   * not treat “no graph diff” as “no compile needed” when bands/remaps/file selection change.)
+   */
+  private lastSuccessfulCompileAudioFingerprint: string | null = null;
   
   // Track previous graph for change detection (incremental compilation)
   private previousGraph: NodeGraph | null = null;
@@ -118,33 +142,27 @@ export class CompilationManager implements Disposable {
   // Worker compilation (optional)
   private worker: Worker | null = null;
   private workerCompileId: number = 0;
+  /**
+   * When set, a debounced `scheduleRecompile` kick is deferred to the next animation frame so
+   * heavy `recompile()` work does not run inside the `requestIdleCallback` / timer slice.
+   */
+  private pendingSchedulerBridgeRafId: number | null = null;
+
   /** When set, a worker `result` is scheduled to apply on the next frame (keeps `onmessage` short for responsiveness). */
   private pendingWorkerApplyRafId: number | null = null;
   private pendingApplyRetryRafId: number | null = null;
   private pendingApplyRetryResult: CompilationResult | null = null;
   private pendingApplyRetryWorkerId: number | null = null;
 
-  /** Backend requested for the most recent compile kick (Task 04 coverage fallback). */
+  /** Backend requested for the most recent compile kick (worker + main-thread parity). */
   private lastRequestedBackend: RenderBackendKind = 'webgl';
 
   /**
-   * `unsupportedReasons` captured from the last WebGPU compile that fell back to WebGL.
-   * Surfaced through `PreviewScheduler.setEffectiveBackend(..., details)` so the dev
-   * overlay shows *why* a graph (e.g. fractal presets using `generic-raymarcher`) renders
-   * via the WebGL fallback path. Cleared whenever a WebGPU compile succeeds or the
-   * requested backend is WebGL.
+   * Dedupes repeated hard-block error notices for the same unsupported snapshot (Task 04).
    */
-  private lastWebgpuFallbackReasons: string[] | null = null;
+  private lastWebGpuExclusiveBlockNoticeKey: string | null = null;
 
-  /**
-   * Last error-handler info notice emitted for a WebGPU→WebGL fallback. Used to
-   * suppress repeated notices on every recompile of the same graph snapshot — only
-   * a fresh fallback (different reasons or recovery in between) re-emits.
-   */
-  private lastNotifiedFallbackKey: string | null = null;
-
-  /** After a WebGL fallback toast, the next successful WebGPU preview shows a short recovery notice. */
-  private webglFallbackToastShown: boolean = false;
+  private readonly previewCompileUiSink: PreviewCompileUiSink | undefined;
 
   // Parameter update batching
   private parameterRenderScheduled: boolean = false;
@@ -155,11 +173,13 @@ export class CompilationManager implements Disposable {
   constructor(
     compiler: ShaderCompiler,
     renderer: IRenderBackend,
-    errorHandler?: ErrorHandler
+    errorHandler?: ErrorHandler,
+    previewCompileUiSink?: PreviewCompileUiSink
   ) {
     this.compiler = compiler;
     this.renderer = renderer;
     this.errorHandler = errorHandler;
+    this.previewCompileUiSink = previewCompileUiSink;
   }
 
   /** Resolve the active error handler (injected or global). */
@@ -168,23 +188,28 @@ export class CompilationManager implements Disposable {
   }
 
   /**
-   * Surface a single, non-alarming `info` notice the first time WebGPU compilation falls
-   * back to WebGL for a given set of reasons. Subsequent recompiles of the same graph
-   * snapshot are deduplicated via `lastNotifiedFallbackKey` to avoid toast spam — only a
-   * fresh fallback (different reasons) re-emits.
-   *
-   * Treated as informational because the runtime continues to render correctly via the
-   * existing WebGL path; the message exists so developers / advanced users can see *why*
-   * a graph (e.g. fractal presets that need `generic-raymarcher` in WGSL) is not on the
-   * WebGPU pipeline yet.
+   * WebGPU-only session: unusable WGSL compile — hard block (no silent WebGL preview compile).
    */
-  private notifyWebgpuFallback(reasons: string[] | null): void {
-    if (!reasons || reasons.length === 0) return;
+  private handleWebGpuCompileUnusableExclusive(result: CompilationResult): void {
+    const reasons = this.captureWebgpuFallbackReasons(result);
+    this.previewCompileUiSink?.clearPreviewCompileProgressToast();
+    getPreviewScheduler().recordCompileFailed();
+    getPreviewScheduler().setEffectiveBackend('webgpu', 'compile.webgpu.unsupported', reasons);
+    this.reportWebGpuExclusiveCompileBlockedOnce(reasons);
+    this.maybePreviewCompileFailedKeptLastGood();
+  }
+
+  private reportWebGpuExclusiveCompileBlockedOnce(reasons: string[]): void {
+    if (reasons.length === 0) return;
     const key = reasons.slice().sort().join('|');
-    if (this.lastNotifiedFallbackKey === key) return;
-    this.lastNotifiedFallbackKey = key;
-    this.webglFallbackToastShown = true;
-    this.getErrorHandler().report('runtime', 'info', 'Switching to WebGL fallback...', reasons);
+    if (this.lastWebGpuExclusiveBlockNoticeKey === key) return;
+    this.lastWebGpuExclusiveBlockNoticeKey = key;
+    this.getErrorHandler().report(
+      'runtime',
+      'error',
+      'WebGPU cannot preview this graph in the current session. Add ?renderBackend=webgl to the URL and reload to use WebGL preview, or simplify the graph to WGSL-supported nodes.',
+      reasons
+    );
   }
 
   /**
@@ -227,6 +252,7 @@ export class CompilationManager implements Disposable {
    */
   setGraph(graph: NodeGraph): void {
     this.graph = graph;
+    this.clearPreviewParameterSurfaceCache();
   }
 
   /**
@@ -279,34 +305,20 @@ export class CompilationManager implements Disposable {
       this.pendingWorkerApplyRafId = requestAnimationFrame(() => {
         this.pendingWorkerApplyRafId = null;
         if (id !== this.workerCompileId) return;
-        // Task 04/11: WebGPU → WebGL fallback when WGSL output is unusable: unsupported coverage,
-        // compile errors in metadata, or inconsistent backend/support flags.
+        // Task 04: WebGPU-only session — unusable WGSL result hard-blocks (no silent WebGL worker compile).
         if (
           this.worker !== null &&
           this.graph !== null &&
           this.lastRequestedBackend === 'webgpu' &&
           this.webGpuCompileUnusable(result)
         ) {
-          this.lastWebgpuFallbackReasons = this.captureWebgpuFallbackReasons(result);
-          this.notifyWebgpuFallback(this.lastWebgpuFallbackReasons);
-
-          this.workerCompileId += 1;
-          const payload: WorkerCompilePayload = {
-            type: 'compile',
-            id: this.workerCompileId,
-            targetBackend: 'webgl',
-            graph: this.graph,
-            audioSetup: this.audioSetup,
-            previousResult: null,
-            affectedNodeIds: [],
-            tryIncremental: false,
-          };
-          this.worker.postMessage(cloneableCompilePayload(payload));
+          this.handleWebGpuCompileUnusableExclusive(result);
           return;
         }
         if (result.metadata.errors.length > 0) {
           getPreviewScheduler().recordCompileFailed();
           reportCompilationErrors(result.metadata.errors, (err) => this.getErrorHandler().reportError(err));
+          this.maybePreviewCompileFailedKeptLastGood();
           return;
         }
         try {
@@ -321,6 +333,7 @@ export class CompilationManager implements Disposable {
           this.getErrorHandler().reportError(
             ErrorUtils.compilationError(e.message, undefined, { originalError: e })
           );
+          this.maybePreviewCompileFailedKeptLastGood();
         }
       });
       return;
@@ -330,6 +343,7 @@ export class CompilationManager implements Disposable {
       this.getErrorHandler().reportError(
         ErrorUtils.compilationError(data.message)
       );
+      this.maybePreviewCompileFailedKeptLastGood();
     }
   }
 
@@ -373,6 +387,7 @@ export class CompilationManager implements Disposable {
         this.getErrorHandler().reportError(
           ErrorUtils.compilationError(e.message, undefined, { originalError: e })
         );
+        this.maybePreviewCompileFailedKeptLastGood();
       }
     });
   }
@@ -382,6 +397,10 @@ export class CompilationManager implements Disposable {
    */
   setAudioSetup(audioSetup: AudioSetup | null): void {
     this.audioSetup = audioSetup ?? null;
+  }
+
+  private computeAudioCompileFingerprint(): string {
+    return this.audioSetup == null ? '' : JSON.stringify(this.audioSetup);
   }
 
   /**
@@ -394,22 +413,27 @@ export class CompilationManager implements Disposable {
     if (this.worker !== null) {
       if (!this.graph) return;
       const gl = this.renderer.getGLContext();
-      if (gl.isContextLost && gl.isContextLost()) return;
+      if (gl && gl.isContextLost && gl.isContextLost()) return;
+      let result: CompilationResult | undefined;
       try {
         previewPerformanceMark(PreviewPerfMark.compileRequested);
         previewPerfCounters.compileRequests += 1;
         getPreviewScheduler().recordCompileStarted();
-        const result = this.compiler.compile(this.graph, this.audioSetup);
+        result = this.compiler.compile(this.graph, this.audioSetup);
         if (result.metadata.errors.length > 0) {
           getPreviewScheduler().recordCompileFailed();
           reportCompilationErrors(result.metadata.errors, (err) => this.getErrorHandler().reportError(err));
           return;
         }
-        if (gl.isContextLost && gl.isContextLost()) return;
+        if (gl && gl.isContextLost && gl.isContextLost()) return;
         this.applyCompilationResult(result);
       } catch (error) {
         const err = error instanceof Error ? error : new Error(String(error));
         if (err.message === ShaderInstance.CONTEXT_LOST_MESSAGE) return;
+        if (err.message === SHADER_INSTANCE_PROGRAM_PENDING_MESSAGE && result) {
+          this.scheduleApplyRetry(result, null);
+          return;
+        }
         getPreviewScheduler().recordCompileFailed();
         reportCompilationError(err, (e) => this.getErrorHandler().reportError(e));
       }
@@ -425,6 +449,7 @@ export class CompilationManager implements Disposable {
   clearShaderInstanceForContextLoss(): void {
     this.shaderInstance = null;
     this.previewDependencyMask = null;
+    this.clearPreviewParameterSurfaceCache();
   }
 
   /**
@@ -445,13 +470,22 @@ export class CompilationManager implements Disposable {
     if (
       this.shaderInstance &&
       outputNodeId &&
-      !this.computeUpstreamReachableNodeIds(this.graph, outputNodeId).has(nodeId)
+      !this.getPreviewParameterSurfaceNodeIdsCached(this.graph, outputNodeId).has(nodeId)
     ) {
       return;
     }
 
-    const graphHash = hashGraph(this.graph);
-    const needsRecompile = graphHash !== this.lastGraphHash;
+    // When `onGraphStructureChange` bumped the identity revision but we have not yet paired a new
+    // `lastGraphHash` (compile apply or idle-skip), the live program cannot match the current graph;
+    // treat as recompile-needed without hashing — avoids O(graph) `hashGraph` on every uniform tick
+    // while a compile is in flight.
+    const compileStructuralIdentityPending =
+      this.compileGraphIdentityRevision !== this.lastSyncedCompileGraphIdentityRevision;
+    const needsRecompile = compileStructuralIdentityPending
+      ? true
+      : this.lastGraphHash === ''
+        ? hashGraph(this.graph) !== this.lastGraphHash
+        : false;
 
     if (needsRecompile) {
       this.scheduleRecompile();
@@ -468,6 +502,8 @@ export class CompilationManager implements Disposable {
    * @param immediate - If true, schedule `recompile()` after a short debounce (**~80 ms**) so bursts coalesce (wiring, automation region times).
    */
   onGraphStructureChange(immediate: boolean = false): void {
+    this.compileGraphIdentityRevision += 1;
+    this.clearPreviewParameterSurfaceCache();
     if (immediate) {
       this.cancelPendingRecompile();
       // Defer to next tick so we don't block the connection handler; coalesce bursts into one compile.
@@ -491,6 +527,7 @@ export class CompilationManager implements Disposable {
     this.workerCompileId += 1;
     this.immediateCompileScheduled = false;
     this.clearPendingRecompileKickRafs();
+    this.clearPendingSchedulerBridgeRaf();
     if (this.compileIdleCallback !== null && typeof window !== 'undefined' && window.cancelIdleCallback) {
       window.cancelIdleCallback(this.compileIdleCallback);
       this.compileIdleCallback = null;
@@ -499,6 +536,13 @@ export class CompilationManager implements Disposable {
       clearTimeout(this.compileTimeout);
       this.compileTimeout = null;
     }
+  }
+
+  private clearPendingSchedulerBridgeRaf(): void {
+    if (this.pendingSchedulerBridgeRafId !== null && typeof cancelAnimationFrame !== 'undefined') {
+      cancelAnimationFrame(this.pendingSchedulerBridgeRafId);
+    }
+    this.pendingSchedulerBridgeRafId = null;
   }
 
   private clearPendingRecompileKickRafs(): void {
@@ -581,20 +625,38 @@ export class CompilationManager implements Disposable {
   private scheduleRecompile(): void {
     this.cancelPendingRecompile();
 
+    const deferCompileKickToNextFrame = (): void => {
+      if (this.pendingSchedulerBridgeRafId !== null) return;
+      this.pendingSchedulerBridgeRafId = requestAnimationFrame(() => {
+        this.pendingSchedulerBridgeRafId = null;
+        this.recompile();
+      });
+    };
+
     if (window.requestIdleCallback) {
       this.compileIdleCallback = window.requestIdleCallback(
         () => {
-          this.recompile();
           this.compileIdleCallback = null;
+          deferCompileKickToNextFrame();
         },
         { timeout: this.COMPILE_DEBOUNCE_MS }
       );
     } else {
       this.compileTimeout = window.setTimeout(() => {
         this.compileTimeout = null;
-        this.recompile();
+        deferCompileKickToNextFrame();
       }, this.COMPILE_DEBOUNCE_MS);
     }
+  }
+
+  /**
+   * Record structural hash after a compile (or idle-skip) so `onParameterChange` can avoid `hashGraph`
+   * while `compileGraphIdentityRevision` matches `lastSyncedCompileGraphIdentityRevision`.
+   */
+  private recordGraphStructuralHashAfterCompileSync(): void {
+    if (!this.graph) return;
+    this.lastGraphHash = hashGraph(this.graph);
+    this.lastSyncedCompileGraphIdentityRevision = this.compileGraphIdentityRevision;
   }
   
   /**
@@ -602,13 +664,27 @@ export class CompilationManager implements Disposable {
    * Used by both main-thread compile path and worker result handler. Run inside try/catch at call site; reports errors via getErrorHandler().
    */
   private applyCompilationResult(result: CompilationResult): void {
+    this.clearPreviewParameterSurfaceCache();
     const prevInstance = this.shaderInstance;
+
+    if (this.renderer.isWebGpuPreviewBlocked?.()) {
+      this.previewCompileUiSink?.clearPreviewCompileProgressToast();
+      getPreviewScheduler().recordCompileFailed();
+      this.getErrorHandler().report(
+        'runtime',
+        'error',
+        'WebGPU preview is unavailable (initialization failed or the GPU device was lost). Add ?renderBackend=webgl to the URL and reload to use WebGL preview.',
+        undefined
+      );
+      this.maybePreviewCompileFailedKeptLastGood();
+      return;
+    }
 
     // Task 03: allow WebGPU backend to consume WGSL compilation results.
     // Important: do not route WebGL fallback results through the WebGPU install hook.
     if (
       result.backend === 'webgpu' &&
-      this.renderer.selection.selected === 'webgpu' &&
+      this.renderer.getPreviewCompileExclusiveGpu() === 'webgpu' &&
       typeof this.renderer.setWebGpuProgram === 'function'
     ) {
       const maybe = this.renderer.setWebGpuProgram(result);
@@ -619,15 +695,11 @@ export class CompilationManager implements Disposable {
         throw new Error(SHADER_INSTANCE_PROGRAM_PENDING_MESSAGE);
       }
       if (maybe) {
-        // WebGPU compile succeeded — clear the cached fallback reasons so the next graph
-        // edit doesn't reuse stale `unsupportedReasons` from an earlier failed attempt.
-        this.lastWebgpuFallbackReasons = null;
-        this.lastNotifiedFallbackKey = null;
-        if (this.webglFallbackToastShown) {
-          this.webglFallbackToastShown = false;
-          this.getErrorHandler().report('runtime', 'info', 'Using WebGPU...');
-        }
+        // WebGPU compile succeeded — clear dedupe key from any earlier hard block.
+        this.lastWebGpuExclusiveBlockNoticeKey = null;
         getPreviewScheduler().setEffectiveBackend('webgpu', 'compile.webgpu');
+        const prevPreviewDependencyMask = this.previewDependencyMask;
+        const prevCompilationMetadata = this.compilationMetadata;
         try {
           if (prevInstance) {
             if (this.graph) {
@@ -656,16 +728,20 @@ export class CompilationManager implements Disposable {
             this.previousGraphState.executionOrder = result.metadata.executionOrder;
           }
 
-          if (this.graph) {
-            this.lastGraphHash = hashGraph(this.graph);
-          }
+          this.recordGraphStructuralHashAfterCompileSync();
 
           this.renderer.markDirty('compilation');
           this.renderer.render();
 
-          prevInstance?.destroy();
+          // WebGpuRenderBackend may return the same `PreviewProgramInstance` when WGSL + param
+          // layout are unchanged (pipeline reuse). Destroying it would mark the live GPU pipeline
+          // destroyed and freeze preview until a graph-mutating recompile.
+          if (prevInstance != null && prevInstance !== maybe) {
+            prevInstance.destroy();
+          }
 
           this.onRecompiled?.();
+          this.lastSuccessfulCompileAudioFingerprint = this.computeAudioCompileFingerprint();
           getPreviewScheduler().recordCompileSucceeded();
           return;
         } catch (e) {
@@ -673,37 +749,46 @@ export class CompilationManager implements Disposable {
             // Preserve program pending semantics for the caller (recompileExecute will schedule retry).
             throw e;
           }
-          // If WebGPU apply fails, fall back to legacy WebGL path below.
           try {
             maybe.destroy();
           } catch {
             // ignore cleanup errors
           }
           this.shaderInstance = prevInstance;
+          this.previewDependencyMask = prevPreviewDependencyMask;
+          this.compilationMetadata = prevCompilationMetadata;
+          this.previewCompileUiSink?.clearPreviewCompileProgressToast();
+          getPreviewScheduler().recordCompileFailed();
+          this.getErrorHandler().report(
+            'runtime',
+            'error',
+            'WebGPU preview could not apply the compiled program. Try simplifying the graph, or switch to WebGL preview (?renderBackend=webgl) and reload.',
+            e instanceof Error ? [e.message] : undefined
+          );
+          this.maybePreviewCompileFailedKeptLastGood();
+          return;
         }
       }
     }
 
-    // Coverage fallback visibility: when WebGPU was requested but we apply a WebGL program,
-    // record the effective backend so the dev overlay is not misleading. The
-    // `unsupportedReasons` were captured during the WebGPU result above (see worker handler);
-    // forward them here so the overlay/effectiveBackend snapshot includes the cause.
-    if (this.lastRequestedBackend === 'webgpu' && result.backend === 'webgl') {
-      getPreviewScheduler().setEffectiveBackend(
-        'webgl2',
-        'fallback.webgl2.wgsl.unsupported',
-        this.lastWebgpuFallbackReasons ?? undefined
-      );
-    } else {
-      getPreviewScheduler().setEffectiveBackend('webgl2', 'compile.webgl');
-      this.lastWebgpuFallbackReasons = null;
-      this.lastNotifiedFallbackKey = null;
-    }
+    getPreviewScheduler().setEffectiveBackend('webgl2', 'compile.webgl');
+    this.lastWebGpuExclusiveBlockNoticeKey = null;
 
     // Legacy WebGL path (unchanged)
     const gl = this.renderer.getGLContext();
+    if (!gl) {
+      this.previewCompileUiSink?.clearPreviewCompileProgressToast();
+      this.getErrorHandler().report(
+        'runtime',
+        'error',
+        'This preview session has no WebGL surface. Use WebGL preview (?renderBackend=webgl) and reload, or stay in WebGPU mode with a supported graph.',
+        { context: { preview: { reason: 'webgl.previewSurface.absent' } } }
+      );
+      this.maybePreviewCompileFailedKeptLastGood();
+      return;
+    }
     if (gl.isContextLost && gl.isContextLost()) {
-      clearPreviewCompileProgressToast();
+      this.previewCompileUiSink?.clearPreviewCompileProgressToast();
       return;
     }
 
@@ -740,9 +825,7 @@ export class CompilationManager implements Disposable {
         this.previousGraphState.executionOrder = result.metadata.executionOrder;
       }
 
-      if (this.graph) {
-        this.lastGraphHash = hashGraph(this.graph);
-      }
+      this.recordGraphStructuralHashAfterCompileSync();
 
       this.renderer.markDirty('compilation');
       this.renderer.render();
@@ -751,6 +834,7 @@ export class CompilationManager implements Disposable {
       prevInstance?.destroy();
 
       this.onRecompiled?.();
+      this.lastSuccessfulCompileAudioFingerprint = this.computeAudioCompileFingerprint();
       getPreviewScheduler().recordCompileSucceeded();
     } catch (err) {
       // Roll back to last-good instance if swap/render failed.
@@ -769,6 +853,13 @@ export class CompilationManager implements Disposable {
     }
   }
 
+  /** Supplementary bottom-stack hint when compile fails but preview still uses the previous program. */
+  private maybePreviewCompileFailedKeptLastGood(): void {
+    if (this.shaderInstance != null) {
+      this.previewCompileUiSink?.previewCompileFailedKeptLastGood();
+    }
+  }
+
   /**
    * Recompile shader from graph.
    * When a worker is set, posts a compile request and returns; result is applied in worker onmessage.
@@ -777,12 +868,16 @@ export class CompilationManager implements Disposable {
    * After at least one successful compile, **adding or removing nodes** shows an indeterminate
    * preview toast and defers the heavy compile kick by two animation frames so the shell can paint
    * the toast before `postMessage` / main-thread compile runs.
+   *
+   * For all other preview recompiles (e.g. **automation** / lane edits, parameter-shape–driven
+   * structure), `kick()` begins the same toast immediately (no double-rAF) so the bottom stack
+   * reflects work in flight.
    */
   private recompile(): void {
     if (!this.graph) return;
 
     const gl = this.renderer.getGLContext();
-    if (gl.isContextLost && gl.isContextLost()) {
+    if (gl && gl.isContextLost && gl.isContextLost()) {
       return;
     }
 
@@ -793,11 +888,18 @@ export class CompilationManager implements Disposable {
     const changes = this.detectGraphChanges(this.graph);
     const previousResult = this.compilationMetadata?.result ?? null;
 
-    if (this.shouldSkipPreviewRecompileForIdleGraphChanges(this.graph, priorGraph, changes, previousResult)) {
+    const audioNeedsCompile =
+      this.lastSuccessfulCompileAudioFingerprint === null ||
+      this.computeAudioCompileFingerprint() !== this.lastSuccessfulCompileAudioFingerprint;
+
+    if (
+      !audioNeedsCompile &&
+      this.shouldSkipPreviewRecompileForIdleGraphChanges(this.graph, priorGraph, changes, previousResult)
+    ) {
       // Graph changed, but not in the dependency slice that feeds the preview output.
       // Keep the current ShaderInstance; update hash so parameter changes don't trigger recompiles forever.
-      this.lastGraphHash = hashGraph(this.graph);
-      clearPreviewCompileProgressToast();
+      this.recordGraphStructuralHashAfterCompileSync();
+      this.previewCompileUiSink?.clearPreviewCompileProgressToast();
       return;
     }
     const tryIncremental =
@@ -809,21 +911,14 @@ export class CompilationManager implements Disposable {
     const deferPreviewToast = shouldDeferPreviewCompileToast(previousResult, changes);
 
     if (deferPreviewToast) {
-      beginPreviewCompileProgressToast();
+      this.previewCompileUiSink?.beginPreviewCompileProgressToast();
     }
 
     const kick = (): void => {
-      const connectionOnlyCompile =
-        changes.changedConnections &&
-        changes.addedNodes.length === 0 &&
-        changes.removedNodes.length === 0;
-
+      // Show indeterminate preview toast for every compile kick except when deferPreviewToast
+      // already called beginPreviewCompileProgressToast via sink above (node add/remove + double rAF).
       if (!deferPreviewToast) {
-        if (connectionOnlyCompile) {
-          beginPreviewCompileProgressToast();
-        } else {
-          clearPreviewCompileProgressToast();
-        }
+        this.previewCompileUiSink?.beginPreviewCompileProgressToast();
       }
 
       previewPerformanceMark(PreviewPerfMark.compileRequested);
@@ -924,6 +1019,40 @@ export class CompilationManager implements Disposable {
   }
 
   /**
+   * Nodes whose parameters should receive live uniform updates while editing the graph.
+   * Includes every node **backward-reachable** from the preview `final-output` (same as shader
+   * dataflow to the canvas) **plus** any real node reachable **forward** along wires from that
+   * set. Without the forward pass, a branch that splits off a shared upstream (e.g. `split-vector`
+   * → `multiply` → mask stack while `final-output` only reads another output of the split) is
+   * incorrectly treated as “idle”, so knobs do nothing until a full reload re-pushes uniforms.
+   */
+  private computePreviewParameterSurfaceNodeIds(graph: NodeGraph, outputNodeId: string): Set<string> {
+    this.previewParameterSurfaceFullWalkCount += 1;
+    const upstream = this.computeUpstreamReachableNodeIds(graph, outputNodeId);
+    const surface = new Set<string>(upstream);
+    const graphNodeIds = new Set(graph.nodes.map((n) => n.id));
+    const outgoingBySource = new Map<string, string[]>();
+    for (const c of graph.connections) {
+      const src = c.sourceNodeId;
+      const list = outgoingBySource.get(src);
+      if (list) list.push(c.targetNodeId);
+      else outgoingBySource.set(src, [c.targetNodeId]);
+    }
+    const queue = Array.from(upstream);
+    for (let i = 0; i < queue.length; i++) {
+      const id = queue[i] as string;
+      const outs = outgoingBySource.get(id);
+      if (!outs) continue;
+      for (const t of outs) {
+        if (!graphNodeIds.has(t) || surface.has(t)) continue;
+        surface.add(t);
+        queue.push(t);
+      }
+    }
+    return surface;
+  }
+
+  /**
    * Returns the set of node ids that can affect the output node (inclusive).
    * Traverses connections backwards: output target -> upstream sources.
    */
@@ -952,6 +1081,33 @@ export class CompilationManager implements Disposable {
     return reachable;
   }
 
+  private clearPreviewParameterSurfaceCache(): void {
+    this.previewParameterSurfaceNodeIdsCache = null;
+    this.previewParameterSurfaceCacheKey = null;
+  }
+
+  /**
+   * Memoized preview-parameter surface for {@link onParameterChange}.
+   * Invalid when compile-identity revision is not synced, `setGraph` runs, or cache keys disagree.
+   */
+  private getPreviewParameterSurfaceNodeIdsCached(graph: NodeGraph, outputNodeId: string): Set<string> {
+    const rev = this.compileGraphIdentityRevision;
+    const key = this.previewParameterSurfaceCacheKey;
+    if (
+      this.previewParameterSurfaceNodeIdsCache &&
+      key &&
+      key.outputNodeId === outputNodeId &&
+      key.revision === rev &&
+      rev === this.lastSyncedCompileGraphIdentityRevision
+    ) {
+      return this.previewParameterSurfaceNodeIdsCache;
+    }
+    const computed = this.computePreviewParameterSurfaceNodeIds(graph, outputNodeId);
+    this.previewParameterSurfaceNodeIdsCache = computed;
+    this.previewParameterSurfaceCacheKey = { outputNodeId, revision: rev };
+    return computed;
+  }
+
   /** Worker post or main-thread compile + apply (after {@link #recompile} has run change detection). */
   private recompileExecute(
     changes: GraphCompileChanges,
@@ -961,12 +1117,13 @@ export class CompilationManager implements Disposable {
     if (!this.graph) return;
 
     const gl = this.renderer.getGLContext();
-    if (gl.isContextLost && gl.isContextLost()) {
-      clearPreviewCompileProgressToast();
+    if (gl && gl.isContextLost && gl.isContextLost()) {
+      this.previewCompileUiSink?.clearPreviewCompileProgressToast();
       return;
     }
 
-    const targetBackend: RenderBackendKind = this.renderer.selection.selected === 'webgpu' ? 'webgpu' : 'webgl';
+    const targetBackend: RenderBackendKind =
+      this.renderer.getPreviewCompileExclusiveGpu() === 'webgpu' ? 'webgpu' : 'webgl';
     this.lastRequestedBackend = targetBackend;
 
     if (this.worker !== null) {
@@ -977,7 +1134,8 @@ export class CompilationManager implements Disposable {
         targetBackend,
         graph: this.graph,
         audioSetup: this.audioSetup,
-        previousResult,
+        // Worker only reads previousResult when tryIncremental && previousResult != null.
+        previousResult: tryIncremental ? previousResult : null,
         affectedNodeIds: Array.from(changes.affectedNodeIds),
         tryIncremental,
       };
@@ -1004,27 +1162,21 @@ export class CompilationManager implements Disposable {
         result = this.compiler.compile(this.graph, this.audioSetup, { backend: targetBackend });
       }
 
-      // Task 04/11: same-thread WebGPU → WebGL fallback (unsupported, compile errors, etc.).
+      // Task 04: WebGPU-only session — no silent WebGL preview compile for unusable WGSL output.
       if (targetBackend === 'webgpu') {
         if (this.webGpuCompileUnusable(result)) {
-          this.lastWebgpuFallbackReasons = this.captureWebgpuFallbackReasons(result);
-          this.notifyWebgpuFallback(this.lastWebgpuFallbackReasons);
-          const fallback = this.compiler.compile(this.graph, this.audioSetup, { backend: 'webgl' });
-          if (fallback.metadata.errors.length > 0) {
-            getPreviewScheduler().recordCompileFailed();
-            reportCompilationErrors(fallback.metadata.errors, (err) => this.getErrorHandler().reportError(err));
-            return;
-          }
-          result = fallback;
+          this.handleWebGpuCompileUnusableExclusive(result);
+          return;
         }
       } else if (result.metadata.errors.length > 0) {
         getPreviewScheduler().recordCompileFailed();
         reportCompilationErrors(result.metadata.errors, (err) => this.getErrorHandler().reportError(err));
+        this.maybePreviewCompileFailedKeptLastGood();
         return;
       }
 
-      if (gl.isContextLost && gl.isContextLost()) {
-        clearPreviewCompileProgressToast();
+      if (gl && gl.isContextLost && gl.isContextLost()) {
+        this.previewCompileUiSink?.clearPreviewCompileProgressToast();
         return;
       }
 
@@ -1041,11 +1193,12 @@ export class CompilationManager implements Disposable {
     } catch (error) {
       const err = error instanceof Error ? error : new Error(String(error));
       if (err.message === ShaderInstance.CONTEXT_LOST_MESSAGE) {
-        clearPreviewCompileProgressToast();
+        this.previewCompileUiSink?.clearPreviewCompileProgressToast();
         return;
       }
       getPreviewScheduler().recordCompileFailed();
       reportCompilationError(err, (e) => this.getErrorHandler().reportError(e));
+      this.maybePreviewCompileFailedKeptLastGood();
     }
   }
   
@@ -1114,12 +1267,23 @@ export class CompilationManager implements Disposable {
   getPreviewDependencyMask(): PreviewDependencyMask | null {
     return this.previewDependencyMask;
   }
-  
+
+  /** @internal Vitest — counts full preview-parameter surface graph walks. */
+  getPreviewParameterSurfaceFullWalkCountForTests(): number {
+    return this.previewParameterSurfaceFullWalkCount;
+  }
+
+  /** @internal Vitest */
+  resetPreviewParameterSurfaceFullWalkCountForTests(): void {
+    this.previewParameterSurfaceFullWalkCount = 0;
+  }
+
   /**
    * Cleanup all resources.
    */
   destroy(): void {
     this.clearPendingWorkerApplyRaf();
+    this.clearPendingSchedulerBridgeRaf();
     if (this.worker !== null) {
       this.worker.terminate();
       this.worker = null;
@@ -1143,6 +1307,8 @@ export class CompilationManager implements Disposable {
     this.previousGraphState = null;
     this.previousGraph = null;
     this.previewDependencyMask = null;
-    clearPreviewCompileProgressToast();
+    this.lastSuccessfulCompileAudioFingerprint = null;
+    this.clearPreviewParameterSurfaceCache();
+    this.previewCompileUiSink?.clearPreviewCompileProgressToast();
   }
 }

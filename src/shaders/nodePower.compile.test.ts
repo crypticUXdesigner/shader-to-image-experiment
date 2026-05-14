@@ -2,15 +2,15 @@
  * Compile-time tests for the per-node Power feature.
  *
  * Covers both bypass rules end-to-end through `NodeShaderCompiler.compile`:
- *   - Rule A (passthrough): `uv → rotate(bypassed) → noise → color-map → final-output`
+ *   - Rule A (passthrough): `uv → rotate(bypassed) → noise → final-output`
  *     compiles such that `noise.in` reads from the rotate's upstream (`uv`), and the rotate
  *     node itself emits no GLSL.
  *   - Rule B (disconnect, generator): `orbit-camera(bypassed) → generic-raymarcher.ro`
  *     compiles such that `ro` resolves to the raymarcher's own `cameraRoX/Y/Z` parameters via
  *     the existing `fallbackParameter` path.
- *   - Rule B (pattern in chain): `uv → noise(bypassed) → color-map → final-output`
- *     still compiles; color-map's `in` falls back to its port default (zero), and noise
- *     contributes no code.
+ *   - Rule B (pattern in chain): `uv → noise(bypassed) → final-output`
+ *     still compiles; the wire from bypassed noise drops, so `final-output` uses its default
+ *     color and noise contributes no code.
  *
  * Plus invariants:
  *   - Bypassed nodes are absent from `metadata.executionOrder`.
@@ -27,7 +27,7 @@ function buildNodeSpecsMap(): Map<string, NodeSpec> {
   return new Map(nodeSystemSpecs.map((s) => [s.id, s]));
 }
 
-/** `uv → rotate → noise → color-map → final-output`. Rotate is the Rule A subject. */
+/** `uv → rotate → noise → final-output`. Rotate is the Rule A subject. */
 function buildRuleAGraph(rotateBypassed: boolean): NodeGraph {
   return {
     id: 'graph-rule-a',
@@ -37,14 +37,12 @@ function buildRuleAGraph(rotateBypassed: boolean): NodeGraph {
       { id: 'n-uv', type: 'uv-coordinates', position: { x: 0, y: 0 }, parameters: {} },
       { id: 'n-rotate', type: 'rotate', position: { x: 0, y: 0 }, parameters: {}, bypassed: rotateBypassed },
       { id: 'n-noise', type: 'noise', position: { x: 0, y: 0 }, parameters: {} },
-      { id: 'n-cmap', type: 'color-map', position: { x: 0, y: 0 }, parameters: {} },
       { id: 'n-out', type: 'final-output', position: { x: 0, y: 0 }, parameters: {} },
     ],
     connections: [
       { id: 'c-uv-rot', sourceNodeId: 'n-uv', sourcePort: 'out', targetNodeId: 'n-rotate', targetPort: 'in' },
       { id: 'c-rot-noise', sourceNodeId: 'n-rotate', sourcePort: 'out', targetNodeId: 'n-noise', targetPort: 'in' },
-      { id: 'c-noise-cmap', sourceNodeId: 'n-noise', sourcePort: 'out', targetNodeId: 'n-cmap', targetPort: 'in' },
-      { id: 'c-cmap-out', sourceNodeId: 'n-cmap', sourcePort: 'out', targetNodeId: 'n-out', targetPort: 'in' },
+      { id: 'c-noise-out', sourceNodeId: 'n-noise', sourcePort: 'out', targetNodeId: 'n-out', targetPort: 'in' },
     ],
   };
 }
@@ -64,8 +62,8 @@ function buildRuleBGeneratorGraph(orbitBypassed: boolean): NodeGraph {
         parameters: {
           cameraRoX: 1.5,
           cameraRoY: 2.0,
-          cameraRoZ: 4.0
-        }
+          cameraRoZ: 4.0,
+        },
       },
       { id: 'n-out', type: 'final-output', position: { x: 0, y: 0 }, parameters: {} },
     ],
@@ -76,7 +74,7 @@ function buildRuleBGeneratorGraph(orbitBypassed: boolean): NodeGraph {
   };
 }
 
-/** `uv → noise(bypassed) → color-map → final-output`. Rule B (vec2 → float). */
+/** `uv → noise(bypassed) → final-output`. Rule B (vec2 → float). */
 function buildRuleBPatternGraph(noiseBypassed: boolean): NodeGraph {
   return {
     id: 'graph-rule-b-pattern',
@@ -85,22 +83,20 @@ function buildRuleBPatternGraph(noiseBypassed: boolean): NodeGraph {
     nodes: [
       { id: 'n-uv', type: 'uv-coordinates', position: { x: 0, y: 0 }, parameters: {} },
       { id: 'n-noise', type: 'noise', position: { x: 0, y: 0 }, parameters: {}, bypassed: noiseBypassed },
-      { id: 'n-cmap', type: 'color-map', position: { x: 0, y: 0 }, parameters: {} },
       { id: 'n-out', type: 'final-output', position: { x: 0, y: 0 }, parameters: {} },
     ],
     connections: [
       { id: 'c-uv-noise', sourceNodeId: 'n-uv', sourcePort: 'out', targetNodeId: 'n-noise', targetPort: 'in' },
-      { id: 'c-noise-cmap', sourceNodeId: 'n-noise', sourcePort: 'out', targetNodeId: 'n-cmap', targetPort: 'in' },
-      { id: 'c-cmap-out', sourceNodeId: 'n-cmap', sourcePort: 'out', targetNodeId: 'n-out', targetPort: 'in' },
+      { id: 'c-noise-out', sourceNodeId: 'n-noise', sourcePort: 'out', targetNodeId: 'n-out', targetPort: 'in' },
     ],
   };
 }
 
-/** `uv → rotate(bypassed) → noise(bypassed) → color-map(bypassed) → final-output`. */
+/** `uv → rotate(bypassed) → noise(bypassed) → final-output`. */
 function buildAllBypassedChainGraph(): NodeGraph {
   const g = buildRuleAGraph(true);
   for (const node of g.nodes) {
-    if (node.id === 'n-noise' || node.id === 'n-cmap') {
+    if (node.id === 'n-noise') {
       node.bypassed = true;
     }
   }
@@ -169,15 +165,13 @@ describe('Node Power: Rule B (disconnect — generator)', () => {
 });
 
 describe('Node Power: Rule B (disconnect — pattern in chain)', () => {
-  it('compiles when noise is bypassed; color-map falls back to its default port value', () => {
+  it('compiles when noise is bypassed; final-output uses defaults after the noise→out wire drops', () => {
     const result = compiler.compile(buildRuleBPatternGraph(true));
 
     expect(result.metadata.errors).toHaveLength(0);
     expect(result.metadata.executionOrder).not.toContain('n-noise');
     expect(result.shaderCode).not.toContain('// Node: Noise');
-    // color-map reads input `in` of type float; with no upstream wire and no fallbackParameter,
-    // the default port value (`0.0`) is substituted — verify color-map still appears.
-    expect(result.shaderCode).toContain('// Node: Color Map');
+    expect(result.shaderCode).toContain('void main()');
   });
 });
 
@@ -198,7 +192,6 @@ describe('Node Power: invariants', () => {
     expect(result.metadata.errors).toHaveLength(0);
     expect(result.metadata.executionOrder).not.toContain('n-rotate');
     expect(result.metadata.executionOrder).not.toContain('n-noise');
-    expect(result.metadata.executionOrder).not.toContain('n-cmap');
     expect(result.metadata.executionOrder).toContain('n-out');
     expect(result.shaderCode).toContain('void main()');
   });
@@ -217,7 +210,7 @@ describe('Node Power: invariants', () => {
           type: 'generic-raymarcher',
           position: { x: 0, y: 0 },
           parameters: {},
-          bypassed: true
+          bypassed: true,
         },
         { id: 'n-out', type: 'final-output', position: { x: 0, y: 0 }, parameters: {} },
       ],
@@ -240,7 +233,7 @@ describe('Node Power: invariants', () => {
   });
 
   it('unconnected primary input on a Rule A bypassed node degenerates to Rule B', () => {
-    // `rotate(bypassed) → noise → color-map → final-output` with no upstream wired into rotate.
+    // `rotate(bypassed) → noise → final-output` with no upstream wired into rotate.
     // rotate's input is unconnected, so Rule A has no upstream to bridge to → drop wire entirely.
     // noise.in then falls back to the port default (vec2(0)), and the program still compiles.
     const graph: NodeGraph = {
@@ -250,13 +243,11 @@ describe('Node Power: invariants', () => {
       nodes: [
         { id: 'n-rotate', type: 'rotate', position: { x: 0, y: 0 }, parameters: {}, bypassed: true },
         { id: 'n-noise', type: 'noise', position: { x: 0, y: 0 }, parameters: {} },
-        { id: 'n-cmap', type: 'color-map', position: { x: 0, y: 0 }, parameters: {} },
         { id: 'n-out', type: 'final-output', position: { x: 0, y: 0 }, parameters: {} },
       ],
       connections: [
         { id: 'c-rot-noise', sourceNodeId: 'n-rotate', sourcePort: 'out', targetNodeId: 'n-noise', targetPort: 'in' },
-        { id: 'c-noise-cmap', sourceNodeId: 'n-noise', sourcePort: 'out', targetNodeId: 'n-cmap', targetPort: 'in' },
-        { id: 'c-cmap-out', sourceNodeId: 'n-cmap', sourcePort: 'out', targetNodeId: 'n-out', targetPort: 'in' },
+        { id: 'c-noise-out', sourceNodeId: 'n-noise', sourcePort: 'out', targetNodeId: 'n-out', targetPort: 'in' },
       ],
     };
 
@@ -268,7 +259,7 @@ describe('Node Power: invariants', () => {
   });
 
   it('chains nested Rule A bypasses (rotate → scale, both bypassed) through to the original upstream', () => {
-    // `uv → rotate(bypassed) → scale(bypassed) → noise → color-map → final-output`
+    // `uv → rotate(bypassed) → scale(bypassed) → noise → final-output`
     // Both rotate and scale are Rule A (vec2 → vec2). The chain rewrite walks rotate, then scale,
     // and lands on `uv`, so noise reads its input from `uv` directly.
     const graph: NodeGraph = {
@@ -280,15 +271,13 @@ describe('Node Power: invariants', () => {
         { id: 'n-rotate', type: 'rotate', position: { x: 0, y: 0 }, parameters: {}, bypassed: true },
         { id: 'n-scale', type: 'scale', position: { x: 0, y: 0 }, parameters: {}, bypassed: true },
         { id: 'n-noise', type: 'noise', position: { x: 0, y: 0 }, parameters: {} },
-        { id: 'n-cmap', type: 'color-map', position: { x: 0, y: 0 }, parameters: {} },
         { id: 'n-out', type: 'final-output', position: { x: 0, y: 0 }, parameters: {} },
       ],
       connections: [
         { id: 'c-uv-rot', sourceNodeId: 'n-uv', sourcePort: 'out', targetNodeId: 'n-rotate', targetPort: 'in' },
         { id: 'c-rot-scale', sourceNodeId: 'n-rotate', sourcePort: 'out', targetNodeId: 'n-scale', targetPort: 'in' },
         { id: 'c-scale-noise', sourceNodeId: 'n-scale', sourcePort: 'out', targetNodeId: 'n-noise', targetPort: 'in' },
-        { id: 'c-noise-cmap', sourceNodeId: 'n-noise', sourcePort: 'out', targetNodeId: 'n-cmap', targetPort: 'in' },
-        { id: 'c-cmap-out', sourceNodeId: 'n-cmap', sourcePort: 'out', targetNodeId: 'n-out', targetPort: 'in' },
+        { id: 'c-noise-out', sourceNodeId: 'n-noise', sourcePort: 'out', targetNodeId: 'n-out', targetPort: 'in' },
       ],
     };
 

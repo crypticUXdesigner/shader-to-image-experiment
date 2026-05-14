@@ -58,6 +58,28 @@ Two layers both use graph diffing, for different jobs:
 
 Incremental compile is used when connections are unchanged, a previous result exists, and the set of affected nodes is small enough; connection changes force a full compile path.
 
+### Who calls what (change detection)
+
+- **`GraphChangeDetector`** ([`src/utils/changeDetection/GraphChangeDetector.ts`](../../src/utils/changeDetection/GraphChangeDetector.ts)) — Single implementation of `isOnlyPositionChange`, `detectChanges`, automation-only helpers, and affected-node tracking. Assumes immutable graphs (`oldGraph === newGraph` means no change).
+- **`RuntimeManager.setGraph`** — Delegates `isOnlyPositionChange` to `GraphChangeDetector.isOnlyPositionChange`. On non–layout-only edits it calls `GraphChangeDetector.detectChanges` (structure path) and `isOnlyAutomationRegionTimesChange` to drive `CompilationManager.onGraphStructureChange` and audio cleanup.
+- **`CompilationManager.detectGraphChanges` (private)** — Calls `GraphChangeDetector.detectChanges` with `trackAffectedNodes: true` / `includeConnectionIds: true`, then updates `previousGraph` / `previousGraphState` for the next compile.
+- **`graphUpdate` (editor)** — [`src/ui/editor/graphUpdate.ts`](../../src/ui/editor/graphUpdate.ts) uses `GraphChangeDetector.detectChanges` after applying a graph patch to invalidate connection layers (incremental UI), not to schedule compilation.
+
+`detectGraphChanges` as a **method name** exists only on **`CompilationManager`** (it wraps `GraphChangeDetector.detectChanges`). There is also a legacy helper file [`src/utils/graphComparison.ts`](../../src/utils/graphComparison.ts) with a parallel `isOnlyPositionChange`; new code should prefer **`GraphChangeDetector`** so runtime and compiler stay aligned.
+
+### Edit kind → RuntimeManager vs CompilationManager
+
+Parameter vs structure paths for uniforms and scheduling are detailed in [`parameters-pipeline.md`](./parameters-pipeline.md). This table summarizes **who reacts** after the store has produced a new graph reference:
+
+| Edit kind (store / graph shape) | `RuntimeManager` / `setGraph` | `CompilationManager` expectation |
+| --- | --- | --- |
+| View-only pan / zoom / selection (`updateViewState`, `recordUndo: false`) | `graphChangedListener` runs for autosave / revision counters; **shader runtime** is not driven by view-only edits alone. | No compile triggered solely from view state. |
+| Node **move** only (positions change; same nodes, connections, parameters) | **`isOnlyPositionChange` → true**: skips `applyGraphStructureChange` (no `setGraph` on compiler from this path for layout-only). | No structure recompile from this `setGraph` entry; parameter-only paths unchanged. |
+| **Parameter** value change (shader-facing or not) | **`updateParameter`**: syncs `currentGraph` / `setGraph` on compiler; **runtime-only** params return early without uniform compile. | **`onParameterChange`** (uniform refresh vs incremental/full recompile per internal diff). |
+| **Connection** add/remove/retarget | **`isOnlyPositionChange` → false**: `applyGraphStructureChange` → `setGraph` + `onGraphStructureChange` (treats connection-only edits as needing compile coordination). | **`recompile`**: connection deltas imply **full** compile path (incremental optimization does not skip connection changes). |
+| **Automation** curve / lane / region (non–time-only) | `applyGraphStructureChange`; `onGraphStructureChange` with flags derived from `GraphChangeDetector` (e.g. region time–only vs broader). | Shader includes automation; structure path schedules recompile. |
+| **Structure** (add/remove node, type change, bypass, label, reset params, …) | **`isOnlyPositionChange` → false**: full `applyGraphStructureChange` (audio cleanup, `setGraph`, `onGraphStructureChange`). | **`detectGraphChanges`** for incremental vs **full** compile; connection / node sets drive affected nodes. |
+
 ## Runtime-only parameters
 
 Some parameters affect **JavaScript-side behavior** (audio file path, analyzer bands, etc.) and must not drive GLSL uniforms. The shared name list lives in [`src/utils/runtimeOnlyParams.ts`](../../src/utils/runtimeOnlyParams.ts) (`isRuntimeOnlyParameter`). **`UniformGenerator`**, **`CompilationManager`**, **`RuntimeManager`**, and export paths each apply this concept; when adding nodes or parameters, keep those places aligned (see also [`parameters-pipeline.md`](./parameters-pipeline.md)).

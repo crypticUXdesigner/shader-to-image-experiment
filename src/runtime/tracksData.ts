@@ -18,6 +18,9 @@ export type TracksDataMap = Record<string, TrackEntry>;
 
 let cached: TracksDataMap | null = null;
 
+/** Avoid hanging project open / playlist flows when `tracks-data.json` never completes (offline, proxy, etc.). */
+const TRACKS_DATA_FETCH_TIMEOUT_MS = 12_000;
+
 /**
  * Base URL for static assets (matches Vite base, e.g. /ShaderNoice/).
  * Relative fetch would use document URL; we use BASE_URL so it works with any base path.
@@ -37,7 +40,25 @@ function getTracksDataUrl(): string {
 export async function getTracksData(): Promise<TracksDataMap> {
   if (cached) return cached;
   const url = getTracksDataUrl();
-  const res = await fetch(url);
+  const controller = new AbortController();
+  const timeoutId =
+    typeof setTimeout !== 'undefined'
+      ? setTimeout(() => controller.abort(), TRACKS_DATA_FETCH_TIMEOUT_MS)
+      : 0;
+  let res: Response;
+  try {
+    res = await fetch(url, { signal: controller.signal });
+  } catch (e) {
+    const cause = e instanceof Error ? e : undefined;
+    if (cause?.name === 'AbortError') {
+      throw new Error(`Timed out loading tracks catalog (${TRACKS_DATA_FETCH_TIMEOUT_MS}ms): ${url}`, {
+        cause
+      });
+    }
+    throw e instanceof Error ? e : new Error(String(e), { cause: e });
+  } finally {
+    if (timeoutId !== 0) clearTimeout(timeoutId);
+  }
   if (!res.ok) throw new Error(`Failed to load tracks-data: ${res.status}`);
   const data = (await res.json()) as TracksDataMap;
   cached = data;

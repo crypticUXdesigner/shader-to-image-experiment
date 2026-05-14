@@ -6,24 +6,12 @@ export const displaceNodeSpec: NodeSpec = {
   displayName: 'Displace',
   icon: 'arrow-big-right',
   description:
-    'Offset UVs: vector mode (translate / driven vec2 offset) or directional mode (angle × scalar amount)',
+    'Offset UVs: vector mode (offset × scale from Offset X/Y) or directional mode (angle × Amount × scale)',
   inputs: [
     {
       name: 'in',
       type: 'vec2',
       label: 'UV'
-    },
-    {
-      name: 'offset',
-      type: 'vec2',
-      label: 'Offset',
-      fallbackParameter: 'offsetX,offsetY'
-    },
-    {
-      name: 'amount',
-      type: 'float',
-      label: 'Amount',
-      fallbackParameter: 'amount'
     }
   ],
   outputs: [
@@ -40,7 +28,7 @@ export const displaceNodeSpec: NodeSpec = {
       min: 0,
       max: 1,
       step: 1,
-      label: 'Displacement'
+      label: 'Mode'
     },
     displaceScale: {
       type: 'float',
@@ -111,6 +99,7 @@ export const displaceNodeSpec: NodeSpec = {
     }
   ],
   parameterLayout: {
+    // Mode + Scale stay visible in both modes; per-mode rows use visibleWhen (no duplicate Scale).
     elements: [
       {
         type: 'grid',
@@ -121,6 +110,7 @@ export const displaceNodeSpec: NodeSpec = {
       {
         type: 'grid',
         label: 'Vector offset',
+        visibleWhen: { parameter: 'displaceMode', equals: 0 },
         parameters: ['offsetX', 'offsetY'],
         parameterUI: { offsetX: 'coords', offsetY: 'coords' },
         layout: { columns: 2, coordsSpan: 2 }
@@ -128,6 +118,7 @@ export const displaceNodeSpec: NodeSpec = {
       {
         type: 'grid',
         label: 'Directional',
+        visibleWhen: { parameter: 'displaceMode', equals: 1 },
         parameters: ['directionalDisplaceAngle', 'amount'],
         layout: { columns: 2 }
       }
@@ -136,9 +127,10 @@ export const displaceNodeSpec: NodeSpec = {
   mainCode: `
   if ($param.displaceMode == 1) {
     vec2 dir = vec2(cos($param.directionalDisplaceAngle), sin($param.directionalDisplaceAngle));
-    $output.out = $input.in + dir * ($input.amount * $param.displaceScale);
+    $output.out = $input.in + dir * ($param.amount * $param.displaceScale);
   } else {
-    $output.out = $input.in + $input.offset * $param.displaceScale;
+    vec2 offs = vec2($param.offsetX, $param.offsetY);
+    $output.out = $input.in + offs * $param.displaceScale;
   }
 `
 };

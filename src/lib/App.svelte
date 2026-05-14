@@ -9,14 +9,18 @@
   import { NodeShaderCompiler } from '../shaders/NodeShaderCompiler';
   import { createRuntimeManager } from '../runtime/factories';
   import { RuntimeMessageDispatcher } from '../runtime/RuntimeMessageDispatcher';
-  import { WaveformService } from '../runtime';
+  import type { WaveformService } from '../runtime';
   import { WebGLContextError } from '../runtime/errors';
-  import type { RenderBackendMode } from '../runtime/renderBackends/renderBackendTypes';
+  import type { GraphViewState, NodeGraph } from '../data-model/types';
   import { nodeSystemSpecs } from '../shaders/nodes/index';
   import { listPresets, loadPresetFromJson, downloadGraphAsJsonFile } from '../utils/presetManager';
   import { toValidationSpecs } from '../utils/nodeSpecUtils';
-  import { runImageExportFlow } from '../image-export';
-  import { runVideoExportFlow, isSupported as isVideoExportSupported } from '../video-export';
+  import {
+    createGetPrimaryAudioBuffer,
+    runEditorImageExportSession,
+    runEditorVideoExportSession,
+  } from './app/appExportSession';
+  import { isSupported as isVideoExportSupported } from '../video-export';
   import { globalErrorHandler, ErrorUtils } from '../utils/errorHandling';
   import { safeDestroy } from '../utils/Disposable';
   import {
@@ -45,20 +49,28 @@
   } from '../utils/audiotoolSessionRpc';
   import { registerAudiotoolPlaylistTrackPlaybackUrl } from '../utils/audiotoolPlaylistPlaybackUrls';
   import { setAudiotoolTrackDisplayNameCache } from '../utils/audiotoolTrackTitleCache';
-  import type { NodeGraph } from '../data-model/types';
   import type { AudioSetup, PlaylistPrimarySource, PlaylistTrackPickMeta } from '../data-model';
   import type { NodeSpec } from '../types';
   import { UndoRedoManager } from '../ui/editor';
   import { appToastStore, errorAnnouncer, formatErrorForAnnouncer } from './stores';
+  import type { PreviewCompileUiSink } from '../runtime/previewCompileUiSink';
+  import {
+    beginPreviewCompileProgressToast,
+    clearPreviewCompileProgressToast,
+    previewCompileFailedKeptLastGood,
+  } from './stores/previewCompileStatusStore';
   import { ErrorAnnouncer, AppSplashScreen } from './components/ui';
   import { getHelpContent } from '../utils/ContextualHelpManager';
   import type { HelpContent } from '../utils/ContextualHelpManager';
 
+  import { createEditorPreviewRuntimeManager, createEditorWaveformService } from './app/editorRuntimeBootstrap';
+  import { attachGraphRevisionListeners } from './app/graphRevisionListeners';
   import NodeEditorLayout from './components/editor/NodeEditorLayout.svelte';
   import BottomBar from './components/bottom-bar/BottomBar.svelte';
   import { NodePanelContent, DocsPanelContent } from './components/side-panel';
   import TimelinePanel from './components/timeline/TimelinePanel.svelte';
   import TimelineCurveEditor from './components/timeline/TimelineCurveEditor.svelte';
+  import TimelinePanelFloatingShell from './components/timeline/TimelinePanelFloatingShell.svelte';
   import NodeEditorCanvasWrapper from './components/editor/NodeEditorCanvasWrapper.svelte';
   import EditorParameterValueOverlay from './components/editor/EditorParameterValueOverlay.svelte';
   import EditorLabelEditOverlay from './components/editor/EditorLabelEditOverlay.svelte';
@@ -69,6 +81,7 @@
     clampPanelCenterToViewport,
     AUDIO_SIGNAL_PICKER_LARGE_CLAMP_BOX,
     AUDIO_SIGNAL_PICKER_COMPACT_CLAMP_BOX,
+    TIMELINE_PANEL_FLOATING_CLAMP_BOX,
   } from './components/floating-panel';
   import { Button, DropdownMenu, ModalDialog } from './components/ui';
   import type { DropdownMenuItem } from './components/ui';
@@ -134,6 +147,8 @@
   let hydrating = $state(false);
   /** `onMount` assigns — runs first WebGL bootstrap from hub pick (or repeat after return to hub). */
   let runEditorBootstrapFromHubRef: ((sel: HubSelection) => Promise<void>) | null = null;
+  /** Clears graph/audio revision listeners; set when editor session mounts. */
+  let disposeGraphRevisionListeners: (() => void) | null = null;
   let lastAppMetaWarningKey = $state<string | null>(null);
   let autosaveDebounceHandle = 0;
   let autosaveClampHandle = 0;
@@ -229,14 +244,7 @@
       waveformService = null;
       return;
     }
-    const svc = new WaveformService({
-      getPrimarySource: () => graphStore.audioSetup?.primarySource,
-      getPrimaryFileId: () => getPrimaryFileId(graphStore.audioSetup),
-      getPrimaryBuffer: () => {
-        const id = getPrimaryFileId(graphStore.audioSetup);
-        return id ? (rm.getAudioManager().getAudioNodeState(id)?.audioBuffer ?? null) : null;
-      },
-    });
+    const svc = createEditorWaveformService(rm, () => graphStore.audioSetup);
     waveformService = svc;
     return () => {
       svc.dispose();
@@ -328,6 +336,12 @@
 
   const nodeSpecsMap = new Map<string, NodeSpec>(nodeSpecs.map((s) => [s.id, s]));
 
+  const previewCompileUiSink: PreviewCompileUiSink = {
+    beginPreviewCompileProgressToast,
+    clearPreviewCompileProgressToast,
+    previewCompileFailedKeptLastGood,
+  };
+
   let previewMount: HTMLDivElement;
   let compiler = $state<NodeShaderCompiler | null>(null);
   let runtimeManager = $state<Awaited<ReturnType<typeof createRuntimeManager>> | null>(null);
@@ -345,13 +359,34 @@
   });
   let canvasApi = $state<NodeEditorCanvasWrapperAPI | null>(null);
 
+  /** Merge current pan/zoom/selection into a semantic snapshot so undo/redo never rewires the camera or selection. */
+  function graphWithLiveViewStateRestored(semantic: NodeGraph): NodeGraph {
+    const live = canvasApi?.getViewState?.();
+    const storeVs = graphStore.graph.viewState;
+    const vs: GraphViewState = live
+      ? {
+          zoom: live.zoom,
+          panX: live.panX,
+          panY: live.panY,
+          selectedNodeIds: [...live.selectedNodeIds],
+        }
+      : {
+          zoom: storeVs?.zoom ?? 1,
+          panX: storeVs?.panX ?? 0,
+          panY: storeVs?.panY ?? 0,
+          selectedNodeIds: [...(storeVs?.selectedNodeIds ?? [])],
+        };
+    return { ...semantic, viewState: vs };
+  }
+
   async function applyGraphHistorySnapshot(g: NodeGraph): Promise<void> {
+    const merged = graphWithLiveViewStateRestored(g);
     canvasApi?.beginGraphHistoryRestore();
     try {
       graphStore.clearPatchPicks();
-      graphStore.setGraph(g, { skipGraphChangedListener: true });
+      graphStore.setGraph(merged, { skipGraphChangedListener: true });
       localRevision++;
-      await runtimeDispatcher?.loadGraph(g);
+      await runtimeDispatcher?.loadGraph(merged);
     } finally {
       undoStackRevision++;
       canvasApi?.completeGraphHistoryRestore(graphStore.graph);
@@ -377,8 +412,6 @@
     setSpacebarPressed: (isPressed: boolean) => void;
     setTimelinePanelOpen: (open: boolean) => void;
     isTimelinePanelVisible: () => boolean;
-    getTimelinePanelContentElement: () => HTMLElement | null;
-    getTimelineCurveEditorSlotElement: () => HTMLElement | null;
     getElement: () => HTMLElement | null;
   }
   let bottomBarRef: BottomBarRef | undefined;
@@ -397,6 +430,9 @@
   let curveEditorParamLabel = $state<string>('');
   /** Live region bounds while dragging/resizing on the timeline (curve editor waveform). */
   let curveEditorRegionTimePreview = $state<{ startTime: number; endTime: number } | null>(null);
+  let timelinePanelOpen = $state(false);
+  let timelinePanelX = $state(0);
+  let timelinePanelY = $state(0);
   let presets = $state<Array<{ name: string; displayName: string }>>([]);
   let selectedPreset = $state<string | null>(null);
   let isPanelVisible = $state(true);
@@ -478,6 +514,8 @@
   let signalPickerTargetParameter = $state('');
   let signalPickerOnSelect = $state<((payload: SignalSelectPayload) => void) | null>(null);
   let signalPickerTriggerElement = $state<HTMLElement | null>(null);
+  /** True when the picker was opened from a global entry point (audio button) without a parameter target. */
+  let signalPickerBrowseMode = $state(false);
 
   /** Load picker, shortcuts modal, preset import confirm (see NodeEditorLayout). */
   let layoutBlockingCanvasShortcuts = $state(false);
@@ -587,17 +625,85 @@
       signalPickerTargetParameter = targetParameter;
       signalPickerOnSelect = onSelect;
       signalPickerTriggerElement = triggerElement ?? null;
+      signalPickerBrowseMode = false;
       signalPickerVisible = true;
     },
     hideSignalPicker() {
       signalPickerVisible = false;
       signalPickerOnSelect = null;
       signalPickerTriggerElement = null;
+      signalPickerBrowseMode = false;
     },
     isSignalPickerVisible() {
       return signalPickerVisible;
     },
   };
+
+  /**
+   * Toggle the audio bands & remappers panel (large picker in browse mode).
+   * Reuses the existing AudioSignalPicker shell; no parameter target — Connect
+   * actions are hidden, but bands/remappers can still be created, edited, and deleted.
+   */
+  function toggleAudioPanel() {
+    if (signalPickerVisible && signalPickerBrowseMode) {
+      signalPickerVisible = false;
+      signalPickerOnSelect = null;
+      signalPickerTriggerElement = null;
+      signalPickerBrowseMode = false;
+      return;
+    }
+    const center = { x: window.innerWidth / 2, y: window.innerHeight / 2 };
+    const inset = 16;
+    const rawLarge = getStoredPosition('audio-signal-picker', {
+      variant: 'large',
+      fallback: center,
+      legacyKey: [
+        'shader-composer.audioSignalPickerPositionLarge',
+        'shader-composer.audioSignalPickerPosition',
+      ],
+    });
+    const posLarge = clampPanelCenterToViewport(
+      rawLarge,
+      AUDIO_SIGNAL_PICKER_LARGE_CLAMP_BOX.width,
+      AUDIO_SIGNAL_PICKER_LARGE_CLAMP_BOX.height,
+      inset
+    );
+    if (posLarge.x !== rawLarge.x || posLarge.y !== rawLarge.y) {
+      setStoredPosition('audio-signal-picker', posLarge.x, posLarge.y, 'large');
+    }
+    signalPickerXLarge = posLarge.x;
+    signalPickerYLarge = posLarge.y;
+    signalPickerTargetNodeId = '';
+    signalPickerTargetParameter = '';
+    signalPickerOnSelect = null;
+    signalPickerTriggerElement = null;
+    signalPickerBrowseMode = true;
+    signalPickerVisible = true;
+  }
+
+  function refreshTimelineFloatingPosition(): void {
+    const inset = 16;
+    const w = typeof window !== 'undefined' ? window.innerWidth : 1000;
+    const h = typeof window !== 'undefined' ? window.innerHeight : 700;
+    const approxBodyH = Math.min(h * 0.3, 360);
+    const bottomClearance = 100;
+    const fallback = { x: w / 2, y: h - bottomClearance - approxBodyH / 2 };
+    const raw = getStoredPosition('timeline-panel', {
+      fallback,
+      legacyKey: 'shader-composer.timelinePanelPosition',
+    });
+    const clamped = clampPanelCenterToViewport(
+      raw,
+      TIMELINE_PANEL_FLOATING_CLAMP_BOX.width,
+      TIMELINE_PANEL_FLOATING_CLAMP_BOX.height,
+      inset
+    );
+    if (clamped.x !== raw.x || clamped.y !== raw.y) {
+      setStoredPosition('timeline-panel', clamped.x, clamped.y);
+    }
+    timelinePanelX = clamped.x;
+    timelinePanelY = clamped.y;
+  }
 
   function isCanvasBlockingDialogVisible(): boolean {
     if (layoutBlockingCanvasShortcuts) return true;
@@ -610,7 +716,7 @@
     if (labelEditOverlayVisible) return true;
     if (signalPickerVisible) return true;
     if (overlayBridge.isEnumDropdownVisible()) return true;
-    if (bottomBarRef?.isTimelinePanelVisible() ?? false) return true;
+    if (timelinePanelOpen) return true;
     return false;
   }
 
@@ -655,13 +761,24 @@
     audioSetup: AudioSetup,
     startingTrackId: string
   ): Promise<AudioSetup> {
-    const data = await getTracksData();
-    const order = getPlaylistOrder(data);
-    let setup = setPlaylistOrder(audioSetup, order);
-    setup = setPrimarySource(setup, playlistPrimaryFromBundledCatalog(startingTrackId, data));
-    const idx = order.indexOf(startingTrackId);
-    setup = setPlaylistCurrentIndex(setup, idx >= 0 ? idx : 0);
-    return setup;
+    try {
+      const data = await getTracksData();
+      const order = getPlaylistOrder(data);
+      let setup = setPlaylistOrder(audioSetup, order);
+      setup = setPrimarySource(setup, playlistPrimaryFromBundledCatalog(startingTrackId, data));
+      const idx = order.indexOf(startingTrackId);
+      setup = setPlaylistCurrentIndex(setup, idx >= 0 ? idx : 0);
+      return setup;
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      globalErrorHandler.report(
+        'runtime',
+        'warning',
+        `Could not sync the bundled track catalog (${msg}). Using the playlist saved in this project.`,
+        { originalError: e instanceof Error ? e : undefined }
+      );
+      return audioSetup;
+    }
   }
 
   async function handleImportPresetFromFile(json: string): Promise<void> {
@@ -674,35 +791,25 @@
   }
 
   async function handleExport(): Promise<void> {
-    if (!compiler) return;
-    await runImageExportFlow({
+    await runEditorImageExportSession({
+      compiler,
       graph: graphStore.graph,
       audioSetup: graphStore.audioSetup,
-      compiler,
       getTimelineState: () => runtimeManager?.getTimelineState() ?? null,
+      exportRasterBackend: runtimeManager?.getExportRasterBackend() ?? 'webgl2',
     });
   }
 
   async function handleVideoExport(): Promise<void> {
-    if (!isVideoExportSupported()) {
-      throw new Error('Video export is not supported. WebCodecs (VideoEncoder/AudioEncoder) is required.');
-    }
-    const graph = graphStore.graph;
-    const audioManager = runtimeManager?.getAudioManager();
-    const getPrimaryAudio = (): { nodeId: string; buffer: AudioBuffer } | null => {
-      if (!audioManager) return null;
-      const primaryId = getPrimaryFileId(graphStore.audioSetup);
-      if (primaryId) {
-        const state = audioManager.getAudioNodeState(primaryId);
-        if (state?.audioBuffer) return { nodeId: primaryId, buffer: state.audioBuffer };
-      }
-      return null;
-    };
-    await runVideoExportFlow({
-      graph,
+    await runEditorVideoExportSession({
+      graph: graphStore.graph,
       audioSetup: graphStore.audioSetup,
       compiler: compiler!,
-      getPrimaryAudio,
+      getPrimaryAudio: createGetPrimaryAudioBuffer({
+        getAudioManager: () => runtimeManager?.getAudioManager(),
+        getAudioSetup: () => graphStore.audioSetup,
+      }),
+      exportRasterBackend: runtimeManager?.getExportRasterBackend() ?? 'webgl2',
     });
   }
 
@@ -755,18 +862,6 @@
     }
   }
 
-  function parseUrlRenderBackendOverride(): RenderBackendMode | undefined {
-    if (typeof window === 'undefined') return undefined;
-    try {
-      const raw = new URLSearchParams(window.location.search).get('renderBackend')?.trim().toLowerCase();
-      if (!raw) return undefined;
-      if (raw === 'auto' || raw === 'webgpu' || raw === 'webgl') return raw;
-      return undefined;
-    } catch {
-      return undefined;
-    }
-  }
-
   function parseUrlPreviewOverlayEnabled(): boolean {
     if (typeof window === 'undefined') return false;
     try {
@@ -811,8 +906,8 @@
     runtimeDispatcher = null;
     waveformService = null;
     compiler = null;
-    graphStore.setGraphChangedListener(null);
-    graphStore.setAudioChangedListener(null);
+    disposeGraphRevisionListeners?.();
+    disposeGraphRevisionListeners = null;
     canvasApi = null;
     hasInitialFit = false;
     activeSession = { kind: 'none' };
@@ -1411,21 +1506,16 @@
 
       let rm: Awaited<ReturnType<typeof createRuntimeManager>>;
       try {
-        const renderBackend = parseUrlRenderBackendOverride();
-        rm = renderBackend
-          ? await createRuntimeManager(previewCanvas, comp, globalErrorHandler, nodeSpecsMap, { renderBackend })
-          : await createRuntimeManager(previewCanvas, comp, globalErrorHandler, nodeSpecsMap);
+        rm = await createEditorPreviewRuntimeManager({
+          previewCanvas,
+          compiler: comp,
+          errorHandler: globalErrorHandler,
+          nodeSpecsMap,
+          previewCompileUiSink,
+        });
         if (cancelled) return;
         runtimeManager = rm;
         runtimeDispatcher = new RuntimeMessageDispatcher(rm);
-        waveformService = new WaveformService({
-          getPrimarySource: () => graphStore.audioSetup?.primarySource,
-          getPrimaryFileId: () => getPrimaryFileId(graphStore.audioSetup),
-          getPrimaryBuffer: () => {
-            const id = getPrimaryFileId(graphStore.audioSetup);
-            return id ? rm.getAudioManager().getAudioNodeState(id)?.audioBuffer ?? null : null;
-          },
-        });
       } catch (err) {
         if (err instanceof WebGLContextError) {
           showWebGLUnsupported(err);
@@ -1445,16 +1535,28 @@
       }
 
       undoRedoManager = new UndoRedoManager();
-      graphStore.setGraphChangedListener((g) => {
-        if (hydrating) return;
-        undoRedoManager?.pushState(g);
-        localRevision++;
-        undoStackRevision++;
+      disposeGraphRevisionListeners?.();
+      const disposeRevisions = attachGraphRevisionListeners({
+        host: graphStore,
+        getHydrating: () => hydrating,
+        onGraphChanged: (g, options) => {
+          if (options?.recordUndo !== false) {
+            undoRedoManager?.pushState(g);
+            undoStackRevision++;
+          }
+          localRevision++;
+        },
+        onAudioChanged: () => {
+          localRevision++;
+        },
       });
-      graphStore.setAudioChangedListener(() => {
-        if (hydrating) return;
-        localRevision++;
+      graphStore.setPatchToolExitListener(() => {
+        appToastStore.dismissBySource('patch-tool');
       });
+      disposeGraphRevisionListeners = () => {
+        disposeRevisions();
+        graphStore.setPatchToolExitListener(null);
+      };
 
       await applyResolvedHubToRuntime(resolved);
       if (cancelled) return;
@@ -1626,7 +1728,9 @@
       curveEditorRegionId = regionId;
       curveEditorParamLabel = labels.paramLabel;
     }}
-    onClose={() => bottomBarRef?.setTimelinePanelOpen(false)}
+    onClose={() => {
+      timelinePanelOpen = false;
+    }}
     nodeSpecs={nodeSpecs}
     openCurveEditorRegion={
       curveEditorLaneId && curveEditorRegionId
@@ -1805,15 +1909,17 @@
       <div bind:this={previewMount} style="width: 100%; height: 100%;"></div>
     {/snippet}
 
-    {#snippet nodeEditor()}
+    {#snippet nodeEditor({ viewMode })}
       {@const graph = graphStore.graph}
       <NodeEditorCanvasWrapper
         nodeSpecs={nodeSpecs}
         graph={graph}
+        editorSurfaceVisible={viewMode !== 'full'}
         bind:api={canvasApi}
         overlayBridge={overlayBridge}
         getTimelineCurrentTime={() => runtimeManager?.getTimelineState()?.currentTime ?? 0}
         getTimelineState={() => runtimeManager?.getTimelineState() ?? null}
+        getExclusiveRasterGpu={() => runtimeManager?.getExportRasterBackend() ?? null}
         callbacks={{
           onGraphChanged: async (g) => {
             await runtimeDispatcher?.loadGraph(g);
@@ -1890,7 +1996,10 @@
           graphStore.setActiveTool(tool);
           canvasApi?.setActiveTool(tool);
         }}
-        onTimelinePanelOpen={() => {}}
+        onTimelinePanelOpen={refreshTimelineFloatingPosition}
+        bind:timelinePanelOpen={timelinePanelOpen}
+        isAudioPanelOpen={signalPickerVisible && signalPickerBrowseMode}
+        onAudioPanelToggle={toggleAudioPanel}
         audioSetup={graphStore.audioSetup}
         getTrackKey={() => getPrimaryFileId(graphStore.audioSetup)}
         getPrimaryAudioFileNodeId={() => getPrimaryFileId(graphStore.audioSetup) ?? 'primary'}
@@ -1994,8 +2103,6 @@
             }
           }
         }}
-        timelinePanel={timelinePanelSnippet}
-        curveEditorSlot={curveEditorSlotSnippet}
         audiotoolRpcClient={atConn.session}
         audiotoolUserName={atConn.session?.userName ?? null}
         onAudiotoolSessionInvalidated={handleAudiotoolSessionRpcInvalidated}
@@ -2017,7 +2124,10 @@
       canvasApi?.requestRender();
     }}
     onRemove={(nodeId) => {
-      graphStore.removeNode(nodeId, toValidationSpecs(nodeSpecs));
+      const gpu = runtimeManager?.getExportRasterBackend();
+      const connectionValidation =
+        gpu === 'webgpu' ? ({ exclusiveRasterGpu: 'webgpu' } as const) : undefined;
+      graphStore.removeNode(nodeId, toValidationSpecs(nodeSpecs), connectionValidation);
       runtimeManager?.setGraph(graphStore.graph);
       canvasApi?.requestRender();
     }}
@@ -2104,6 +2214,23 @@
 
   <DropdownMenu bind:this={canvasEnumDropdownRef} class="canvas-enum-dropdown" />
 
+  <TimelinePanelFloatingShell
+    open={timelinePanelOpen}
+    x={timelinePanelX}
+    y={timelinePanelY}
+    onPositionChange={(x, y) => {
+      timelinePanelX = x;
+      timelinePanelY = y;
+      setStoredPosition('timeline-panel', x, y);
+    }}
+    onClose={() => {
+      timelinePanelOpen = false;
+    }}
+    curveSlotActive={curveEditorLaneId != null && curveEditorRegionId != null}
+    timelineSlot={timelinePanelSnippet}
+    curveSlot={curveEditorSlotSnippet}
+  />
+
   <AudioSignalPicker
     open={signalPickerVisible}
     xLarge={signalPickerXLarge}
@@ -2126,15 +2253,20 @@
     graph={graphStore.graph}
     audioSetup={graphStore.audioSetup}
     nodeSpecs={nodeSpecsMap}
+    browseOnly={signalPickerBrowseMode}
     getAudioManager={() => runtimeManager?.getAudioManager() ?? null}
     onSelect={(payload) => {
       signalPickerOnSelect?.(payload);
+      if (payload.type === 'set-connection-disabled') {
+        return;
+      }
       if (signalPickerTriggerElement) {
         signalPickerTriggerElement.focus();
       }
       signalPickerVisible = false;
       signalPickerOnSelect = null;
       signalPickerTriggerElement = null;
+      signalPickerBrowseMode = false;
     }}
     onClose={() => {
       if (signalPickerTriggerElement) {
@@ -2143,6 +2275,7 @@
       signalPickerVisible = false;
       signalPickerOnSelect = null;
       signalPickerTriggerElement = null;
+      signalPickerBrowseMode = false;
     }}
     onAudioSetupChange={(setup) => {
       graphStore.setAudioSetup(setup);

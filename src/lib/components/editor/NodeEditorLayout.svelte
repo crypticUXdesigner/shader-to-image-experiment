@@ -3,6 +3,7 @@
    * Node Editor Layout
    * Split view with resizable divider, corner widget, preset dropdown, zoom, help, panel toggle.
    */
+  import { onMount } from 'svelte';
   import { TopBar, KeyboardShortcutsModal } from '../top-bar';
   import { SidePanel } from '../side-panel';
   import VerticalResizeHandle from './VerticalResizeHandle.svelte';
@@ -21,7 +22,7 @@
 
   interface Props {
     preview?: import('svelte').Snippet<[]>;
-    nodeEditor?: import('svelte').Snippet<[]>;
+    nodeEditor?: import('svelte').Snippet<[{ viewMode: ViewMode }]>;
     panel?: import('svelte').Snippet<[]>;
     docsPanel?: import('svelte').Snippet<[]>;
     bottomBar?: import('svelte').Snippet<[string | null]>;
@@ -199,8 +200,8 @@
     );
   }
 
-  // View mode keyboard shortcuts (1/2/3)
-  $effect(() => {
+  // View mode keyboard shortcuts (1/2/3) — mount-only listener; handler reads live $state (no reactive re-subscribe).
+  onMount(() => {
     function onKeyDown(e: KeyboardEvent) {
       if (e.ctrlKey || e.metaKey || e.altKey) return;
       if (isTypingTarget(e.target)) return;
@@ -481,7 +482,7 @@
   data-view={viewMode}
   data-preview={viewMode === 'node' ? 'collapsed' : 'expanded'}
   data-ui-hidden={isUiHidden ? 'true' : 'false'}
-  style="position: absolute; inset: 0; --panel-width-dynamic: {panelWidth}px; --top-bar-left-offset: {panelOffset}px; --timeline-viewport-left: {panelOffset}px; --timeline-viewport-width: {containerWidth - panelOffset}px;"
+  style="position: absolute; inset: 0; --panel-width-dynamic: {panelWidth}px; --top-bar-left-offset: {panelOffset}px;"
 >
   <!-- Top bar -->
   <TopBar
@@ -594,7 +595,7 @@
     "
   >
     {#if nodeEditor}
-      {@render nodeEditor()}
+      {@render nodeEditor({ viewMode })}
     {/if}
   </div>
 

@@ -55,12 +55,11 @@ export interface PreviewSchedulerDebugState {
   lastCompilePhase: 'idle' | 'started' | 'succeeded' | 'failed';
   renderBackendSelection?: RenderBackendSelection;
   /**
-   * Effective backend used for the most recently applied program.
-   * This can differ from `renderBackendSelection.selected` during fallback-by-coverage.
+   * Effective backend used for the most recently applied preview program.
+   * With exclusive modes (no silent cross-API fallback), this tracks the active raster API
+   * for telemetry/debug; unsupported WebGPU graphs hard-block instead of falling back to GL.
    *
-   * `details` carries the compiler's `unsupportedReasons` when WebGPU was requested but
-   * the graph fell back to WebGL (e.g. fractal presets using `generic-raymarcher`). Surfaced
-   * by the dev overlay so the reason is visible without inspecting compiler output by hand.
+   * `details` may carry compiler `unsupportedReasons` when WebGPU compile is rejected.
    */
   effectiveBackend?: {
     selected: RenderBackendSelection['selected'];

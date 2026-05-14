@@ -22,8 +22,8 @@ describe('getParameterEnumMappings', () => {
     const m = getParameterEnumMappings('radial-uv-warp', 'warpMode');
     expect(m).not.toBeNull();
     expect(m![0]).toBe('Bulge / pinch');
-    expect(m![1]).toBe('Fisheye (lens)');
-    expect(m![2]).toBe('Spherize (hemisphere)');
+    expect(m![1]).toBe('Fisheye');
+    expect(m![2]).toBe('Spherize');
   });
 
   it('maps displace displaceMode to vector vs directional labels', () => {
@@ -39,5 +39,12 @@ describe('getParameterEnumMappings', () => {
     expect(m![0]).toBe('Ping-pong loop');
     expect(m![1]).toBe('Snap zoom in');
     expect(m![2]).toBe('Snap zoom out');
+  });
+
+  it('maps uv-band-shift orientation to horizontal vs vertical labels', () => {
+    const m = getParameterEnumMappings('uv-band-shift', 'uvBandShiftOrientation');
+    expect(m).not.toBeNull();
+    expect(m![0]).toBe('Horizontal');
+    expect(m![1]).toBe('Vertical');
   });
 });

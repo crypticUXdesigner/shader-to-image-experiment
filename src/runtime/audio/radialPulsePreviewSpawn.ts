@@ -25,6 +25,19 @@ const lastRadialPulseFreeRunSpawnAtShaderTimeByNodeId = new Map<string, number>(
 /** Slot index next for free‑run bursts (orthogonal to audio round‑robin). */
 const nextRadialPulseFreeRunSlotByNodeId = new Map<string, number>();
 
+const radialPulsePruneStaleKeysScratch: string[] = [];
+
+function deleteMapKeysNotInSet(map: Map<string, unknown>, activePulseNodeIds: Set<string>): void {
+  const scratch = radialPulsePruneStaleKeysScratch;
+  scratch.length = 0;
+  for (const id of map.keys()) {
+    if (!activePulseNodeIds.has(id)) scratch.push(id);
+  }
+  for (const id of scratch) {
+    map.delete(id);
+  }
+}
+
 export function clearRadialPulseSpawnArmingState(): void {
   armedByRadialPulseNodeId.clear();
   nextRadialPulseSpawnSlotByNodeId.clear();
@@ -33,26 +46,10 @@ export function clearRadialPulseSpawnArmingState(): void {
 }
 
 function pruneStaleArmingRadialPulse(activePulseNodeIds: Set<string>): void {
-  for (const id of [...armedByRadialPulseNodeId.keys()]) {
-    if (!activePulseNodeIds.has(id)) {
-      armedByRadialPulseNodeId.delete(id);
-    }
-  }
-  for (const id of [...nextRadialPulseSpawnSlotByNodeId.keys()]) {
-    if (!activePulseNodeIds.has(id)) {
-      nextRadialPulseSpawnSlotByNodeId.delete(id);
-    }
-  }
-  for (const id of [...lastRadialPulseFreeRunSpawnAtShaderTimeByNodeId.keys()]) {
-    if (!activePulseNodeIds.has(id)) {
-      lastRadialPulseFreeRunSpawnAtShaderTimeByNodeId.delete(id);
-    }
-  }
-  for (const id of [...nextRadialPulseFreeRunSlotByNodeId.keys()]) {
-    if (!activePulseNodeIds.has(id)) {
-      nextRadialPulseFreeRunSlotByNodeId.delete(id);
-    }
-  }
+  deleteMapKeysNotInSet(armedByRadialPulseNodeId as Map<string, unknown>, activePulseNodeIds);
+  deleteMapKeysNotInSet(nextRadialPulseSpawnSlotByNodeId as Map<string, unknown>, activePulseNodeIds);
+  deleteMapKeysNotInSet(lastRadialPulseFreeRunSpawnAtShaderTimeByNodeId as Map<string, unknown>, activePulseNodeIds);
+  deleteMapKeysNotInSet(nextRadialPulseFreeRunSlotByNodeId as Map<string, unknown>, activePulseNodeIds);
 }
 
 /** True when graph parameters still reflect “no authored spawn”: every slot absent or below shader inactive threshold (< -9e9). */

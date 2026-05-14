@@ -73,21 +73,23 @@
     >
       <IconSvg name="trash" variant="line" />
     </Button>
-    <Button
-      variant="ghost"
-      size="sm"
-      mode="both"
-      disabled={!canConnect}
-      title={canConnect ? 'Connect band (raw)' : 'Set source file first'}
-      aria-label={canConnect ? `Connect: ${band.name || band.id}` : 'Set source file first'}
-      onclick={(e) => {
-        e.stopPropagation();
-        onConnect?.();
-      }}
-    >
-      <IconSvg name="plug" variant="line" />
-      Connect
-    </Button>
+    {#if onConnect}
+      <Button
+        variant="ghost"
+        size="sm"
+        mode="both"
+        disabled={!canConnect}
+        title={canConnect ? 'Connect band (raw)' : 'Set source file first'}
+        aria-label={canConnect ? `Connect: ${band.name || band.id}` : 'Set source file first'}
+        onclick={(e) => {
+          e.stopPropagation();
+          onConnect?.();
+        }}
+      >
+        <IconSvg name="plug" variant="line" />
+        Connect
+      </Button>
+    {/if}
   </div>
   <div class="frequency-editor-wrap" role="presentation" onclick={(e) => e.stopPropagation()}>
     <FrequencyRangeEditor

@@ -13,6 +13,7 @@ import type {
   PrimarySource,
   PlaylistState,
 } from './audioSetupTypes';
+import { defaultRemapperEntryForBand, defaultRemapperIdForBand } from './audioBandRemapMigration';
 
 function withDefaultBandMode(entry: AudioBandEntry): AudioBandEntry {
   if (entry.bandMode != null) return entry;
@@ -66,9 +67,16 @@ export function removeFile(setup: AudioSetup, fileId: string): AudioSetup {
 }
 
 export function addBand(setup: AudioSetup, band: AudioBandEntry): AudioSetup {
+  const copied = copyBand(band);
+  const defaultId = defaultRemapperIdForBand(copied.id);
+  const hasDefault = setup.remappers.some((r) => r.id === defaultId);
+  const remappers = hasDefault
+    ? setup.remappers
+    : [copyRemapper(defaultRemapperEntryForBand(copied)), ...setup.remappers];
   return {
     ...setup,
-    bands: [copyBand(band), ...setup.bands],
+    bands: [copied, ...setup.bands],
+    remappers,
   };
 }
 

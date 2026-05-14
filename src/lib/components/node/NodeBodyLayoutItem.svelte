@@ -423,7 +423,6 @@
                 {#snippet children({ displayValue, useConfigForInput, configValue })}
                   <ValueInput
                     value={displayValue}
-                    valueForEdit={configValue}
                     min={paramSpec.min ?? 0}
                     max={paramSpec.max ?? 1}
                     step={paramSpec.type === 'int' ? (paramSpec.step ?? 1) : (paramSpec.step ?? 0.01)}
@@ -457,7 +456,6 @@
                 {#snippet children({ displayValue, useConfigForInput, configValue })}
                   <Knob
                     value={displayValue}
-                    valueForEdit={configValue}
                     min={paramSpec.min ?? 0}
                     max={paramSpec.max ?? 1}
                     step={paramSpec.type === 'int' ? (paramSpec.step ?? 1) : (paramSpec.step ?? 0.01)}
@@ -494,7 +492,6 @@
                 {#snippet children({ displayValue, useConfigForInput, configValue })}
                   <ValueInput
                     value={displayValue}
-                    valueForEdit={configValue}
                     min={paramSpec.min ?? 0}
                     max={paramSpec.max ?? 1}
                     step={paramSpec.type === 'int' ? (paramSpec.step ?? 1) : (paramSpec.step ?? 0.01)}
@@ -590,7 +587,6 @@
                   {#snippet children({ displayValue, useConfigForInput, configValue })}
                     <ValueInput
                       value={displayValue}
-                      valueForEdit={configValue}
                       min={paramSpec.min ?? 0}
                       max={paramSpec.max ?? 1}
                       step={paramSpec.type === 'int' ? (paramSpec.step ?? 1) : (paramSpec.step ?? 0.01)}
@@ -623,7 +619,6 @@
                 {#snippet children({ displayValue, useConfigForInput, configValue })}
                   <Knob
                     value={displayValue}
-                    valueForEdit={configValue}
                     min={paramSpec.min ?? 0}
                     max={paramSpec.max ?? 1}
                     step={paramSpec.type === 'int' ? (paramSpec.step ?? 1) : (paramSpec.step ?? 0.01)}
@@ -659,7 +654,6 @@
                   {#snippet children({ displayValue, useConfigForInput, configValue })}
                     <ValueInput
                       value={displayValue}
-                      valueForEdit={configValue}
                       min={paramSpec.min ?? 0}
                       max={paramSpec.max ?? 1}
                       step={paramSpec.type === 'int' ? (paramSpec.step ?? 1) : (paramSpec.step ?? 0.01)}

@@ -39,6 +39,20 @@ Public entry points are re-exported from index files so **`lib`** imports **`ui/
 - **`lib/components/**`** may import **`src/lib`** utilities and stores, and **`src/ui/editor`** (or interactions) via their **public** `index.ts` exports.
 - **`src/ui/**`** stays **TypeScript-only**; it may import types/helpers from `lib` where needed (e.g. bridge types, menus) but must not import Svelte components.
 
+### Allowed `src/lib` → `src/ui` import roots (barrel-only)
+
+Do not confuse **`src/lib/components/ui/`** (shared Svelte primitives: `button/`, `menu/`, …) with **`src/ui/`** (TypeScript canvas engine). Only the latter is covered here.
+
+From **`src/lib/**`**, imports of the canvas engine must resolve to a **folder barrel** — no deep paths under `src/ui/editor/...` or `src/ui/interactions/...`:
+
+| Target | Allowed specifier shape (relative depth varies) | Forbidden |
+| --- | --- | --- |
+| Editor canvas API | `.../ui/editor` → [`src/ui/editor/index.ts`](../../src/ui/editor/index.ts) | `.../ui/editor/canvas/...`, `.../ui/editor/NodeEditorCanvas`, etc. |
+| Interactions (when used) | `.../ui/interactions` → [`src/ui/interactions/index.ts`](../../src/ui/interactions/index.ts) | Any `.../ui/interactions/<subfolder>/...` |
+| Re-export hub (optional) | `.../ui` only when it resolves to [`src/ui/index.ts`](../../src/ui/index.ts) (e.g. from `src/lib/` one level up), **not** `lib/components/ui` | — |
+
+If a symbol is missing from a barrel, **extend the barrel** (`index.ts`) instead of deep-importing from `src/lib`.
+
 ## Styles
 
 Global tokens and layout shells live under [`src/styles/`](../../src/styles/). Component-owned styles should live in **`<style>`** in the owning Svelte file or colocated CSS per project CSS rules (see `.cursor/rules/frontend/css-standards.mdc`).

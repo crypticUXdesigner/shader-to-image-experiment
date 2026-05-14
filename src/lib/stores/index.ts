@@ -7,6 +7,7 @@ export {
   getGraph,
   type ToolType,
   type TimelineState,
+  type GraphChangedOptions,
 } from './graphStore.svelte';
 
 export {
@@ -19,9 +20,11 @@ export { errorAnnouncer, formatErrorForAnnouncer } from './errorAnnouncer';
 export { subscribeParameterValueTick } from './parameterValueTickStore';
 export {
   PREVIEW_COMPILE_DEFAULT_LABEL,
+  PREVIEW_COMPILE_KEPT_LAST_GOOD_DEFAULT,
   beginPreviewCompileProgressToast,
   clearPreviewCompileProgressToast,
   graphNodesAddedOrRemoved,
+  previewCompileFailedKeptLastGood,
   previewCompileStatusStore,
   shouldDeferPreviewCompileToast,
   type PreviewCompileStatus,

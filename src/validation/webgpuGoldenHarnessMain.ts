@@ -225,7 +225,25 @@ async function runParityForFixture(
       };
     }
 
-    const glInst = new ShaderInstance(glBack.getGLContext(), glCompile);
+    const glCtx = glBack.getGLContext();
+    if (!glCtx) {
+      return {
+        fixtureId,
+        width: GOLDEN_VIEW_WIDTH,
+        height: GOLDEN_VIEW_HEIGHT,
+        metrics: {
+          rms: NaN,
+          mad: NaN,
+          maxDelta: NaN,
+          channelMae: [NaN, NaN, NaN, NaN]
+        },
+        rmsMax,
+        pass: false,
+        skipped: 'WebGL preview surface missing (getGLContext returned null)'
+      };
+    }
+
+    const glInst = new ShaderInstance(glCtx, glCompile);
     transferParametersFromGraph(graph, glInst);
     glInst.setTime(FIXED_TIME);
     glInst.setTimelineTime(FIXED_TIMELINE);
@@ -983,7 +1001,18 @@ async function runPerfForFixture(
         webgpuSkipped: `WebGL compile: ${glCompile.metadata.errors.join('; ')}`
       };
     }
-    const glInst = new ShaderInstance(glBack.getGLContext(), glCompile);
+    const glCtx = glBack.getGLContext();
+    if (!glCtx) {
+      return {
+        fixtureId,
+        frames,
+        webglAvgFrameMs: NaN,
+        webgpuAvgFrameMs: null,
+        webgpuSkipped: 'WebGL preview surface missing (getGLContext returned null)'
+      };
+    }
+
+    const glInst = new ShaderInstance(glCtx, glCompile);
     transferParametersFromGraph(graph, glInst);
     glBack.setShaderInstance(glInst);
 

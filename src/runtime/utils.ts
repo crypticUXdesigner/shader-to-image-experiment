@@ -4,6 +4,58 @@
  * Uniform name mapping function that matches the compiler's naming convention.
  */
 
+import type { AutomationCurve, AutomationState } from '../data-model/types';
+
+function jsonNumber(n: number): string {
+  return JSON.stringify(n);
+}
+
+/** Curve keyframes keep graph order (shader semantics can depend on keyframe sequence). */
+function digestAutomationCurve(curve: AutomationCurve): string {
+  let s = curve.interpolation;
+  for (const kf of curve.keyframes ?? []) {
+    s += '\x1f';
+    s += jsonNumber(kf.time);
+    s += ',';
+    s += jsonNumber(kf.value);
+  }
+  return s;
+}
+
+/**
+ * Stable compile-identity substring for automation (replaces full JSON.stringify of automation).
+ * Lanes and regions are sorted by id so array order alone does not change identity.
+ */
+export function digestAutomationForCompileIdentity(automation: AutomationState | null | undefined): string {
+  if (automation == null) return '';
+  const lanes = [...(automation.lanes ?? [])].sort((a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0));
+  const parts: string[] = [
+    'bpm:',
+    jsonNumber(automation.bpm),
+    '|dur:',
+    jsonNumber(automation.durationSeconds),
+  ];
+  for (const lane of lanes) {
+    parts.push('|L:', lane.id, '|', lane.nodeId, '|', lane.paramName);
+    const regions = [...(lane.regions ?? [])].sort((a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0));
+    for (const r of regions) {
+      parts.push(
+        '|R:',
+        r.id,
+        '|',
+        jsonNumber(r.startTime),
+        '|',
+        jsonNumber(r.duration),
+        '|',
+        r.loop ? '1' : '0',
+        '|C:',
+        digestAutomationCurve(r.curve)
+      );
+    }
+  }
+  return parts.join('');
+}
+
 /**
  * Generate uniform name from node ID and parameter name.
  * This matches the compiler's sanitizeUniformName function exactly.
@@ -46,24 +98,6 @@ export function hashGraph(graph: import('../data-model/types').NodeGraph): strin
     .map(c => `${c.sourceNodeId}:${c.sourcePort}->${c.targetNodeId}:${c.targetPort ?? ''}:${c.targetParameter ?? ''}`)
     .sort()
     .join(',');
-  const automation =
-    graph.automation == null
-      ? ''
-      : JSON.stringify({
-          bpm: graph.automation.bpm,
-          durationSeconds: graph.automation.durationSeconds,
-          lanes: (graph.automation.lanes ?? []).map((l) => ({
-            id: l.id,
-            nodeId: l.nodeId,
-            paramName: l.paramName,
-            regions: (l.regions ?? []).map((r) => ({
-              id: r.id,
-              startTime: r.startTime,
-              duration: r.duration,
-              loop: r.loop,
-              curve: r.curve,
-            })),
-          })),
-        });
+  const automation = digestAutomationForCompileIdentity(graph.automation);
   return `${nodeIds}|${bypassed}|${connectionIds}|${connections}|${automation}`;
 }

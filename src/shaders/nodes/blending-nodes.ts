@@ -4,7 +4,7 @@ import type { NodeSpec } from '../../types/nodeSpec';
  * Blending Nodes
  */
 
-/** Photoshop-style scalar blend primitives (shared by Blend Mode and Blend Color). */
+/** Photoshop-style scalar blend primitives (shared by Blend Channel and Blend Color). */
 export const BLEND_MODE_PHOTOSHOP_FLOAT_GLSL = `
     float blendMultiply(float base, float blend) {
       return base * blend;
@@ -57,7 +57,7 @@ export const BLEND_MODE_PHOTOSHOP_FLOAT_GLSL = `
     }
     
     float applyBlendMode(float base, float blend, int mode) {
-      if (mode == 0) return base; // Normal (no blend, handled separately)
+      if (mode == 0) return blend; // Normal: blend-side is the layer value; opacity mixes in mainCode
       else if (mode == 1) return blendMultiply(base, blend);
       else if (mode == 2) return blendScreen(base, blend);
       else if (mode == 3) return blendOverlay(base, blend);
@@ -76,12 +76,12 @@ export const BLEND_MODE_PHOTOSHOP_FLOAT_GLSL = `
 export const blendModeNodeSpec: NodeSpec = {
   id: 'blend-mode',
   category: 'Blend',
-  displayName: 'Blend Mode',
+  displayName: 'Blend Channel',
   description:
     'Blends two scalar (float) values with Photoshop-style modes—use on luminance or masks, then Color Map for RGB',
   inputs: [
     { name: 'base', type: 'float', label: 'Background' },
-    { name: 'blend', type: 'float', fallbackParameter: 'blend', label: 'Blend' }
+    { name: 'blend', type: 'float', label: 'Blend' }
   ],
   outputs: [
     { name: 'out', type: 'float', label: 'Result' }
@@ -92,7 +92,7 @@ export const blendModeNodeSpec: NodeSpec = {
       default: 0,
       min: 0,
       max: 11,
-      label: 'Blend Mode'
+      label: 'Mode'
     },
     opacity: {
       type: 'float',
@@ -101,25 +101,14 @@ export const blendModeNodeSpec: NodeSpec = {
       max: 1.0,
       step: 0.01,
       label: 'Opacity'
-    },
-    blend: {
-      type: 'float',
-      default: 0.5,
-      min: 0.0,
-      max: 1.0,
-      step: 0.01,
-      label: 'Blend value'
     }
   },
   parameterLayout: {
     elements: [
       {
         type: 'grid',
-        parameters: ['mode', 'opacity', 'blend'],
-        layout: {
-          columns: 2,
-          parameterSpan: { mode: 2 }
-        }
+        parameters: ['mode', 'opacity'],
+        layout: { columns: 2 }
       }
     ]
   },
@@ -130,14 +119,13 @@ export const blendModeNodeSpec: NodeSpec = {
   `
 };
 
-/** Per-channel blend of two RGBA colors; same mode index order as Blend Mode (float). */
+/** Per-channel blend of two RGBA colors; same mode index order as Blend Channel (float). */
 export const blendColorNodeSpec: NodeSpec = {
   id: 'blend-color',
   category: 'Blend',
   displayName: 'Blend Color',
   description:
-    'Blends two RGBA colors with the same Photoshop-style modes as Blend Mode, applied per channel; alpha is mixed separately by Opacity',
-  icon: 'blend-mode',
+    'Blends two RGBA colors with the same Photoshop-style modes as Blend Channel, applied per channel; alpha is mixed separately by Opacity',
   inputs: [
     { name: 'base', type: 'vec4', label: 'Background' },
     { name: 'blend', type: 'vec4', label: 'Blend' }
@@ -149,7 +137,7 @@ export const blendColorNodeSpec: NodeSpec = {
       default: 0,
       min: 0,
       max: 11,
-      label: 'Blend Mode'
+      label: 'Mode'
     },
     opacity: {
       type: 'float',

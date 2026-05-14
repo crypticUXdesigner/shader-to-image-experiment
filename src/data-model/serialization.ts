@@ -20,6 +20,7 @@ import { migrateShapesNodeMerges } from './shapesNodeMergeMigration';
 import { ensureBandAttackReleaseHalfLives } from './audioSmoothingMigration';
 import { ensureBandMode } from './audioBandModeMigration';
 import { migrateDomainRepetitionToTiling } from './tilingUnifyMigration';
+import { migrateRemoveColorMapNodes } from './colorMapNodeRemovalMigration';
 
 const CURRENT_FORMAT_VERSION = '2.0' as const;
 
@@ -78,6 +79,10 @@ const MIGRATIONS_BY_VERSION: Record<string, MigrationStep[]> = {
       if (!audio || audio.bands.length === 0) return ctx;
       return { ...ctx, audioSetup: ensureBandMode(audio) };
     },
+    (ctx: MigrationContext): MigrationContext => ({
+      ...ctx,
+      graph: migrateRemoveColorMapNodes(ctx.graph),
+    }),
   ],
 };
 

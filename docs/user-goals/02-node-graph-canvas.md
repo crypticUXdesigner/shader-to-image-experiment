@@ -18,7 +18,7 @@ Canvas for building and editing the shader graph: place nodes, connect, adjust p
 - **Add nodes from the panel** — Drag node type onto canvas (or equivalent) at chosen position; new node at drop (screen-to-canvas mapped).
 - **Create and remove connections** — Start from output port; complete on input or parameter port; invalid targets rejected (type/rules). Remove: select connection and Delete, or disconnect gesture. One connection per port; new connection to same port replaces previous.
 - **Use node context menu** — Right-click node: Read Guide, Copy node name, Remove.
-- **See live shader preview** — Preview updates as the graph changes.
+- **See live shader preview** — Preview updates as the graph changes. Preview uses **one** GPU API for the session (**WebGL2** or **WebGPU**); see [01-overview-and-app-shell.md](./01-overview-and-app-shell.md) (preview GPU mode). In **WebGPU** mode, expect the composition to work **until** a **blocking** message says otherwise (unsupported graph, device loss, or an explicit parity/product gap)—then follow the message (e.g. switch to **WebGL** mode) rather than relying on hidden fallback.
 
 ## 4. Key Flows
 
@@ -33,8 +33,9 @@ Canvas for building and editing the shader graph: place nodes, connect, adjust p
 
 ## 6. Related
 
+- [01-overview-and-app-shell.md](./01-overview-and-app-shell.md) — Preview GPU mode (WebGL2 vs WebGPU) and hard block.
 - [03-node-panel.md](./03-node-panel.md) — Adding nodes.
 - [04-nodes-and-parameters.md](./04-nodes-and-parameters.md) — Parameters and parameter ports.
 - [05-connections.md](./05-connections.md) — Connection creation and validation.
 - [10-help-and-discovery.md](./10-help-and-discovery.md) — Node context menu.
-- [11-undo-redo-and-keyboard.md](./11-undo-redo-and-keyboard.md) — Shortcuts and history.
+- [09-export.md](./09-export.md) — Export uses the same GPU mode as the session.

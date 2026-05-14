@@ -71,6 +71,12 @@ export interface Connection {
   targetNodeId: string;           // Target node ID
   targetPort?: string;            // Target port name (from Node Specification) — set only for port connections
   targetParameter?: string;       // Target parameter name — set only for parameter connections
+
+  /**
+   * Optional. When true, this connection is kept for UX (can be re-enabled) but is ignored by
+   * compilation and effective-value evaluation, so downstream behaves as if no wire exists.
+   */
+  disabled?: boolean;
 }
 
 /**

@@ -20,6 +20,7 @@ import {
   evaluateMixedWaveSignalPreview,
   getShaderTimeSeconds,
 } from './mixedWaveSignalPreview';
+import { evaluateOscillator2dPortPreview } from './oscillator2dPreview';
 
 const MAX_INPUT_CHAIN_DEPTH = 8;
 
@@ -35,6 +36,112 @@ function evaluateAudioSignalBinding(
   return typeof value === 'number' && !isNaN(value) ? value : null;
 }
 
+function readNumericNodeParam(node: NodeInstance, key: string, fallback: number): number {
+  const v = node.parameters[key];
+  return typeof v === 'number' && isFinite(v) ? v : fallback;
+}
+
+/**
+ * Vec4 preview for the wire feeding split-vector `in` (subset of GPU types).
+ * Returns null when the upstream node has no CPU evaluator (e.g. complex color nodes).
+ */
+function evaluateVec4FromNodeOutput(
+  sourceNodeId: string,
+  sourcePort: string,
+  graph: NodeGraph,
+  nodeSpecs: Map<string, NodeSpec>,
+  audioManager: IAudioManager | undefined,
+  depth: number
+): readonly [number, number, number, number] | null {
+  if (depth > MAX_INPUT_CHAIN_DEPTH) return null;
+  if (sourcePort !== 'out') return null;
+  const src = graph.nodes.find((n) => n.id === sourceNodeId);
+  if (!src) return null;
+
+  if (src.type === 'constant-vec3') {
+    return [
+      readNumericNodeParam(src, 'x', 0),
+      readNumericNodeParam(src, 'y', 0),
+      readNumericNodeParam(src, 'z', 0),
+      1,
+    ] as const;
+  }
+  if (src.type === 'constant-vec4') {
+    return [
+      readNumericNodeParam(src, 'x', 0),
+      readNumericNodeParam(src, 'y', 0),
+      readNumericNodeParam(src, 'z', 0),
+      readNumericNodeParam(src, 'w', 1),
+    ] as const;
+  }
+  if (src.type === 'combine-vector') {
+    const otRaw = src.parameters.outputType;
+    const ot =
+      typeof otRaw === 'number' && isFinite(otRaw)
+        ? Math.max(2, Math.min(4, Math.round(otRaw)))
+        : 2;
+    const x = getNodeInputPortValue(src.id, 'x', graph, nodeSpecs, audioManager, depth + 1);
+    const y = getNodeInputPortValue(src.id, 'y', graph, nodeSpecs, audioManager, depth + 1);
+    const z = getNodeInputPortValue(src.id, 'z', graph, nodeSpecs, audioManager, depth + 1);
+    const w = getNodeInputPortValue(src.id, 'w', graph, nodeSpecs, audioManager, depth + 1);
+    const vx = x !== null && isFinite(x) ? x : 0;
+    const vy = y !== null && isFinite(y) ? y : 0;
+    const vz = z !== null && isFinite(z) ? z : readNumericNodeParam(src, 'z', 0);
+    const vw = w !== null && isFinite(w) ? w : readNumericNodeParam(src, 'w', 1);
+    if (ot === 2) return [vx, vy, 0, 1] as const;
+    if (ot === 3) return [vx, vy, vz, 1] as const;
+    return [vx, vy, vz, vw] as const;
+  }
+  return null;
+}
+
+function evaluateVec4IntoSplitVectorIn(
+  splitNodeId: string,
+  graph: NodeGraph,
+  nodeSpecs: Map<string, NodeSpec>,
+  audioManager: IAudioManager | undefined,
+  depth: number
+): readonly [number, number, number, number] | null {
+  const inConn = graph.connections.find(
+    (c) => !c.disabled && c.targetNodeId === splitNodeId && c.targetPort === 'in'
+  );
+  if (!inConn) return null;
+  return evaluateVec4FromNodeOutput(
+    inConn.sourceNodeId,
+    inConn.sourcePort,
+    graph,
+    nodeSpecs,
+    audioManager,
+    depth + 1
+  );
+}
+
+function isVec4SourceTrackable(
+  conn: Connection,
+  graph: NodeGraph,
+  depth: number,
+  nodeSpecs: Map<string, NodeSpec> | undefined
+): boolean {
+  if (!nodeSpecs || depth > MAX_INPUT_CHAIN_DEPTH) return false;
+  const src = graph.nodes.find((n) => n.id === conn.sourceNodeId);
+  if (!src) return false;
+  if (src.type === 'constant-vec3' || src.type === 'constant-vec4') {
+    return conn.sourcePort === 'out';
+  }
+  if (src.type === 'combine-vector' && conn.sourcePort === 'out') {
+    for (const portName of ['x', 'y', 'z', 'w']) {
+      const inConn = graph.connections.find(
+        (c) => !c.disabled && c.targetNodeId === src.id && c.targetPort === portName
+      );
+      if (inConn && !isConnectionTrackable(inConn, graph, depth + 1, nodeSpecs)) {
+        return false;
+      }
+    }
+    return true;
+  }
+  return false;
+}
+
 function getNodeInputPortValue(
   nodeId: string,
   portName: string,
@@ -44,7 +151,7 @@ function getNodeInputPortValue(
   depth: number
 ): number | null {
   const conn = graph.connections.find(
-    c => c.targetNodeId === nodeId && c.targetPort === portName
+    (c) => !c.disabled && c.targetNodeId === nodeId && c.targetPort === portName
   );
   if (!conn) {
     const node = graph.nodes.find(n => n.id === nodeId);
@@ -112,12 +219,41 @@ export function getInputValue(
 
   if (sourceNode.type === 'mixed-wave-signal') {
     if (connection.sourcePort !== 'out') return null;
-    return evaluateMixedWaveSignalPreview(sourceNode);
+    return evaluateMixedWaveSignalPreview(sourceNode, {
+      graph,
+      nodeSpecs,
+      audioManager: audioManager ?? undefined,
+    });
+  }
+
+  if (sourceNode.type === 'oscillator-2d') {
+    if (connection.sourcePort === 'x' || connection.sourcePort === 'y') {
+      return evaluateOscillator2dPortPreview(
+        sourceNode,
+        connection.sourcePort
+      );
+    }
+    return null;
+  }
+
+  if (sourceNode.type === 'split-vector') {
+    const p = connection.sourcePort;
+    if (p !== 'x' && p !== 'y' && p !== 'z' && p !== 'w') return null;
+    const v4 = evaluateVec4IntoSplitVectorIn(
+      sourceNode.id,
+      graph,
+      nodeSpecs,
+      audioManager,
+      depth
+    );
+    if (!v4) return null;
+    const idx = p === 'x' ? 0 : p === 'y' ? 1 : p === 'z' ? 2 : 3;
+    return v4[idx];
   }
 
   if (sourceNode.type === 'one-minus') {
     const inConn = graph.connections.find(
-      c => c.targetNodeId === sourceNode.id && c.targetPort === 'in'
+      (c) => !c.disabled && c.targetNodeId === sourceNode.id && c.targetPort === 'in'
     );
     if (!inConn) return null;
     const inValue = getInputValue(inConn, graph, nodeSpecs, audioManager, depth + 1);
@@ -126,7 +262,7 @@ export function getInputValue(
   }
   if (sourceNode.type === 'negate') {
     const inConn = graph.connections.find(
-      c => c.targetNodeId === sourceNode.id && c.targetPort === 'in'
+      (c) => !c.disabled && c.targetNodeId === sourceNode.id && c.targetPort === 'in'
     );
     if (!inConn) return null;
     const inValue = getInputValue(inConn, graph, nodeSpecs, audioManager, depth + 1);
@@ -171,7 +307,13 @@ export function getInputValue(
   if (sourceNode.type === 'max') { const a = getA(), b = getB(); if (a === null || b === null) return null; return Math.max(a, b); }
   if (sourceNode.type === 'clamp') { const x = getIn(), mn = getMin(), mx = getMax(); if (x === null || mn === null || mx === null) return null; return Math.max(mn, Math.min(mx, x)); }
   if (sourceNode.type === 'mix') { const a = getA(), b = getB(), t = getT(); if (a === null || b === null || t === null) return null; return a + t * (b - a); }
-  if (sourceNode.type === 'mask-composite-float') { const bg = getBg(), mask = getMask(), fg = getFg(); if (bg === null || mask === null || fg === null) return null; return bg + mask * (fg - bg); }
+  if (sourceNode.type === 'mask-composite-float') {
+    const bg = getBg(), mask = getMask(), fg = getFg();
+    if (bg === null || mask === null || fg === null) return null;
+    const inv = sourceNode.parameters.invert === 1;
+    const m = inv ? 1 - mask : mask;
+    return bg + m * (fg - bg);
+  }
   if (sourceNode.type === 'step') { const edge = getEdge(), x = getX(); if (edge === null || x === null) return null; return x < edge ? 0 : 1; }
   if (sourceNode.type === 'smoothstep') {
     const edge0 = getEdge0(), edge1 = getEdge1(), x = getX();
@@ -228,19 +370,31 @@ function isConnectionTrackable(
   if (
     sourceNode.type === 'constant-float' ||
     sourceNode.type === 'time' ||
-    sourceNode.type === 'mixed-wave-signal'
+    sourceNode.type === 'mixed-wave-signal' ||
+    sourceNode.type === 'oscillator-2d'
   ) {
     return true;
   }
+  if (sourceNode.type === 'split-vector') {
+    const inConn = graph.connections.find(
+      (c) => !c.disabled && c.targetNodeId === sourceNode.id && c.targetPort === 'in'
+    );
+    if (!inConn) return false;
+    return isVec4SourceTrackable(inConn, graph, depth + 1, nodeSpecs);
+  }
   if (sourceNode.type === 'one-minus' || sourceNode.type === 'negate') {
-    const inConn = graph.connections.find(c => c.targetNodeId === sourceNode.id && c.targetPort === 'in');
+    const inConn = graph.connections.find(
+      (c) => !c.disabled && c.targetNodeId === sourceNode.id && c.targetPort === 'in'
+    );
     if (!inConn) return false;
     return isConnectionTrackable(inConn, graph, depth + 1, nodeSpecs);
   }
   const inputPorts = TRACKABLE_NODE_INPUT_PORTS[sourceNode.type];
   if (inputPorts && nodeSpecs) {
     for (const portName of inputPorts) {
-      const inConn = graph.connections.find(c => c.targetNodeId === sourceNode.id && c.targetPort === portName);
+      const inConn = graph.connections.find(
+        (c) => !c.disabled && c.targetNodeId === sourceNode.id && c.targetPort === portName
+      );
       if (!inConn || !isConnectionTrackable(inConn, graph, depth + 1, nodeSpecs)) return false;
     }
     return true;
@@ -256,7 +410,10 @@ export function getParameterInputValue(
   audioManager?: IAudioManager
 ): number | null {
   const connection = graph.connections.find(
-    conn => conn.targetNodeId === targetNodeId && conn.targetParameter === targetParameter
+    (conn) =>
+      !conn.disabled &&
+      conn.targetNodeId === targetNodeId &&
+      conn.targetParameter === targetParameter
   );
   if (!connection) return null;
   return getInputValue(connection, graph, nodeSpecs, audioManager, 0);
@@ -269,7 +426,10 @@ export function hasTrackableInput(
   nodeSpecs?: Map<string, NodeSpec>
 ): boolean {
   const connection = graph.connections.find(
-    conn => conn.targetNodeId === node.id && conn.targetParameter === paramName
+    (conn) =>
+      !conn.disabled &&
+      conn.targetNodeId === node.id &&
+      conn.targetParameter === paramName
   );
   if (!connection) return false;
   return isConnectionTrackable(connection, graph, 0, nodeSpecs);

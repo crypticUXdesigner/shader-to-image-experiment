@@ -207,7 +207,7 @@ float blendExclusion(float base, float blend) {
 }
 
 float applyBlendMode(float base, float blend, int mode) {
-  if (mode == 0) return base; // Normal (no blend, handled separately)
+  if (mode == 0) return blend; // Normal: blend-side is the layer value; opacity mixes at call site
   else if (mode == 1) return blendMultiply(base, blend);
   else if (mode == 2) return blendScreen(base, blend);
   else if (mode == 3) return blendOverlay(base, blend);

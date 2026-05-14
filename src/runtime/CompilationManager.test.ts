@@ -6,10 +6,13 @@
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import type { NodeGraph } from '../data-model/types';
+import type { AudioSetup } from '../data-model/audioSetupTypes';
+import type { PreviewCompileUiSink } from './previewCompileUiSink';
 import type { CompilationResult } from './types';
 import { createCompilationManager } from './factories';
 import type { ShaderCompiler } from './types';
 import type { RenderBackendSelection } from './renderBackends/renderBackendTypes';
+import * as runtimeUtils from './utils';
 
 // Mock ShaderInstance so we don't need WebGL. CompilationManager and parameterTransfer
 // only need: setParameter, getParameters, setTimelineTime, setTime, getTimelineTime, getTime, destroy.
@@ -92,6 +95,7 @@ function createMockRenderer() {
   const selection: RenderBackendSelection = { mode: 'auto', selected: 'webgl2', reason: 'test' };
   return {
     selection,
+    getPreviewCompileExclusiveGpu: () => selection.selected,
     setShaderInstance,
     markDirty,
     render,
@@ -99,6 +103,14 @@ function createMockRenderer() {
     getCanvas: vi.fn(() => ({ width: 1, height: 1 }) as unknown as HTMLCanvasElement),
     setOnContextRestored: vi.fn(),
     setOnContextLost: vi.fn(),
+  };
+}
+
+function createFakePreviewCompileUiSink(): PreviewCompileUiSink {
+  return {
+    beginPreviewCompileProgressToast: vi.fn(),
+    clearPreviewCompileProgressToast: vi.fn(),
+    previewCompileFailedKeptLastGood: vi.fn(),
   };
 }
 
@@ -127,7 +139,7 @@ describe('CompilationManager', () => {
       const cm = createCompilationManager(compiler, renderer);
 
       cm.setGraph(minimalGraph());
-      cm.onGraphStructureChange(true); // immediate → setTimeout(0) then recompile
+      cm.onGraphStructureChange(true); // immediate → setTimeout(80ms) then recompile
 
       vi.runAllTimers();
 
@@ -146,10 +158,17 @@ describe('CompilationManager', () => {
       });
     });
 
-    it('falls back to WebGL when WebGPU compile returns metadata errors (main thread)', () => {
+    it('does not compile WebGL when WebGPU compile is unusable (main thread, exclusive session)', () => {
       const compiler = createMockCompiler();
       const renderer = createMockRenderer();
       renderer.selection.selected = 'webgpu';
+      const report = vi.fn();
+      const cm = createCompilationManager(compiler, renderer, {
+        reportError: vi.fn(),
+        report,
+        onError: vi.fn(),
+        offError: vi.fn(),
+      });
       compiler.compile = vi.fn((_g, _a, opts?: { backend?: string }) => {
         if (opts?.backend === 'webgpu') {
           return {
@@ -164,17 +183,123 @@ describe('CompilationManager', () => {
         }
         return minimalCompilationResult();
       });
-      const cm = createCompilationManager(compiler, renderer);
 
       cm.setGraph(minimalGraph());
       cm.onGraphStructureChange(true);
       vi.runAllTimers();
 
+      expect(compiler.compile).toHaveBeenCalledTimes(1);
+      expect(compiler.compile).toHaveBeenCalledWith(minimalGraph(), null, { backend: 'webgpu' });
+      expect(renderer.setShaderInstance).not.toHaveBeenCalled();
+      expect(report).toHaveBeenCalledWith(
+        'runtime',
+        'error',
+        expect.stringContaining('WebGPU cannot preview'),
+        expect.any(Array)
+      );
+    });
+
+    it('WebGPU apply does not destroy the program when setWebGpuProgram reuses the same instance', () => {
+      const compiler = createMockCompiler();
+      const renderer = createMockRenderer();
+      renderer.selection.selected = 'webgpu';
+      (renderer as unknown as { isWebGpuPreviewBlocked?: () => boolean }).isWebGpuPreviewBlocked = () => false;
+
+      const sharedDestroy = vi.fn();
+      const sharedProgram = {
+        setParameter: vi.fn(),
+        setParameters: vi.fn(),
+        setAudioUniform: vi.fn(),
+        getParameters: vi.fn(() => new Map<string, number | [number, number, number, number]>()),
+        setTimelineTime: vi.fn(),
+        setTime: vi.fn(),
+        getTimelineTime: vi.fn(() => 0),
+        getTime: vi.fn(() => 0),
+        destroy: sharedDestroy,
+      };
+
+      (renderer as unknown as { setWebGpuProgram?: (r: CompilationResult) => unknown }).setWebGpuProgram = vi.fn(
+        () => sharedProgram
+      );
+
+      const webGpuOk = (): CompilationResult => ({
+        ...minimalCompilationResult(),
+        backend: 'webgpu',
+        supported: true,
+        code: '@fragment fn fs() -> @location(0) vec4<f32> { return vec4<f32>(0.0); }',
+        metadata: {
+          ...minimalCompilationResult().metadata,
+          errors: [],
+        },
+      });
+
+      compiler.compile = vi.fn((_g, _a, opts?: { backend?: string }) => {
+        if (opts?.backend === 'webgpu') return webGpuOk();
+        return minimalCompilationResult();
+      });
+
+      const cm = createCompilationManager(compiler, renderer);
+      const g = minimalGraph();
+
+      cm.setGraph(g);
+      cm.setAudioSetup({
+        files: [{ id: 'f1', name: 't', autoPlay: false }],
+        bands: [],
+        remappers: [],
+      });
+      cm.onGraphStructureChange(true);
+      vi.runAllTimers();
+      expect(sharedDestroy).not.toHaveBeenCalled();
+
+      cm.setGraph(g);
+      cm.setAudioSetup({
+        files: [{ id: 'f2', name: 't2', autoPlay: false }],
+        bands: [],
+        remappers: [],
+      });
+      cm.onGraphStructureChange(true);
+      vi.runAllTimers();
+
       expect(compiler.compile).toHaveBeenCalledTimes(2);
-      expect(compiler.compile).toHaveBeenNthCalledWith(1, minimalGraph(), null, { backend: 'webgpu' });
-      expect(compiler.compile).toHaveBeenNthCalledWith(2, minimalGraph(), null, { backend: 'webgl' });
-      expect(renderer.setShaderInstance).toHaveBeenCalled();
-      expect(cm.getShaderInstance()).not.toBeNull();
+      expect(sharedDestroy).not.toHaveBeenCalled();
+    });
+
+    it('recompiles when audio setup changes even if the graph reference is unchanged', () => {
+      const compiler = createMockCompiler();
+      const renderer = createMockRenderer();
+      const cm = createCompilationManager(compiler, renderer);
+
+      const g = minimalGraph();
+      const audioV1: AudioSetup = {
+        files: [{ id: 'f1', name: 't', autoPlay: false }],
+        bands: [],
+        remappers: [],
+      };
+      const audioV2: AudioSetup = {
+        files: [{ id: 'f1', name: 't', autoPlay: false }],
+        bands: [
+          {
+            id: 'band-1',
+            name: 'Bass',
+            sourceFileId: 'f1',
+            frequencyBands: [[20, 120]],
+            fftSize: 2048,
+          },
+        ],
+        remappers: [],
+      };
+
+      cm.setGraph(g);
+      cm.setAudioSetup(audioV1);
+      cm.onGraphStructureChange(true);
+      vi.runAllTimers();
+      expect(compiler.compile).toHaveBeenCalledTimes(1);
+
+      cm.setGraph(g);
+      cm.setAudioSetup(audioV2);
+      cm.onGraphStructureChange(true);
+      vi.runAllTimers();
+      expect(compiler.compile).toHaveBeenCalledTimes(2);
     });
 
     it('skips recompilation when only disconnected nodes change', () => {
@@ -276,6 +401,79 @@ describe('CompilationManager', () => {
       expect(compiler.compile).toHaveBeenCalledTimes(2);
     });
 
+    it('begins preview compile progress toast when only graph automation changes (no new nodes)', () => {
+      const sink = createFakePreviewCompileUiSink();
+
+      const compiler = createMockCompiler();
+      const renderer = createMockRenderer();
+      const cm = createCompilationManager(compiler, renderer, undefined, null, sink);
+
+      const g1 = minimalGraph();
+      cm.setGraph(g1);
+      cm.onGraphStructureChange(true);
+      vi.runAllTimers();
+      expect(compiler.compile).toHaveBeenCalledTimes(1);
+      vi.mocked(sink.beginPreviewCompileProgressToast).mockClear();
+
+      const g2: NodeGraph = {
+        ...g1,
+        automation: {
+          bpm: 120,
+          durationSeconds: 60,
+          lanes: [
+            {
+              id: 'lane-1',
+              nodeId: 'n2',
+              paramName: 'opacity',
+              regions: [],
+            },
+          ],
+        },
+      };
+      cm.setGraph(g2);
+      cm.onGraphStructureChange(true);
+      vi.runAllTimers();
+
+      expect(compiler.compile).toHaveBeenCalledTimes(2);
+      expect(sink.beginPreviewCompileProgressToast).toHaveBeenCalledTimes(1);
+    });
+
+    it('calls previewCompileFailedKeptLastGood after metadata compile failure when shader instance exists', () => {
+      const sink = createFakePreviewCompileUiSink();
+      const compiler = createMockCompiler();
+      const renderer = createMockRenderer();
+      const cm = createCompilationManager(compiler, renderer, undefined, null, sink);
+
+      const g1 = minimalGraph();
+      cm.setGraph(g1);
+      cm.onGraphStructureChange(true);
+      vi.runAllTimers();
+      expect(cm.getShaderInstance()).not.toBeNull();
+
+      compiler.compile = vi.fn(() => ({
+        ...minimalCompilationResult(),
+        metadata: {
+          ...minimalCompilationResult().metadata,
+          errors: ['fixture: compile metadata error'],
+        },
+      }));
+      vi.mocked(sink.previewCompileFailedKeptLastGood).mockClear();
+
+      const g2: NodeGraph = {
+        ...g1,
+        automation: {
+          bpm: 120,
+          durationSeconds: 60,
+          lanes: [{ id: 'lane-1', nodeId: 'n2', paramName: 'opacity', regions: [] }],
+        },
+      };
+      cm.setGraph(g2);
+      cm.onGraphStructureChange(true);
+      vi.runAllTimers();
+
+      expect(sink.previewCompileFailedKeptLastGood).toHaveBeenCalledTimes(1);
+    });
+
     it('ignores parameter updates for nodes outside the preview slice', () => {
       const compiler = createMockCompiler();
       const renderer = createMockRenderer();
@@ -299,6 +497,102 @@ describe('CompilationManager', () => {
       expect(mockInstanceMethods.setParameter).not.toHaveBeenCalled();
     });
 
+    it('applies parameter updates on forward branches from the preview chain (e.g. multiply → mask stack)', () => {
+      vi.stubGlobal('requestAnimationFrame', (cb: FrameRequestCallback) => {
+        cb(0);
+        return 0;
+      });
+      vi.stubGlobal('cancelAnimationFrame', () => {});
+      try {
+        const compiler = createMockCompiler();
+        const renderer = createMockRenderer();
+        const cm = createCompilationManager(compiler, renderer);
+
+        const g1: NodeGraph = {
+          id: 'g-branch',
+          name: 'Test',
+          version: '2.0',
+          nodes: [
+            { id: 'n1', type: 'time', position: { x: 0, y: 0 }, parameters: {} },
+            { id: 'n2', type: 'final-output', position: { x: 1, y: 0 }, parameters: {} },
+            {
+              id: 'dead',
+              type: 'constant-float',
+              position: { x: 2, y: 0 },
+              parameters: { value: 0.5 },
+            },
+          ],
+          connections: [
+            {
+              id: 'to-final',
+              sourceNodeId: 'n1',
+              sourcePort: 'out',
+              targetNodeId: 'n2',
+              targetPort: 'in',
+            },
+            {
+              id: 'to-side',
+              sourceNodeId: 'n1',
+              sourcePort: 'out',
+              targetNodeId: 'dead',
+              targetParameter: 'value',
+            },
+          ],
+        };
+        cm.setGraph(g1);
+        cm.onGraphStructureChange(true);
+        vi.runAllTimers();
+
+        mockInstanceMethods.setParameter.mockClear();
+        cm.onParameterChange('dead', 'value', 0.25);
+        vi.runAllTimers();
+
+        expect(mockInstanceMethods.setParameter).toHaveBeenCalledWith('dead', 'value', 0.25);
+      } finally {
+        vi.unstubAllGlobals();
+      }
+    });
+
+    it('debounced scheduleRecompile uses requestAnimationFrame after idle (not recompile inside idle callback)', () => {
+      const rafMock = vi.fn((cb: FrameRequestCallback): number => {
+        return 1;
+      });
+      vi.stubGlobal('requestAnimationFrame', rafMock);
+      vi.stubGlobal('cancelAnimationFrame', vi.fn());
+      const idleCallbacks: Array<() => void> = [];
+      vi.stubGlobal(
+        'requestIdleCallback',
+        (cb: IdleRequestCallback) => {
+          idleCallbacks.push(() =>
+            cb({ didTimeout: false, timeRemaining: () => 5 } as IdleDeadline)
+          );
+          return idleCallbacks.length;
+        }
+      );
+      vi.stubGlobal('cancelIdleCallback', vi.fn());
+      try {
+        const compiler = createMockCompiler();
+        const renderer = createMockRenderer();
+        const cm = createCompilationManager(compiler, renderer);
+        cm.setGraph(minimalGraph());
+        cm.onGraphStructureChange(false);
+
+        expect(idleCallbacks).toHaveLength(1);
+        expect(compiler.compile).not.toHaveBeenCalled();
+
+        idleCallbacks[0]?.();
+        expect(compiler.compile).not.toHaveBeenCalled();
+        expect(rafMock).toHaveBeenCalled();
+
+        const rafCb = rafMock.mock.calls[rafMock.mock.calls.length - 1]?.[0] as FrameRequestCallback;
+        rafCb(0);
+
+        expect(compiler.compile).toHaveBeenCalledTimes(1);
+      } finally {
+        vi.unstubAllGlobals();
+      }
+    });
+
     it('coalesces multiple immediate structure changes into one compile', () => {
       const compiler = createMockCompiler();
       const renderer = createMockRenderer();
@@ -312,6 +606,150 @@ describe('CompilationManager', () => {
       vi.runAllTimers();
 
       expect(compiler.compile).toHaveBeenCalledTimes(1);
+    });
+
+    it('does not call hashGraph on uniform onParameterChange when compile identity is synced', () => {
+      vi.stubGlobal('requestAnimationFrame', (cb: FrameRequestCallback) => {
+        cb(0);
+        return 0;
+      });
+      vi.stubGlobal('cancelAnimationFrame', () => {});
+      const hashSpy = vi.spyOn(runtimeUtils, 'hashGraph');
+      try {
+        const compiler = createMockCompiler();
+        const renderer = createMockRenderer();
+        const cm = createCompilationManager(compiler, renderer);
+
+        const graphWithUniform: NodeGraph = {
+          id: 'g-hash-skip',
+          name: 'Test',
+          version: '2.0',
+          nodes: [
+            { id: 'n1', type: 'time', position: { x: 0, y: 0 }, parameters: {} },
+            {
+              id: 'nf',
+              type: 'constant-float',
+              position: { x: 1, y: 0 },
+              parameters: { value: 0.5 },
+            },
+            { id: 'n2', type: 'final-output', position: { x: 2, y: 0 }, parameters: {} },
+          ],
+          connections: [
+            {
+              id: 'c1',
+              sourceNodeId: 'n1',
+              sourcePort: 'out',
+              targetNodeId: 'nf',
+              targetPort: 'in',
+            },
+            {
+              id: 'c2',
+              sourceNodeId: 'nf',
+              sourcePort: 'out',
+              targetNodeId: 'n2',
+              targetPort: 'in',
+            },
+          ],
+        };
+        cm.setGraph(graphWithUniform);
+        cm.onGraphStructureChange(true);
+        vi.runAllTimers();
+        expect(cm.getShaderInstance()).not.toBeNull();
+
+        hashSpy.mockClear();
+        cm.onParameterChange('nf', 'value', 0.25);
+        cm.onParameterChange('nf', 'value', 0.5);
+        expect(hashSpy).not.toHaveBeenCalled();
+      } finally {
+        hashSpy.mockRestore();
+        vi.unstubAllGlobals();
+      }
+    });
+
+    it('does not call hashGraph on uniform onParameterChange while compile identity is ahead of last sync', () => {
+      vi.stubGlobal('requestAnimationFrame', (cb: FrameRequestCallback) => {
+        cb(0);
+        return 0;
+      });
+      vi.stubGlobal('cancelAnimationFrame', () => {});
+      const hashSpy = vi.spyOn(runtimeUtils, 'hashGraph');
+      try {
+        const compiler = createMockCompiler();
+        const renderer = createMockRenderer();
+        const cm = createCompilationManager(compiler, renderer);
+
+        cm.setGraph(minimalGraph());
+        cm.onGraphStructureChange(true);
+        vi.runAllTimers();
+        expect(cm.getShaderInstance()).not.toBeNull();
+
+        hashSpy.mockClear();
+        cm.onGraphStructureChange(true);
+        cm.onParameterChange('n1', 'nonexistent', 1);
+        cm.onParameterChange('n1', 'nonexistent', 2);
+        cm.onParameterChange('n1', 'nonexistent', 3);
+        expect(hashSpy).not.toHaveBeenCalled();
+      } finally {
+        hashSpy.mockRestore();
+        vi.unstubAllGlobals();
+      }
+    });
+
+    it('reuses preview parameter surface cache across uniform onParameterChange on the same graph', () => {
+      vi.stubGlobal('requestAnimationFrame', (cb: FrameRequestCallback) => {
+        cb(0);
+        return 0;
+      });
+      vi.stubGlobal('cancelAnimationFrame', () => {});
+      try {
+        const compiler = createMockCompiler();
+        const renderer = createMockRenderer();
+        const cm = createCompilationManager(compiler, renderer);
+
+        const g1: NodeGraph = {
+          id: 'g-surface-cache',
+          name: 'Test',
+          version: '2.0',
+          nodes: [
+            { id: 'n1', type: 'time', position: { x: 0, y: 0 }, parameters: {} },
+            { id: 'n2', type: 'final-output', position: { x: 1, y: 0 }, parameters: {} },
+            {
+              id: 'dead',
+              type: 'constant-float',
+              position: { x: 2, y: 0 },
+              parameters: { value: 0.5 },
+            },
+          ],
+          connections: [
+            {
+              id: 'to-final',
+              sourceNodeId: 'n1',
+              sourcePort: 'out',
+              targetNodeId: 'n2',
+              targetPort: 'in',
+            },
+            {
+              id: 'to-side',
+              sourceNodeId: 'n1',
+              sourcePort: 'out',
+              targetNodeId: 'dead',
+              targetParameter: 'value',
+            },
+          ],
+        };
+        cm.setGraph(g1);
+        cm.onGraphStructureChange(true);
+        vi.runAllTimers();
+        expect(cm.getShaderInstance()).not.toBeNull();
+
+        cm.resetPreviewParameterSurfaceFullWalkCountForTests();
+        cm.onParameterChange('dead', 'value', 0.25);
+        expect(cm.getPreviewParameterSurfaceFullWalkCountForTests()).toBe(1);
+        cm.onParameterChange('dead', 'value', 0.5);
+        expect(cm.getPreviewParameterSurfaceFullWalkCountForTests()).toBe(1);
+      } finally {
+        vi.unstubAllGlobals();
+      }
     });
   });
 
@@ -353,6 +791,7 @@ describe('CompilationManager', () => {
         targetBackend: string;
         graph: NodeGraph;
         audioSetup: unknown;
+        previousResult: CompilationResult | null;
         affectedNodeIds: string[];
         tryIncremental: boolean;
       };
@@ -361,6 +800,7 @@ describe('CompilationManager', () => {
       expect(payload.targetBackend).toBe('webgl');
       expect(payload.graph).toEqual(minimalGraph());
       expect(payload.audioSetup).toBeNull();
+      expect(payload.previousResult).toBeNull();
       expect(Array.isArray(payload.affectedNodeIds)).toBe(true);
       expect(typeof payload.tryIncremental).toBe('boolean');
 
@@ -379,7 +819,7 @@ describe('CompilationManager', () => {
       expect(cm.getPreviewDependencyMask()).toEqual(result.metadata.previewDependencies);
     });
 
-    it('captures `unsupportedReasons` and emits a single info notice when WebGPU compile falls back to WebGL', () => {
+    it('hard-blocks WebGPU worker result when unusable — no WebGL recompile (exclusive session)', () => {
       const postMessageCalls: unknown[] = [];
       const mockWorker = {
         postMessage: vi.fn((payload: unknown) => postMessageCalls.push(payload)),
@@ -438,16 +878,13 @@ describe('CompilationManager', () => {
         data: { type: 'result', id: initialPayload.id, result: webgpuUnsupported },
       } as MessageEvent);
 
-      // Manager must request a WebGL recompile and emit a single info notice with the reasons.
-      expect(postMessageCalls.length).toBe(2);
-      const fallbackPayload = postMessageCalls[1] as { targetBackend: string };
-      expect(fallbackPayload.targetBackend).toBe('webgl');
+      expect(postMessageCalls.length).toBe(1);
       expect(reportCalls).toHaveLength(1);
-      expect(reportCalls[0].severity).toBe('info');
-      expect(reportCalls[0].message).toBe('Switching to WebGL fallback...');
+      expect(reportCalls[0].severity).toBe('error');
+      expect(reportCalls[0].message).toContain('WebGPU cannot preview');
       expect(reportCalls[0].details).toEqual(webgpuUnsupported.unsupportedReasons);
 
-      // Replaying the same fallback (same reasons) must not double-toast.
+      // Replaying the same unsupported snapshot must not double-toast.
       cm.setGraph(minimalGraph());
       cm.onGraphStructureChange(true);
       vi.runAllTimers();
@@ -458,7 +895,7 @@ describe('CompilationManager', () => {
       expect(reportCalls).toHaveLength(1);
     });
 
-    it('requests WebGL recompile when WebGPU result has metadata errors (no broken preview)', () => {
+    it('hard-blocks when WebGPU worker result has metadata errors — no WebGL follow-up compile', () => {
       const postMessageCalls: unknown[] = [];
       const mockWorker = {
         postMessage: vi.fn((payload: unknown) => postMessageCalls.push(payload)),
@@ -491,17 +928,9 @@ describe('CompilationManager', () => {
         data: { type: 'result', id: initialPayload.id, result: webgpuWithErrors },
       } as MessageEvent);
 
-      expect(postMessageCalls.length).toBe(2);
-      const fallbackPayload = postMessageCalls[1] as { targetBackend: string };
-      expect(fallbackPayload.targetBackend).toBe('webgl');
-
-      const okGl = minimalCompilationResult();
-      mockWorker.onmessage?.({
-        data: { type: 'result', id: (postMessageCalls[1] as { id: number }).id, result: okGl },
-      } as MessageEvent);
-
-      expect(renderer.setShaderInstance).toHaveBeenCalled();
-      expect(cm.getShaderInstance()).not.toBeNull();
+      expect(postMessageCalls.length).toBe(1);
+      expect(renderer.setShaderInstance).not.toHaveBeenCalled();
+      expect(cm.getShaderInstance()).toBeNull();
     });
 
     it('ignores worker result when id does not match', () => {

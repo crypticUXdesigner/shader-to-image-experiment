@@ -2,11 +2,11 @@
   /**
    * DomNodeLayer
    * Renders DOM nodes on top of canvas. Same pan/zoom transform as canvas.
-   * All nodes render as DOM in this layer.
+   * Nodes outside the viewport are not mounted (except selection / active drag / patch / entrance).
    */
 
   import Node from '../node/Node.svelte';
-  import type { NodeGraph } from '../../../data-model/types';
+  import type { NodeGraph, NodeInstance } from '../../../data-model/types';
   import type { NodeSpec } from '../../../types/nodeSpec';
   import type { NodeEditorCanvasWrapperAPI } from './NodeEditorCanvasWrapper.types';
   import type { NodeRenderMetrics } from '../../../ui/editor';
@@ -86,6 +86,22 @@
 
   function getNodeMetrics(nodeId: string): NodeRenderMetrics | undefined {
     return canvasApi?.getNodeMetrics(nodeId);
+  }
+
+  /**
+   * Skip DOM for nodes outside the canvas viewport (same predicate as WebGL layers).
+   * Always mount selected / in-flight drag / patch pick / entrance so selection and gestures stay coherent.
+   */
+  function shouldMountDomNode(node: NodeInstance, metrics: NodeRenderMetrics): boolean {
+    if (landedNodeId === node.id) return true;
+    if (patchInsertNodeId != null && patchInsertNodeId === node.id) return true;
+    if (selectedSet.has(node.id)) return true;
+    if (draggingNodeId === node.id) return true;
+    if (potentialDragNodeId === node.id) return true;
+    if (selectedNodesInitialPositions.has(node.id)) return true;
+    const vis = canvasApi?.isNodeVisible?.(node, metrics);
+    if (vis === false) return false;
+    return true;
   }
 
   function toDomMetrics(m: NodeRenderMetrics): DomNodeMetrics {
@@ -197,7 +213,7 @@
     {#each domNodes as node (node.id)}
       {@const spec = nodeSpecsMap.get(node.type)}
       {@const metrics = getNodeMetrics(node.id)}
-      {#if spec && metrics}
+      {#if spec && metrics && shouldMountDomNode(node, metrics)}
         <Node
           nodeId={node.id}
           node={node}

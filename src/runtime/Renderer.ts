@@ -248,8 +248,8 @@ export class Renderer implements Disposable {
       dpr = Math.min(dpr, 1.25);
     }
     const layout = this.getLayoutObservedCanvas();
-    const width = layout.clientWidth * dpr;
-    const height = layout.clientHeight * dpr;
+    const width = Math.max(1, layout.clientWidth * dpr);
+    const height = Math.max(1, layout.clientHeight * dpr);
 
     this.glBackingCanvas.width = width;
     this.glBackingCanvas.height = height;

@@ -33,15 +33,6 @@
         }
       },
       {
-        "id": "node-hex-prism-sdf-color-map",
-        "type": "color-map",
-        "position": {
-          "x": 860,
-          "y": -110
-        },
-        "parameters": {}
-      },
-      {
         "id": "node-hex-prism-sdf-blur",
         "type": "blur",
         "position": {
@@ -69,15 +60,8 @@
         "targetPort": "in"
       },
       {
-        "id": "conn-hex-prism-sdf-hexgrid-to-colormap",
+        "id": "conn-hex-prism-sdf-hexgrid-to-blur",
         "sourceNodeId": "node-1771350689142-g167jkli6",
-        "sourcePort": "out",
-        "targetNodeId": "node-hex-prism-sdf-color-map",
-        "targetPort": "in"
-      },
-      {
-        "id": "conn-hex-prism-sdf-colormap-to-blur",
-        "sourceNodeId": "node-hex-prism-sdf-color-map",
         "sourcePort": "out",
         "targetNodeId": "node-hex-prism-sdf-blur",
         "targetPort": "in"

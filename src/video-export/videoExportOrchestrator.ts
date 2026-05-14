@@ -11,7 +11,6 @@ import type { NodeGraph } from '../data-model/types';
 import type { AudioSetup } from '../data-model/audioSetupTypes';
 import { getPrimaryFileId } from '../data-model/audioSetupTypes';
 import type { ShaderCompiler } from '../runtime/types';
-import { globalErrorHandler } from '../utils/errorHandling';
 import { createOfflineAudioProvider } from './OfflineAudioProvider';
 import { createExportRenderPath } from './ExportRenderPath';
 import { WebCodecsVideoExporter, isSupported } from './WebCodecsVideoExporter';
@@ -26,6 +25,8 @@ import {
 } from './exportLimits';
 import { writable } from 'svelte/store';
 import VideoExportDialog from '../lib/components/export/VideoExportDialog.svelte';
+import type { ExportRasterBackend } from '../runtime/renderBackends/renderBackendTypes';
+import { formatWebGpuRasterExportUserMessage } from '../export/webGpuRasterExportUserMessage';
 
 export interface VideoExportOrchestratorOptions {
   graph: NodeGraph;
@@ -33,6 +34,8 @@ export interface VideoExportOrchestratorOptions {
   compiler: ShaderCompiler;
   /** Returns the primary file (from audioSetup) with loaded buffer, or null. */
   getPrimaryAudio: () => { nodeId: string; buffer: AudioBuffer } | null;
+  /** Same exclusive raster choice as live preview (`RuntimeManager.getExportRasterBackend`). */
+  exportRasterBackend: ExportRasterBackend;
 }
 
 export interface VideoExportDialogConfig {
@@ -307,42 +310,28 @@ export async function runVideoExportFlow(options: VideoExportOrchestratorOptions
 
   const renderPathConfig = { width, height, frameRate, startTimeSeconds: startSeconds };
 
-  // Prefer WebGPU when available and the graph is WGSL-supported; otherwise fall back to the existing WebGL export path.
   type RenderFrameAsync = NonNullable<ReturnType<typeof createExportRenderPath>['renderFrameAsync']>;
-  let usingWebGpu = false;
-  let renderPath = createExportRenderPath(graph, compiler, audioSetup, renderPathConfig);
+  let renderPath: ReturnType<typeof createExportRenderPath>;
   let webgpuAsyncRender: RenderFrameAsync | null = null;
 
-  try {
+  if (options.exportRasterBackend === 'webgpu') {
     const wg = await createWebGpuVideoExportRenderPath(graph, compiler, audioSetup, renderPathConfig);
-    if (wg.ok) {
-      usingWebGpu = true;
-      renderPath.dispose();
-      renderPath = wg.path;
-      webgpuAsyncRender = wg.path.renderFrameAsync ?? null;
-      if (!webgpuAsyncRender) {
-        usingWebGpu = false;
-        renderPath.dispose();
-        renderPath = createExportRenderPath(graph, compiler, audioSetup, renderPathConfig);
-        globalErrorHandler.report('runtime', 'warning', 'WebGPU video export unavailable; falling back to WebGL export.', {
-          context: { webgpuVideoExport: { reason: 'missing.renderFrameAsync' } },
-        });
-      }
-    } else {
+    if (!wg.ok) {
       const detail = wg.compilation?.unsupportedReasons?.join('; ') ?? wg.reason;
-      globalErrorHandler.report('runtime', 'warning', 'WebGPU video export unavailable; falling back to WebGL export.', {
-        context: { webgpuVideoExport: { reason: wg.reason, detail } },
-        originalError: wg.error,
-      });
+      throw new Error(formatWebGpuRasterExportUserMessage(wg.reason, detail), { cause: wg.error });
     }
-  } catch (err) {
-    const e = err instanceof Error ? err : new Error('WebGPU video export init failed', { cause: err });
-    globalErrorHandler.report('runtime', 'warning', 'WebGPU video export failed to initialize; falling back to WebGL export.', {
-      context: { webgpuVideoExport: { reason: 'exception' } },
-      originalError: e,
-    });
+    webgpuAsyncRender = wg.path.renderFrameAsync ?? null;
+    if (!webgpuAsyncRender) {
+      throw new Error(
+        formatWebGpuRasterExportUserMessage('missing.renderFrameAsync', 'WebGPU video export path has no async renderer')
+      );
+    }
+    renderPath = wg.path;
+  } else {
+    renderPath = createExportRenderPath(graph, compiler, audioSetup, renderPathConfig);
   }
 
+  // WebCodecs (VideoEncoder) is separate from WebGL2/WebGPU rasterization; it muxes the frames we render.
   const slicedAudioBuffer = hasAudio && buffer ? sliceAudioBuffer(buffer, startSeconds, endSeconds) : undefined;
   const exporter = WebCodecsVideoExporter.create({
     width,
@@ -381,24 +370,15 @@ export async function runVideoExportFlow(options: VideoExportOrchestratorOptions
         : { channelSamples: [], uniformUpdates: [], timelineTime: frameIndex / frameRate };
 
       let canvas: HTMLCanvasElement | OffscreenCanvas;
-      if (usingWebGpu && webgpuAsyncRender) {
+      if (webgpuAsyncRender) {
         try {
           canvas = await webgpuAsyncRender(frameIndex, frameState);
         } catch (err) {
           const e = err instanceof Error ? err : new Error('WebGPU renderFrame failed', { cause: err });
-          globalErrorHandler.report('runtime', 'warning', 'WebGPU video export failed; switching to WebGL export for remaining frames.', {
-            context: { webgpuVideoExport: { reason: 'renderFrame.failed', frameIndex } },
-            originalError: e,
-          });
-          usingWebGpu = false;
-          webgpuAsyncRender = null;
-          try {
-            renderPath.dispose();
-          } catch {
-            // ignore
-          }
-          renderPath = createExportRenderPath(graph, compiler, audioSetup, renderPathConfig);
-          canvas = renderPath.renderFrame(frameIndex, frameState);
+          throw new Error(
+            formatWebGpuRasterExportUserMessage('renderFrame.failed', `frame ${frameIndex}: ${e.message}`),
+            { cause: e }
+          );
         }
       } else {
         canvas = renderPath.renderFrame(frameIndex, frameState);

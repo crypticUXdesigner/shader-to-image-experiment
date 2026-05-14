@@ -170,7 +170,10 @@ export function computeEffectiveParameterValue(
     : computeConfigValueLegacy(node, paramName, paramSpec, automationValue);
 
   const connection = graph.connections.find(
-    conn => conn.targetNodeId === node.id && conn.targetParameter === paramName
+    (conn) =>
+      !conn.disabled &&
+      conn.targetNodeId === node.id &&
+      conn.targetParameter === paramName
   );
 
   if (!connection) {

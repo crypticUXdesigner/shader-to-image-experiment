@@ -29,7 +29,7 @@ Payload and reply shapes are defined in [`src/runtime/compilation/workerMessages
 ### Worker responsibilities
 
 - **`init`** — Build a `Map` of `NodeSpec`, construct **`NodeShaderCompiler`**, reply `{ type: 'inited' }`.
-- **`compile`** — Receive graph, optional `audioSetup`, optional `previousResult`, `affectedNodeIds`, `tryIncremental`. Run incremental compile when allowed; fall back to full **`compile`**. Reply `{ type: 'result', id, result }` or `{ type: 'error', id, message }`.
+- **`compile`** — Receive graph, optional `audioSetup`, optional `previousResult` ( **`null` when `tryIncremental` is false** so the main thread avoids cloning the last snapshot for full compiles), `affectedNodeIds`, `tryIncremental`. Run incremental compile when allowed; fall back to full **`compile`**. Reply `{ type: 'result', id, result }` or `{ type: 'error', id, message }`.
 
 ### Main-thread responsibilities
 
@@ -50,6 +50,10 @@ The worker may import the compiler stack, **`data-model`** types, and other pure
 - **`createRuntimeManager(canvas, compiler, errorHandler?, nodeSpecsForWorker)`** — Creates worker, inits compiler inside worker, passes worker into **`createCompilationManager(..., worker)`**.
 
 The app obtains node specs when building the editor compiler and passes them into `createRuntimeManager` so preview compilation can offload.
+
+### Testing
+
+Vitest **`src/runtime/compilation/workerMessages.test.ts`** guards **structured-clone / JSON** stability of compile payloads and the shape of worker **reply** messages (`result`, `error`, `inited`) so main-thread apply logic and the worker stay aligned when fields are added or refactored.
 
 ---
 

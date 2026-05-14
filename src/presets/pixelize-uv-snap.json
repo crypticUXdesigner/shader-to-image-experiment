@@ -76,12 +76,6 @@
         "parameters": {}
       },
       {
-        "id": "node-color-map",
-        "type": "color-map",
-        "position": { "x": 1040, "y": 0 },
-        "parameters": {}
-      },
-      {
         "id": "node-output",
         "type": "final-output",
         "position": { "x": 1560, "y": 0 },
@@ -192,15 +186,8 @@
         "targetPort": "in"
       },
       {
-        "id": "conn-noise-color",
+        "id": "conn-noise-output",
         "sourceNodeId": "node-noise",
-        "sourcePort": "out",
-        "targetNodeId": "node-color-map",
-        "targetPort": "in"
-      },
-      {
-        "id": "conn-color-out",
-        "sourceNodeId": "node-color-map",
         "sourcePort": "out",
         "targetNodeId": "node-output",
         "targetPort": "in"

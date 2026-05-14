@@ -73,8 +73,6 @@ The sections below are a **node-by-node audit workbook**. **Suggested label** ro
 | mirror-flip | in | vec2 | — | **Position** |
 | mirror-flip | out | vec2 | — | **UV** |
 | displace | in | vec2 | — | **UV** |
-| displace | offset | vec2 | — | **Offset** |
-| displace | amount | float | — | **Amount** |
 | displace | out | vec2 | — | **UV** |
 | vortex | in | vec2 | — | **UV** |
 | vortex | out | vec2 | — | **UV** |

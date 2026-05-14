@@ -25,7 +25,7 @@
 
   interface Props {
     value: number;
-    /** When provided, ValueInput shows this in edit mode (config value) instead of value (display value). */
+    /** When provided, ValueInput seeds inline edit from this number instead of `value` (e.g. rare overrides). */
     valueForEdit?: number;
     min?: number;
     max?: number;
@@ -58,7 +58,7 @@
     onCommit
   }: Props = $props();
 
-  /* When connected, still allow drag/edit — user changes config value; display shows live effective */
+  /* When connected, drag/inline edit adjust the effective value shown; parent maps back to stored config via input mode. */
   const isReadOnly = $derived(disabled);
 
   type KnobCssLayout = {

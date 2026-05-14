@@ -28,12 +28,13 @@ export interface OKLCHTriple {
 
 /** Payload when user selects a signal from the signal picker. */
 export interface SignalSelectPayload {
-  type: 'graph' | 'audio' | 'disconnect';
+  type: 'graph' | 'audio' | 'disconnect' | 'set-connection-disabled';
   nodeId?: string;
   port?: string;
   signalId?: string;
   virtualNodeId?: string;
   connectionId?: string;
+  disabled?: boolean;
 }
 
 /**

@@ -19,6 +19,16 @@ export interface GraphForUniforms {
   connections: Array<{ sourceNodeId: string; targetNodeId: string; targetPort?: string }>;
 }
 
+/** Reused each `collectAudioUniformUpdates` call; cleared before fill. Consumers must treat the return as ephemeral (same contract as a fresh array). */
+const collectedAudioUniformUpdatesScratch: AudioUniformUpdate[] = [];
+
+/**
+ * @internal Vitest — same buffer is returned across calls when length is reset each invocation.
+ */
+export function getAudioUniformUpdatesScratchBufferForTests(): AudioUniformUpdate[] {
+  return collectedAudioUniformUpdatesScratch;
+}
+
 /**
  * Remap a band value from [inMin,inMax] to [outMin,outMax].
  */
@@ -51,7 +61,8 @@ export function collectAudioUniformUpdates(
   forcePushAll: boolean = false,
   offlineFileUniforms?: Map<string, { getUniformUpdatesAtTime: (timeSeconds: number) => OfflineUniformUpdate[] }>
 ): AudioUniformUpdate[] {
-  const updates: AudioUniformUpdate[] = [];
+  const updates = collectedAudioUniformUpdatesScratch;
+  updates.length = 0;
   const audioNodeStates = playbackController.getAllAudioNodeStates();
 
   for (const [nodeId, state] of audioNodeStates.entries()) {

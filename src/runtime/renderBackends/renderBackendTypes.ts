@@ -8,3 +8,6 @@ export type RenderBackendSelection = {
   reason: string;
 };
 
+/** Exclusive raster API for export jobs; mirrors preview `getPreviewCompileExclusiveGpu`. */
+export type ExportRasterBackend = RenderBackendSelected;
+

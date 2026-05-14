@@ -125,6 +125,7 @@ export function buildCompileGraphView(
 
   const compileConnections: Connection[] = [];
   for (const c of graph.connections) {
+    if (c.disabled) continue;
     if (bypassedB.has(c.sourceNodeId)) continue;
     if (bypassedA.has(c.sourceNodeId)) {
       const resolved = resolveRuleASource(c.sourceNodeId, c.sourcePort);

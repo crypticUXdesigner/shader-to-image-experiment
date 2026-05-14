@@ -143,15 +143,17 @@
     .content {
       flex: 1;
       min-width: 0;
+      display: flex;
+      flex-direction: column;
 
       .name {
-        margin-bottom: var(--pd-xs);
         font-weight: bold;
       }
 
       .desc {
+        margin-top: var(--pd-xs);
         font-size: var(--text-sm);
-        color: var(--print-subtle);
+        color: var(--print-default);
       }
     }
 

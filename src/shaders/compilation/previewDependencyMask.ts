@@ -6,7 +6,7 @@
 
 import type { NodeGraph } from '../../data-model/types';
 import type { NodeSpec } from '../../types/nodeSpec';
-import type { AudioSetup } from '../../data-model/audioSetupTypes';
+import { getPrimaryFileId, type AudioSetup } from '../../data-model/audioSetupTypes';
 import type { PreviewDependencyMask, UniformMetadata } from '../../runtime/types';
 import { isVirtualNodeId } from '../../utils/virtualNodes';
 import { RADIAL_PULSE_SPAWN_SLOT_COUNT, radialPulseSpawnTimelineParam } from '../nodes/radial-pulse';
@@ -194,8 +194,14 @@ export function computePreviewDependencyMaskForWgslMvp(
 
   const baseAudioAndMouse = computePreviewDependencyMask(graph, uniforms, wgslCode, nodeSpecs, audioSetup);
 
+  // Any primary transport (playlist id, upload file, or legacy first file) can trigger follow-up
+  // compiles and runtime sync; keep a wall-clock preview cadence so {@link TimeManager} never
+  // treats the session as "idle" when primary-backed uniforms are missing from this snapshot
+  // (e.g. timing vs. uniform list) or WGSL time hints are incomplete.
+  const primaryDrivesPreviewTransport = getPrimaryFileId(audioSetup) != null;
+
   return {
-    usesWallTime,
+    usesWallTime: usesWallTime || primaryDrivesPreviewTransport,
     usesTimelineTime,
     usesAudioUniforms: baseAudioAndMouse.usesAudioUniforms,
     usesRadialPulseVirtualDrive: baseAudioAndMouse.usesRadialPulseVirtualDrive,
@@ -203,5 +209,34 @@ export function computePreviewDependencyMaskForWgslMvp(
     usesResolutionUniform: hasResolutionNode || baseAudioAndMouse.usesResolutionUniform,
     usesMouseUniforms: baseAudioAndMouse.usesMouseUniforms,
     usesFrameIndex: baseAudioAndMouse.usesFrameIndex
+  };
+}
+
+/**
+ * WebGPU pass-plan results compile upstream WGSL separately; {@link computePreviewDependencyMaskForWgslMvp}
+ * only sees that fragment string, while blur/bokeh/etc. stages still consume `globals` every frame.
+ * Panel audio uniforms (`usesAudioUniforms`) can drive motion via `params[]` without `globals.v0.x`
+ * appearing in that substring — after `setAudioSetup` recompiles, {@link TimeManager} would otherwise
+ * treat the program as non–wall-clock and throttle/batch presents in a way that looks “frozen”.
+ * Merge OR-forces `usesWallTime` when a pass plan exists **or** when audio uniforms are in play.
+ */
+export function mergeWebGpuPreviewDependencyMask(
+  computed: PreviewDependencyMask,
+  provided: PreviewDependencyMask | null | undefined,
+  hasWebGpuPassPlan: boolean
+): PreviewDependencyMask {
+  const forceWallClockPreview =
+    hasWebGpuPassPlan || computed.usesAudioUniforms || !!provided?.usesAudioUniforms;
+  if (provided == null && !forceWallClockPreview) return computed;
+  return {
+    usesWallTime: computed.usesWallTime || !!provided?.usesWallTime || forceWallClockPreview,
+    usesTimelineTime: computed.usesTimelineTime || !!provided?.usesTimelineTime,
+    usesAudioUniforms: computed.usesAudioUniforms || !!provided?.usesAudioUniforms,
+    usesRadialPulseVirtualDrive: computed.usesRadialPulseVirtualDrive || !!provided?.usesRadialPulseVirtualDrive,
+    usesRadialPulseSpawnUniformPass:
+      computed.usesRadialPulseSpawnUniformPass || !!provided?.usesRadialPulseSpawnUniformPass,
+    usesResolutionUniform: computed.usesResolutionUniform || !!provided?.usesResolutionUniform,
+    usesMouseUniforms: computed.usesMouseUniforms || !!provided?.usesMouseUniforms,
+    usesFrameIndex: computed.usesFrameIndex || !!provided?.usesFrameIndex
   };
 }

@@ -24,6 +24,10 @@ import {
 import { INFLATED_ICOSAHEDRON_MVP_WGSL } from './inflatedIcosahedronMvpWgsl';
 import { UniformGenerator } from './UniformGenerator';
 import { getParameterDefaultValue as getParameterDefaultValueHelper, isAudioNode as isAudioNodeHelper } from './NodeShaderCompilerHelpers';
+import {
+  GENERIC_RAYMARCHER_WEBGPU_MVP_SDF_TYPES,
+  genericRaymarcherWebGpuMvpSdfAllowedListSentence,
+} from './genericRaymarcherWebGpuMvpAllowlist';
 import { VIRTUAL_NODE_PREFIX } from '../../utils/virtualNodes';
 import { RADIAL_PULSE_SPAWN_SLOT_COUNT, radialPulseSpawnTimelineParam } from '../nodes/radial-pulse';
 import { TURBULENCE_TIME_INTRINSIC_SCALE } from '../nodes/turbulence';
@@ -64,6 +68,8 @@ export const WGSL_SUPPORTED_NODE_TYPES = new Set([
   'turbulence',
   'vector-field',
   'vortex',
+  'uv-band-shift',
+  'uv-block-glitch',
   'shapes-2d',
   'star-shape-2d',
   'add',
@@ -116,7 +122,6 @@ export const WGSL_SUPPORTED_NODE_TYPES = new Set([
   'bayer-dither',
   'oklch-color',
   'bezier-curve',
-  'color-map',
   'blend-color',
   'blend-mode',
   'scanlines',
@@ -133,6 +138,7 @@ export const WGSL_SUPPORTED_NODE_TYPES = new Set([
   'streak',
   'iterated-inversion',
   'bokeh',
+  'blur',
   'bokeh-point',
   'plane-grid',
   'sky-dome',
@@ -178,9 +184,9 @@ export const WGSL_SUPPORTED_NODE_TYPES = new Set([
 /**
  * Node types emitted as {@link CompilationResult.webgpuPassPlan} (multi-pass/compute pilot path).
  * Most are omitted from {@link WGSL_SUPPORTED_NODE_TYPES} fullscreen inline codegen.
- * Exception: **`bokeh`** also has inline WGSL (GLSL-parity single-pass stub) so graphs like
- * `bokeh → blend-color → final-output` compile on WebGPU; the pass plan still takes precedence
- * when topology is `… → bokeh → final-output`.
+ * Exception: **`bokeh`** and **`blur`** also have inline WGSL (GLSL-parity single-pass stubs) so
+ * graphs like `blur → blend-color → final-output` compile on WebGPU; each pass plan still takes
+ * precedence when topology is `… → bokeh → final-output` / `… → blur → final-output`.
  *
  * Grow this set only alongside a matching compiler branch + runtime/export handlers.
  */
@@ -453,39 +459,15 @@ function sanitizeWgslIdentifier(raw: string): string {
   return /^[0-9]/.test(s) ? `_${s}` : s;
 }
 
-/** Bounded generic-raymarcher pilot: sdf port allow-list (parity with WGSL helpers + marching loop). */
-const GENERIC_RAYMARCHER_WEBGPU_MVP_SDF_TYPES = new Set<string>([
-  'mandelbulb-sdf',
-  'julia-slab-sdf',
-  'mandelbox-sdf',
-  'menger-sponge-sdf',
-  'sierpinski-tetra-sdf',
-  'hex-prism-sdf',
-  'repeated-hex-prism-sdf',
-  'radial-repeat-sdf',
-  'ether-sdf',
-  'kifs-sdf',
-  'metaballs',
-  'box-torus-sdf',
-  'sphere-raymarch',
-]);
-
-function genericRaymarcherWebGpuMvpSdfAllowedListSentence(): string {
-  return [...GENERIC_RAYMARCHER_WEBGPU_MVP_SDF_TYPES].sort((a, b) => a.localeCompare(b)).join(', ');
-}
-
 /**
  * WebGPU MVP: `generic-raymarcher` supports a bounded set of sdf sources + optional `displacement-3d`.
  * An unwired `sdf` port (or bypassed Rule-B SDF that drops the edge) compiles to black / zero glow instead of falling back to WebGL.
+ * An unwired `in` port uses the same typed-zero default as GLSL/WGSL `resolveInputVec2` (`vec2<f32>(0.0)`); do not hard-fail compile for missing `in`.
  */
 function validateGenericRaymarcherWebGpuMvp(graph: NodeGraph, reachable: Set<string>): string[] {
   const reasons: string[] = [];
   for (const node of graph.nodes) {
     if (!reachable.has(node.id) || node.type !== 'generic-raymarcher') continue;
-
-    if (!lookupInputConnection(graph, node.id, 'in')) {
-      reasons.push('generic-raymarcher (WebGPU MVP): Screen position port `in` must be connected');
-    }
 
     const sdfConn = lookupInputConnection(graph, node.id, 'sdf');
     if (!sdfConn || sdfConn.sourcePort !== 'out') {
@@ -1614,6 +1596,7 @@ fn displacementValueFbm3d(p: vec3<f32>, octaves: i32, lacunarity: f32, gain: f32
 export function collectAudioUniformKeysFromParamWires(graph: NodeGraph, reachable: Set<string>): Set<string> {
   const keys = new Set<string>();
   for (const c of graph.connections) {
+    if (c.disabled) continue;
     if (!c.targetParameter || !reachable.has(c.targetNodeId)) continue;
     if (!c.sourceNodeId.startsWith(VIRTUAL_NODE_PREFIX)) continue;
     const signalId = c.sourceNodeId.slice(VIRTUAL_NODE_PREFIX.length);
@@ -2098,8 +2081,9 @@ export function compileWgslMvp(
       audioSetup,
       blurNode.id
     );
-    if (blurResult) return blurResult;
-    // Falls through to unsupported handling below.
+    if (blurResult?.supported === true) return blurResult;
+    // Pass plan missing or unsupported: continue with inline `blur` WGSL (same as topology where
+    // blur is not wired directly to final-output).
   }
 
   // Glow/bloom post-effect pass plan: `... -> glow-bloom -> final-output`.
@@ -2128,7 +2112,7 @@ export function compileWgslMvp(
       audioSetup,
       bokehNode.id
     );
-    if (bokehResult) return bokehResult;
+    if (bokehResult?.supported === true) return bokehResult;
   }
 
   // Crepuscular-rays post-effect pass plan: `... -> crepuscular-rays -> final-output`.
@@ -2262,12 +2246,39 @@ fn rotate2(p: vec2<f32>, angle: f32) -> vec2<f32> {
   ): string => {
     const conn = paramConnByKey.get(`${nodeId}.${paramName}`);
     if (conn) {
+      const node = graph.nodes.find((n) => n.id === nodeId);
+      const spec = node ? nodeSpecs.get(node.type) : undefined;
+      const inputMode =
+        node?.parameterInputModes?.[paramName] ??
+        spec?.parameters?.[paramName]?.inputMode ??
+        'override';
+
+      const configExpr = paramSlotExpr(layout, nodeId, paramName, lane);
+
       const audioSlot = resolveAudioVirtualSlot(conn.sourceNodeId);
-      if (audioSlot != null) return audioSlot;
-      const src = resolveNodeOut(conn.sourceNodeId, conn.sourcePort);
-      if (src) {
-        if (src.type === 'f32') return `(${src.code})`;
-        return `(${src.code}).x`;
+      const inputExpr =
+        audioSlot != null
+          ? audioSlot
+          : (() => {
+              const src = resolveNodeOut(conn.sourceNodeId, conn.sourcePort);
+              if (!src) return null;
+              if (src.type === 'f32') return `(${src.code})`;
+              return `(${src.code}).x`;
+            })();
+
+      if (inputExpr != null) {
+        switch (inputMode) {
+          case 'override':
+            return inputExpr;
+          case 'add':
+            return `((${configExpr}) + (${inputExpr}))`;
+          case 'subtract':
+            return `((${configExpr}) - (${inputExpr}))`;
+          case 'multiply':
+            return `((${configExpr}) * (${inputExpr}))`;
+          default:
+            return inputExpr;
+        }
       }
     }
     return paramSlotExpr(layout, nodeId, paramName, lane);
@@ -2632,7 +2643,6 @@ fn rotate2(p: vec2<f32>, angle: f32) -> vec2<f32> {
         const v = resolveInputVec2(nodeId, 'in');
         if (!v) break;
 
-        const enabled = paramSlotExprWired(paramLayout, nodeId, 'polarEnabled', 0);
         const cx = paramSlotExprWired(paramLayout, nodeId, 'polarCenterX', 0);
         const cy = paramSlotExprWired(paramLayout, nodeId, 'polarCenterY', 0);
         const scaleA = paramSlotExprWired(paramLayout, nodeId, 'polarScale', 0);
@@ -2649,10 +2659,9 @@ fn rotate2(p: vec2<f32>, angle: f32) -> vec2<f32> {
         const ang = `(${polarX} * 3.14159)`;
         const back = `(${center} + vec2<f32>(cos(${ang}), sin(${ang})) * ${polarY})`;
 
-        // mirror GLSL: if enabled <= 0.5, pass through.
         setNodeOut(nodeId, 'out', {
           type: 'vec2<f32>',
-          code: `select(${v.code}, ${back}, ${enabled} > 0.5)`,
+          code: back,
         });
         break;
       }
@@ -2676,6 +2685,285 @@ fn rotate2(p: vec2<f32>, angle: f32) -> vec2<f32> {
         const out = `fract(vec2<f32>((${q}).x + ${parity} * ${brickOffsetX} * ${brickAmount}, (${q}).y))`;
 
         setNodeOut(nodeId, 'out', { type: 'vec2<f32>', code: out });
+        break;
+      }
+      case 'uv-block-glitch': {
+        const p = resolveInputVec2(nodeId, 'in');
+        if (!p) break;
+
+        const seedBase = paramSlotExprWired(paramLayout, nodeId, 'uvBlockGlitchSeed', 0);
+        const stepHz = paramSlotExprWired(paramLayout, nodeId, 'uvBlockGlitchSeedStepHz', 0);
+        const seed = `(${seedBase} + floor(globals.v0.x * max(${stepHz}, 0.0)))`;
+        const blocks = paramSlotExprWired(paramLayout, nodeId, 'uvBlockGlitchBlocks', 0);
+        const vari = paramSlotExprWired(paramLayout, nodeId, 'uvBlockGlitchVariation', 0);
+        const cxMin = paramSlotExprWired(paramLayout, nodeId, 'uvBlockGlitchCenterXMin', 0);
+        const cxMax = paramSlotExprWired(paramLayout, nodeId, 'uvBlockGlitchCenterXMax', 0);
+        const cyMin = paramSlotExprWired(paramLayout, nodeId, 'uvBlockGlitchCenterYMin', 0);
+        const cyMax = paramSlotExprWired(paramLayout, nodeId, 'uvBlockGlitchCenterYMax', 0);
+        const hwMin = paramSlotExprWired(paramLayout, nodeId, 'uvBlockGlitchHalfWMin', 0);
+        const hwMax = paramSlotExprWired(paramLayout, nodeId, 'uvBlockGlitchHalfWMax', 0);
+        const aspMin = paramSlotExprWired(paramLayout, nodeId, 'uvBlockGlitchAspectMin', 0);
+        const aspMax = paramSlotExprWired(paramLayout, nodeId, 'uvBlockGlitchAspectMax', 0);
+        const oxMin = paramSlotExprWired(paramLayout, nodeId, 'uvBlockGlitchOffXMin', 0);
+        const oxMax = paramSlotExprWired(paramLayout, nodeId, 'uvBlockGlitchOffXMax', 0);
+        const oyMin = paramSlotExprWired(paramLayout, nodeId, 'uvBlockGlitchOffYMin', 0);
+        const oyMax = paramSlotExprWired(paramLayout, nodeId, 'uvBlockGlitchOffYMax', 0);
+
+        requireHelper(
+          'uvBlockGlitchRect',
+          `
+fn uvBlockGlitch_hash11(t: f32, seed: f32) -> f32 {
+  var p3 = fract(vec3<f32>(t * 0.371 + seed, t + seed * 0.913, t * 0.017 + seed) * vec3<f32>(0.1031, 0.1030, 0.0973));
+  p3 = p3 + vec3<f32>(dot(p3, p3.yxz + vec3<f32>(19.19)));
+  return fract((p3.x + p3.y) * p3.z);
+}
+
+fn uvBlockGlitch_pick(a: f32, b: f32, t: f32, seed: f32, vari: f32) -> f32 {
+  let mid = 0.5 * (a + b);
+  let u = uvBlockGlitch_hash11(t, seed);
+  let v = mix(a, b, u);
+  return mix(mid, v, clamp(vari, 0.0, 1.0));
+}
+
+fn uvBlockGlitch_apply(
+  p: vec2<f32>,
+  nb: i32,
+  seed: f32,
+  vari: f32,
+  cxMin: f32,
+  cxMax: f32,
+  cyMin: f32,
+  cyMax: f32,
+  hwMin: f32,
+  hwMax: f32,
+  aspMin: f32,
+  aspMax: f32,
+  oxMin: f32,
+  oxMax: f32,
+  oyMin: f32,
+  oyMax: f32,
+) -> vec2<f32> {
+  let nbc = clamp(nb, 1, 16);
+  var outUv = p;
+  for (var i: i32 = 0; i < 16; i = i + 1) {
+    if (i >= nbc) {
+      break;
+    }
+    let fi = f32(i);
+    let cx = uvBlockGlitch_pick(cxMin, cxMax, fi + 0.11, seed, vari);
+    let cy = uvBlockGlitch_pick(cyMin, cyMax, fi + 0.27, seed, vari);
+    let hw = uvBlockGlitch_pick(hwMin, hwMax, fi + 0.43, seed, vari);
+    let asp = uvBlockGlitch_pick(aspMin, aspMax, fi + 0.59, seed, vari);
+    let hh = hw / max(asp, 0.05);
+    let ox = uvBlockGlitch_pick(oxMin, oxMax, fi + 0.71, seed, vari);
+    let oy = uvBlockGlitch_pick(oyMin, oyMax, fi + 0.83, seed, vari);
+    if (abs(p.x - cx) < hw && abs(p.y - cy) < hh) {
+      outUv = p + vec2<f32>(ox, oy);
+    }
+  }
+  return outUv;
+}
+          `
+        );
+
+        const nb = `i32(clamp(floor(${blocks} + 0.5), 1.0, 16.0))`;
+        const code = `uvBlockGlitch_apply(${p.code}, ${nb}, ${seed}, clamp(${vari}, 0.0, 1.0), ${cxMin}, ${cxMax}, ${cyMin}, ${cyMax}, ${hwMin}, ${hwMax}, ${aspMin}, ${aspMax}, ${oxMin}, ${oxMax}, ${oyMin}, ${oyMax})`;
+        setNodeOut(nodeId, 'out', { type: 'vec2<f32>', code });
+        break;
+      }
+      case 'uv-band-shift': {
+        const p = resolveInputVec2(nodeId, 'in');
+        if (!p) break;
+
+        const oriF = paramSlotExprWired(paramLayout, nodeId, 'uvBandShiftOrientation', 0);
+        const ori = `i32(floor(${oriF} + 0.5))`;
+        const seed = paramSlotExprWired(paramLayout, nodeId, 'uvBandShiftSeed', 0);
+        const bandCount = paramSlotExprWired(paramLayout, nodeId, 'uvBandShiftBandCount', 0);
+        const priMin = paramSlotExprWired(paramLayout, nodeId, 'uvBandShiftPriOffMin', 0);
+        const priMax = paramSlotExprWired(paramLayout, nodeId, 'uvBandShiftPriOffMax', 0);
+        const priSpr = paramSlotExprWired(paramLayout, nodeId, 'uvBandShiftPriSpread', 0);
+        const secMin = paramSlotExprWired(paramLayout, nodeId, 'uvBandShiftSecSizeMin', 0);
+        const secMax = paramSlotExprWired(paramLayout, nodeId, 'uvBandShiftSecSizeMax', 0);
+        const secSpr = paramSlotExprWired(paramLayout, nodeId, 'uvBandShiftSecSpread', 0);
+
+        requireHelper(
+          'uvBandShiftHash11',
+          `
+fn uvBandShiftHash11(i: f32, seed: f32) -> f32 {
+  var p3 = fract(vec3<f32>(i, seed, i + seed) * vec3<f32>(0.1031, 0.1030, 0.0973));
+  p3 = p3 + vec3<f32>(dot(p3, p3.yxz + vec3<f32>(19.19)));
+  return fract((p3.x + p3.y) * p3.z);
+}
+          `
+        );
+        requireHelper(
+          'uvBandShift_normPartitionY',
+          `
+fn uvBandShift_normPartitionY(y: f32) -> f32 {
+  return select(clamp(y, 0.0, 1.0), y * 0.5 + 0.5, y < 0.0);
+}
+          `
+        );
+        requireHelper(
+          'uvBandShift_normPartitionX',
+          `
+fn uvBandShift_normPartitionX(x: f32, aspect: f32) -> f32 {
+  let asp = max(aspect, 1e-6);
+  let fromP = clamp(x / (2.0 * asp) + 0.5, 0.0, 1.0);
+  return select(clamp(x, 0.0, 1.0), fromP, x < 0.0 || x > 1.0001);
+}
+          `
+        );
+        requireHelper(
+          'uvBandShift_applyHorizontal',
+          `
+fn uvBandShift_applyHorizontal(
+  p: vec2<f32>,
+  n: i32,
+  seed: f32,
+  priMin: f32,
+  priMax: f32,
+  priSpr: f32,
+  secMin: f32,
+  secMax: f32,
+  secSpr: f32,
+) -> vec2<f32> {
+  let ncl = clamp(n, 1, 64);
+  var sh: array<f32, 64>;
+  var sum: f32 = 0.0;
+  for (var i: i32 = 0; i < 64; i = i + 1) {
+    if (i >= ncl) {
+      break;
+    }
+    let fi = f32(i);
+    let r = mix(secMin, secMax, uvBandShiftHash11(fi, seed));
+    let r0 = mix(secMin, secMax, uvBandShiftHash11(fi - 1.0, seed));
+    let r1 = r;
+    let r2 = mix(secMin, secMax, uvBandShiftHash11(fi + 1.0, seed));
+    let blended = mix(r1, (r0 + 2.0 * r1 + r2) * 0.25, secSpr);
+    sh[i] = max(blended, 1e-5);
+    sum = sum + sh[i];
+  }
+  let invSum = 1.0 / max(sum, 1e-6);
+  for (var i: i32 = 0; i < 64; i = i + 1) {
+    if (i >= ncl) {
+      break;
+    }
+    sh[i] = sh[i] * invSum;
+  }
+  for (var k: i32 = 0; k < 64; k = k + 1) {
+    let i = ncl - 1 - k;
+    if (i < 1) {
+      break;
+    }
+    let jf = floor(uvBandShiftHash11(f32(i), seed + 213.45) * f32(i + 1));
+    let ji = i32(min(max(jf, 0.0), f32(i)));
+    let tmp = sh[i];
+    sh[i] = sh[ji];
+    sh[ji] = tmp;
+  }
+  let y = uvBandShift_normPartitionY(p.y);
+  var bi: i32 = ncl - 1;
+  var acc: f32 = 0.0;
+  for (var i: i32 = 0; i < 64; i = i + 1) {
+    if (i >= ncl) {
+      break;
+    }
+    if (y < acc + sh[i]) {
+      bi = i;
+      break;
+    }
+    acc = acc + sh[i];
+  }
+  let fbi = f32(bi);
+  let o0 = mix(priMin, priMax, uvBandShiftHash11(fbi - 1.0, seed + 31.17));
+  let o1 = mix(priMin, priMax, uvBandShiftHash11(fbi, seed + 31.17));
+  let o2 = mix(priMin, priMax, uvBandShiftHash11(fbi + 1.0, seed + 31.17));
+  let ox = mix(o1, (o0 + 2.0 * o1 + o2) * 0.25, priSpr);
+  return p + vec2<f32>(ox, 0.0);
+}
+          `
+        );
+        requireHelper(
+          'uvBandShift_applyVertical',
+          `
+fn uvBandShift_applyVertical(
+  p: vec2<f32>,
+  aspect: f32,
+  n: i32,
+  seed: f32,
+  priMin: f32,
+  priMax: f32,
+  priSpr: f32,
+  secMin: f32,
+  secMax: f32,
+  secSpr: f32,
+) -> vec2<f32> {
+  let ncl = clamp(n, 1, 64);
+  var sh: array<f32, 64>;
+  var sum: f32 = 0.0;
+  for (var i: i32 = 0; i < 64; i = i + 1) {
+    if (i >= ncl) {
+      break;
+    }
+    let fi = f32(i);
+    let r = mix(secMin, secMax, uvBandShiftHash11(fi + 101.0, seed));
+    let r0 = mix(secMin, secMax, uvBandShiftHash11(fi - 1.0 + 101.0, seed));
+    let r1 = r;
+    let r2 = mix(secMin, secMax, uvBandShiftHash11(fi + 1.0 + 101.0, seed));
+    let blended = mix(r1, (r0 + 2.0 * r1 + r2) * 0.25, secSpr);
+    sh[i] = max(blended, 1e-5);
+    sum = sum + sh[i];
+  }
+  let invSum = 1.0 / max(sum, 1e-6);
+  for (var i: i32 = 0; i < 64; i = i + 1) {
+    if (i >= ncl) {
+      break;
+    }
+    sh[i] = sh[i] * invSum;
+  }
+  for (var k: i32 = 0; k < 64; k = k + 1) {
+    let i = ncl - 1 - k;
+    if (i < 1) {
+      break;
+    }
+    let jf = floor(uvBandShiftHash11(f32(i), seed + 419.77) * f32(i + 1));
+    let ji = i32(min(max(jf, 0.0), f32(i)));
+    let tmp = sh[i];
+    sh[i] = sh[ji];
+    sh[ji] = tmp;
+  }
+  let x = uvBandShift_normPartitionX(p.x, aspect);
+  var bi: i32 = ncl - 1;
+  var acc: f32 = 0.0;
+  for (var i: i32 = 0; i < 64; i = i + 1) {
+    if (i >= ncl) {
+      break;
+    }
+    if (x < acc + sh[i]) {
+      bi = i;
+      break;
+    }
+    acc = acc + sh[i];
+  }
+  let fbi = f32(bi);
+  let o0 = mix(priMin, priMax, uvBandShiftHash11(fbi - 1.0, seed + 67.91));
+  let o1 = mix(priMin, priMax, uvBandShiftHash11(fbi, seed + 67.91));
+  let o2 = mix(priMin, priMax, uvBandShiftHash11(fbi + 1.0, seed + 67.91));
+  let oy = mix(o1, (o0 + 2.0 * o1 + o2) * 0.25, priSpr);
+  return p + vec2<f32>(0.0, oy);
+}
+          `
+        );
+
+        const nExpr = `i32(clamp(floor(${bandCount} + 0.5), 1.0, 64.0))`;
+        const priSprC = `clamp(${priSpr}, 0.0, 1.0)`;
+        const secSprC = `clamp(${secSpr}, 0.0, 1.0)`;
+        const aspect = `(globals.v0.z / max(1.0, globals.v0.w))`;
+        const horiz = `uvBandShift_applyHorizontal(${p.code}, ${nExpr}, ${seed}, ${priMin}, ${priMax}, ${priSprC}, ${secMin}, ${secMax}, ${secSprC})`;
+        const vert = `uvBandShift_applyVertical(${p.code}, ${aspect}, ${nExpr}, ${seed}, ${priMin}, ${priMax}, ${priSprC}, ${secMin}, ${secMax}, ${secSprC})`;
+        const outExpr = `select(${vert}, ${horiz}, ${ori} == 0)`;
+        setNodeOut(nodeId, 'out', { type: 'vec2<f32>', code: outExpr });
         break;
       }
       case 'radial-uv-warp': {
@@ -2771,19 +3059,11 @@ fn spherize(p: vec2<f32>, center: vec2<f32>, radius: f32, strength: f32) -> vec2
         const mode = paramSlotExprWired(paramLayout, nodeId, 'displaceMode', 0);
         const scale = paramSlotExprWired(paramLayout, nodeId, 'displaceScale', 0);
 
-        const offsetLink = lookupInputConnection(graph, nodeId, 'offset');
-        const offsetSrc = offsetLink ? resolveNodeOut(offsetLink.sourceNodeId, offsetLink.sourcePort) : null;
-        const offset: Expr | null = offsetSrc
-          ? coerceToType(offsetSrc, 'vec2<f32>')
-          : {
-              type: 'vec2<f32>',
-              code: `vec2<f32>(${paramSlotExprWired(paramLayout, nodeId, 'offsetX', 0)}, ${paramSlotExprWired(paramLayout, nodeId, 'offsetY', 0)})`,
-            };
-        if (!offset) break;
+        const ox = paramSlotExprWired(paramLayout, nodeId, 'offsetX', 0);
+        const oy = paramSlotExprWired(paramLayout, nodeId, 'offsetY', 0);
+        const offset = { type: 'vec2<f32>' as const, code: `vec2<f32>(${ox}, ${oy})` };
 
-        const amt = resolveInput(nodeId, 'amount', 'amount') ?? { type: 'f32' as const, code: paramSlotExprWired(paramLayout, nodeId, 'amount', 0) };
-
-        if (amt.type !== 'f32') break;
+        const amt = { type: 'f32' as const, code: paramSlotExprWired(paramLayout, nodeId, 'amount', 0) };
 
         const angle = paramSlotExprWired(paramLayout, nodeId, 'directionalDisplaceAngle', 0);
         const dir = `vec2<f32>(cos(${angle}), sin(${angle}))`;
@@ -4074,9 +4354,9 @@ fn mwsMixedWaveShape(p: f32, shape: i32) -> f32 {
         break;
       }
       case 'select': {
-        const cond = resolveInput(nodeId, 'condition') ?? { type: 'f32', code: '0.0' };
-        const t = resolveInput(nodeId, 'trueValue', 'trueValue');
-        const f = resolveInput(nodeId, 'falseValue', 'falseValue');
+        const cond = resolveInput(nodeId, 'condition', 'condition') ?? { type: 'f32', code: '0.0' };
+        const t = resolveInput(nodeId, 'trueValue');
+        const f = resolveInput(nodeId, 'falseValue');
         if (!t || !f) break;
 
         const outType = promoteType(t.type, f.type);
@@ -4096,7 +4376,9 @@ fn mwsMixedWaveShape(p: f32, shape: i32) -> f32 {
         const fg = resolveInput(nodeId, 'fg', 'fg');
         if (!bg || !mask || !fg) break;
         if (bg.type !== 'f32' || mask.type !== 'f32' || fg.type !== 'f32') break;
-        setNodeOut(nodeId, 'out', { type: 'f32', code: `mix(${bg.code}, ${fg.code}, ${mask.code})` });
+        const invert = paramSlotExprWired(paramLayout, nodeId, 'invert', 0);
+        const m = `select(${mask.code}, (1.0 - ${mask.code}), ${invert} > 0.5)`;
+        setNodeOut(nodeId, 'out', { type: 'f32', code: `mix(${bg.code}, ${fg.code}, ${m})` });
         break;
       }
       case 'mask-composite-vec3': {
@@ -4105,7 +4387,9 @@ fn mwsMixedWaveShape(p: f32, shape: i32) -> f32 {
         const mask = resolveInputF32(nodeId, 'mask', 'mask');
         if (!bg || !fg || !mask) break;
         if (mask.type !== 'f32') break;
-        setNodeOut(nodeId, 'out', { type: 'vec3<f32>', code: `mix(${bg.code}, ${fg.code}, ${mask.code})` });
+        const invert = paramSlotExprWired(paramLayout, nodeId, 'invert', 0);
+        const m = `select(${mask.code}, (1.0 - ${mask.code}), ${invert} > 0.5)`;
+        setNodeOut(nodeId, 'out', { type: 'vec3<f32>', code: `mix(${bg.code}, ${fg.code}, ${m})` });
         break;
       }
       case 'reflect': {
@@ -4839,14 +5123,6 @@ fn bayer8(a: vec2<f32>) -> f32 {
         setNodeOut(nodeId, 'out', { type: 'vec4<f32>', code: `vec4<f32>(${x1}, ${y1}, ${x2}, ${y2})` });
         break;
       }
-      case 'color-map': {
-        const v = resolveInput(nodeId, 'in', 'in');
-        if (!v) break;
-        const f = asF32(v) ?? asF32(coerceToType(v, 'f32') ?? v);
-        if (!f) break;
-        setNodeOut(nodeId, 'out', { type: 'vec3<f32>', code: `vec3<f32>(${f.code})` });
-        break;
-      }
       case 'blend-mode': {
         const base = resolveInput(nodeId, 'base');
         const blend = resolveInput(nodeId, 'blend', 'blend');
@@ -4911,7 +5187,7 @@ fn applyBlendMode(base: f32, blend: f32, mode: f32) -> f32 {
 
   // Weighted selection to avoid deep if ladders; keep deterministic with float masks.
   return
-    base * select(0.0, 1.0, m0) +
+    blend * select(0.0, 1.0, m0) +
     r1 * select(0.0, 1.0, m1) +
     r2 * select(0.0, 1.0, m2) +
     r3 * select(0.0, 1.0, m3) +
@@ -4991,7 +5267,7 @@ fn applyBlendMode(base: f32, blend: f32, mode: f32) -> f32 {
   let r11 = blendExclusion(base, blend);
 
   return
-    base * select(0.0, 1.0, m0) +
+    blend * select(0.0, 1.0, m0) +
     r1 * select(0.0, 1.0, m1) +
     r2 * select(0.0, 1.0, m2) +
     r3 * select(0.0, 1.0, m3) +
@@ -5572,6 +5848,45 @@ fn bokehBright(v: f32, threshold: f32, intensity: f32) -> f32 {
         const b = `(bokehBright(${lum}, ${threshold}, ${intensity}) * ${irisMod} * clamp(1.05 + ${radius} * 0.012, 0.5, 1.8))`;
         const blended = `(${lum} + ${b} * ${strength})`;
         const rgb = `select(vec3<f32>(${blended}), clamp(${color} * (${blended} / max(${lum}, 1e-4)), vec3<f32>(0.0), vec3<f32>(1.0)), ${lum} > 1e-4)`;
+        setNodeOut(nodeId, 'out', {
+          type: 'vec4<f32>',
+          code: `vec4<f32>(${rgb}, (${cIn.code}).w)`,
+        });
+        break;
+      }
+      case 'blur': {
+        // GLSL-parity luminance soften from `src/shaders/nodes/blur.ts` (not the multipass
+        // `pass.blur.gaussian-separable.v1` plan used when `blur.out → final-output.in`).
+        const cIn = resolveInputVec4(nodeId, 'in');
+        if (!cIn) break;
+
+        const blurAmount = paramSlotExprWired(paramLayout, nodeId, 'blurAmount', 0);
+        const blurRadius = paramSlotExprWired(paramLayout, nodeId, 'blurRadius', 0);
+        const blurType = paramSlotExprWired(paramLayout, nodeId, 'blurType', 0);
+        const blurDirection = paramSlotExprWired(paramLayout, nodeId, 'blurDirection', 0);
+        const blurCenterX = paramSlotExprWired(paramLayout, nodeId, 'blurCenterX', 0);
+        const blurCenterY = paramSlotExprWired(paramLayout, nodeId, 'blurCenterY', 0);
+
+        const aspect = `(globals.v0.z / max(1.0, globals.v0.w))`;
+        const pc = `((in.uv * 2.0 - vec2<f32>(1.0, 1.0)) * vec2<f32>(${aspect}, 1.0))`;
+        const color = `${cIn.code}.xyz`;
+        const lum = `dot(${color}, vec3<f32>(0.2126, 0.7152, 0.0722))`;
+        const userAmt = `clamp(${blurAmount}, 0.0, 1.0)`;
+        const radScale = `clamp(${blurRadius} / 20.0, 0.0, 1.0)`;
+        const amt = `(${userAmt} * ${radScale})`;
+        const typeF = `f32(${blurType})`;
+        const cen = `vec2<f32>(${blurCenterX}, ${blurCenterY})`;
+        const ang = `(${blurDirection} * 3.141592653589793 / 180.0)`;
+        const blurAxis = `vec2<f32>(cos(${ang}), sin(${ang}))`;
+        const ani = `clamp(0.45 + pow(abs(dot(${pc}, ${blurAxis})), 2.0), 0.35, 1.35)`;
+        const radial = `clamp(1.1 - length(${pc} - ${cen}) * 0.08, 0.25, 1.25)`;
+        const wDir = `(${amt} * ${ani})`;
+        const wRad = `(${amt} * ${radial})`;
+        const inner = `select(${amt}, ${wDir}, (${typeF} > 0.5) && (${typeF} < 1.5))`;
+        const w = `select(${inner}, ${wRad}, ${typeF} >= 1.5)`;
+        const wClamped = `clamp(${w}, 0.0, 1.0)`;
+        const softened = `(${lum} * (1.0 - ${wClamped}) + 0.5 * ${wClamped})`;
+        const rgb = `select(vec3<f32>(${softened}), clamp(${color} * (${softened} / max(${lum}, 1e-4)), vec3<f32>(0.0), vec3<f32>(1.0)), ${lum} > 1e-4)`;
         setNodeOut(nodeId, 'out', {
           type: 'vec4<f32>',
           code: `vec4<f32>(${rgb}, (${cIn.code}).w)`,

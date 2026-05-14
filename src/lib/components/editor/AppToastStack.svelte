@@ -10,6 +10,7 @@
   import type { PreviewCompileStatus } from '../../stores/previewCompileStatusStore';
   import {
     PREVIEW_COMPILE_DEFAULT_LABEL,
+    PREVIEW_COMPILE_KEPT_LAST_GOOD_DEFAULT,
     previewCompileStatusStore,
   } from '../../stores/previewCompileStatusStore';
   import { appToastStore, type AppToast } from '../../stores/appToastStore';
@@ -108,10 +109,21 @@
     return { show: false, label: '' };
   });
 
+  const previewCompileKeptLastGoodToast = $derived.by((): { show: boolean; label: string } => {
+    if (previewCompile.state === 'keptLastGood') {
+      return {
+        show: true,
+        label: previewCompile.message?.trim() || PREVIEW_COMPILE_KEPT_LAST_GOOD_DEFAULT,
+      };
+    }
+    return { show: false, label: '' };
+  });
+
   const showOperationalStack = $derived(
     autosavePersistDelayedVisible ||
       audioAnalysisToast.show ||
-      previewCompileToast.show,
+      previewCompileToast.show ||
+      previewCompileKeptLastGoodToast.show,
   );
 
   const errorToastCount = $derived(toasts.filter((t) => t.variant === 'error').length);
@@ -239,6 +251,11 @@
           </span>
           <span>{previewCompileToast.label}</span>
         </span>
+      </Message>
+    {/if}
+    {#if previewCompileKeptLastGoodToast.show}
+      <Message stacked visible={true} variant="info" hideIcon={true}>
+        <span class="preview-compile-kept-inner">{previewCompileKeptLastGoodToast.label}</span>
       </Message>
     {/if}
   </div>
@@ -373,6 +390,13 @@
     display: flex;
     align-items: center;
     gap: var(--pd-md);
+  }
+
+  .preview-compile-kept-inner {
+    display: block;
+    max-width: min(var(--message-max-width), 100%);
+    text-align: center;
+    line-height: 1.35;
   }
 
   .preview-compile-spinner {

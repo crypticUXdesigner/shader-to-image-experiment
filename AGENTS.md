@@ -29,3 +29,9 @@ Browse `.cursor/rules/` and `.cursor/skills/` or the chat slash menu for the ful
 ## Onboarding
 
 Use the **`onboard-contributor`** skill and `docs/onboarding-checklist.md`.
+
+## GPU preview + export (dev)
+
+- **URL:** `?renderBackend=auto|webgpu|webgl` — parsed in `src/lib/App.svelte` (`parseUrlRenderBackendOverride`). Chooses the preview backend and the **same** exclusive raster API for image/video export (`RuntimeManager.getExportRasterBackend` → `runImageExportFlow` / `runVideoExportFlow`). A WebGPU session does not silently finish export on WebGL in one job (clear error; switch to `webgl` and reload to export on WebGL).
+- **Optional WebGPU clock mask (experimental):** `?webgpuPreviewDependencyClock=1|true|yes` — when preview is WebGPU-only, may pass the compile **preview dependency** mask into `TimeManager` so paused graphs can skip full-rate work; **default off** (fail-open to full-rate if the mask is unsafe). See [`docs/architecture/preview-and-recompilation.md`](docs/architecture/preview-and-recompilation.md) (*Optional developer URL flags*) and `src/runtime/webGpuPreviewDependencyClock.ts`.
+- **WebGPU golden harness** (`npm run test:webgpu-golden`): browser-style WebGL vs WebGPU checks; **opt-in** (not run by default `npm test`). See `src/validation/webgpuGoldenHarnessMain.ts` and [`docs/architecture/PARITY-PLAN.md`](docs/architecture/PARITY-PLAN.md).

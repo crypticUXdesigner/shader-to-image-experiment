@@ -1,7 +1,6 @@
 // Node specs for the node system (all VisualElements have been migrated to native NodeSpecs)
 
 import type { NodeSpec } from '../../types/nodeSpec';
-import { colorMapNodeSpec } from './color-map';
 import { finalOutputNodeSpec } from './final-output';
 import {
   uvCoordinatesNodeSpec,
@@ -29,6 +28,8 @@ import { displaceNodeSpec } from './displace';
 import { vortexNodeSpec } from './vortex';
 import { quadWarpNodeSpec } from './quad-warp';
 import { brickTilingNodeSpec } from './brick-tiling';
+import { uvBlockGlitchNodeSpec } from './uv-block-glitch';
+import { uvBandShiftNodeSpec } from './uv-band-shift';
 import { infiniteZoomNodeSpec } from './infinite-zoom';
 import { noiseNodeSpec } from './noise';
 import { warpTerrainNodeSpec } from './warp-terrain';
@@ -187,6 +188,8 @@ export const nodeSystemSpecs: NodeSpec[] = [
   vortexNodeSpec,
   quadWarpNodeSpec,
   brickTilingNodeSpec,
+  uvBlockGlitchNodeSpec,
+  uvBandShiftNodeSpec,
   infiniteZoomNodeSpec,
 
   // Pattern/Noise nodes
@@ -317,9 +320,6 @@ export const nodeSystemSpecs: NodeSpec[] = [
   oklchColorMapThresholdNodeSpec,
   bayerDitherNodeSpec,
   toneMappingNodeSpec,
-  
-  // Operation nodes
-  colorMapNodeSpec,
   
   // Output nodes
   finalOutputNodeSpec,

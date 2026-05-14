@@ -56,7 +56,7 @@ function resolveSelectBranchType(
     inferred = pickWiderType(inferred, sourceOut.type);
   }
 
-  // If neither branch is connected, preserve current float behavior (params drive defaults)
+  // If neither branch is connected, inferred stays float (unwired branches compile as scalar zeros).
   if (inferred === 'float') return inferred;
 
   // If we only ever inferred 'float' via default, but the canonical spec wants any, keep float.

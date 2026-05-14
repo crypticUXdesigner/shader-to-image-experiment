@@ -27,6 +27,12 @@ export interface LargeSlotProps {
   initialBandId?: string | null;
   /** Register a handler to run when user presses Delete (only when focus is not in an input). */
   registerDeleteHandler?: (handler: (() => void) | null) => void;
+  /**
+   * Browse-only mode: opened from a global entry point (e.g. bottom-bar audio button),
+   * not from a parameter port. Hides Connect actions on bands/remappers; everything
+   * else (create, edit, delete) stays available.
+   */
+  browseOnly?: boolean;
 }
 
 /** Props passed to the compact slot (02B). */
@@ -47,6 +53,8 @@ export interface CompactSlotProps {
   connectedSignalId: string;
   /** Connection id for disconnect. */
   connectionId: string;
+  /** True when the underlying connection is disabled (bypassed). */
+  connectionDisabled: boolean;
   /** Optional: for live spectrum and remapper value visualization in the picker. */
   getAudioManager?: () => IAudioManager | null;
   /** When provided, compact shows a control to open the large picker with this band selected. */

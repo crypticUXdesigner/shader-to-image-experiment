@@ -399,10 +399,15 @@ export interface IRenderer {
   setOnContextLost(callback: () => void): void;
 
   /**
-   * Get WebGL context (for CompilationManager).
+   * Get WebGL context (for CompilationManager). Null when preview uses WebGPU-only surface (no live GL).
    */
-  getGLContext(): WebGL2RenderingContext;
+  getGLContext(): WebGL2RenderingContext | null;
   
+  /**
+   * True when WebGPU preview is in a terminal failure state (no GL fallback in this session).
+   */
+  isWebGpuPreviewBlocked?(): boolean;
+
   /**
    * Get canvas element.
    */

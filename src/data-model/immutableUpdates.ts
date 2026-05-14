@@ -21,6 +21,7 @@ import type {
 } from './types';
 import type { ParameterInputMode, ParameterSpec } from '../types/nodeSpec';
 import type { NodeSpecification } from './validationTypes';
+import type { ConnectionValidationContext } from './connectionValidationContext';
 import { validateConnection } from './validationConnection';
 import { getConnectionTargetKey, isPortConnection } from './connectionUtils';
 import { getUpstreamOutputType } from './connectionWireTypes';
@@ -93,6 +94,8 @@ export interface RemoveNodeOptions {
    * port type matches the incoming wire's source type (passthrough).
    */
   nodeSpecs?: NodeSpecification[];
+  /** When the editor is in a WebGPU session, bridge wires are validated with the same rules as user connections. */
+  connectionValidation?: ConnectionValidationContext;
 }
 
 function removeNodeStripOnly(graph: NodeGraph, nodeId: string): NodeGraph {
@@ -157,7 +160,10 @@ export function removeNode(graph: NodeGraph, nodeId: string, options?: RemoveNod
       : { targetParameter: connOut.targetParameter! }),
   };
 
-  const result = addConnectionWithValidation(graphWithoutNode, bridgeConn, specs, { replaceExisting: true });
+  const result = addConnectionWithValidation(graphWithoutNode, bridgeConn, specs, {
+    replaceExisting: true,
+    connectionValidation: options?.connectionValidation,
+  });
   if (result.errors.length > 0) {
     return graphWithoutNode;
   }
@@ -369,6 +375,25 @@ export function removeConnection(graph: NodeGraph, connectionId: string): NodeGr
 }
 
 /**
+ * Set whether a connection is disabled (ignored by compilation / evaluation) without removing it.
+ * Returns the same graph reference when no change is needed.
+ */
+export function setConnectionDisabled(
+  graph: NodeGraph,
+  connectionId: string,
+  disabled: boolean
+): NodeGraph {
+  const index = graph.connections.findIndex((c) => c.id === connectionId);
+  if (index === -1) return graph;
+  const prev = graph.connections[index];
+  const nextDisabled = disabled ? true : undefined;
+  if (prev.disabled === nextDisabled) return graph;
+  const connections = [...graph.connections];
+  connections[index] = { ...prev, disabled: nextDisabled };
+  return { ...graph, connections };
+}
+
+/**
  * Removes connections that match a predicate, returning a new graph instance.
  * Useful for removing connections to/from a specific port or parameter.
  * 
@@ -458,6 +483,7 @@ export interface AddConnectionWithValidationOptions {
    * callers are responsible for ensuring no duplicates.
    */
   replaceExisting?: boolean;
+  connectionValidation?: ConnectionValidationContext;
 }
 
 /**
@@ -480,7 +506,7 @@ export function addConnectionWithValidation(
   const warnings: string[] = [];
 
   // Validate the candidate connection against the current graph and node specs.
-  validateConnection(connection, graph, nodeSpecs, errors, warnings);
+  validateConnection(connection, graph, nodeSpecs, errors, warnings, options.connectionValidation);
   if (errors.length > 0) {
     return { graph, errors, warnings };
   }

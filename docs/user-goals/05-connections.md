@@ -26,7 +26,15 @@ Connections carry data (float, vec2, color, etc.) from output ports to input or 
 
 - Validation (types, multiplicity) defined by node system and compiler. Parameter ports may have special rules (e.g. signal picker); see [04](./04-nodes-and-parameters.md) and [06](./06-audio.md).
 
+### Two layers of validity
+
+1. **Graph rules** — Port types, one wire per target, and other rules the editor always applies so the saved graph stays consistent.
+2. **What the current preview can run** — The app can use **WebGL2** or **WebGPU** for the same graph data ([01-overview-and-app-shell.md](./01-overview-and-app-shell.md), [`webgl-webgpu-preview-export`](../architecture/webgl-webgpu-preview-export.md)). Some wires are valid for the data model but **cannot compile** in **WebGPU** yet (or need a specific wiring pattern there). The product aims for **strict, wire-time** feedback in a **WebGPU** session: prefer blocking or explaining the problem **when you connect**, not only at export—especially for **finishers** who should not depend on vague “try again” loops.
+
+**Behavior bar (not pixels):** WebGL2 vs WebGPU previews **do not** need to match pixel-for-pixel. They **should** match in spirit: same topology and drivers (audio, automation, chains) **where both paths support them**, and similar motion—not identical numeric traces. **Implicit type promotions** (where the editor allows a wire by converting types) stay consistent across modes unless a mode-specific limitation is documented in implementation notes.
+
 ## 6. Related
 
 - [02-node-graph-canvas.md](./02-node-graph-canvas.md) — Connection drag and hit-testing.
 - [04-nodes-and-parameters.md](./04-nodes-and-parameters.md) — Parameter ports and effective values.
+- [09-export.md](./09-export.md) — Export follows the same session GPU mode (no silent cross-API fallback in one job).

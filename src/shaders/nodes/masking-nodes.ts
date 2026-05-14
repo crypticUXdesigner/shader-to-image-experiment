@@ -62,24 +62,21 @@ export const selectNodeSpec: NodeSpec = {
   description: 'Selects between two values based on condition',
   icon: 'select',
   inputs: [
-    { name: 'condition', type: 'float', label: 'Condition' },
-    { name: 'trueValue', type: 'any', fallbackParameter: 'trueValue', label: 'If true' },
-    { name: 'falseValue', type: 'any', fallbackParameter: 'falseValue', label: 'If false' }
+    { name: 'trueValue', type: 'any', label: 'If true' },
+    { name: 'falseValue', type: 'any', label: 'If false' },
+    { name: 'condition', type: 'float', fallbackParameter: 'condition', label: 'Condition' }
   ],
   outputs: [
     { name: 'out', type: 'any', label: 'Result' }
   ],
   parameters: {
-    trueValue: { type: 'float', default: 1.0, min: -10.0, max: 10.0, step: 0.001, label: 'If true',
-      knobPolarity: 'two-sided' },
-    falseValue: { type: 'float', default: 0.0, min: -10.0, max: 10.0, step: 0.001, label: 'If false',
-      knobPolarity: 'two-sided' }
+    condition: { type: 'float', default: 0.0, min: 0.0, max: 1.0, step: 0.01, label: 'Condition' }
   },
   parameterLayout: {
     elements: [
       {
         type: 'grid',
-        parameters: ['trueValue', 'falseValue'],
+        parameters: ['condition'],
         layout: { columns: 1 }
       }
     ],
@@ -95,7 +92,7 @@ export const maskCompositeFloatNodeSpec: NodeSpec = {
   id: 'mask-composite-float',
   category: 'Mask',
   displayName: 'Mask BW',
-  description: 'Composites foreground over background using a mask. Dark areas show background, bright areas show foreground.',
+  description: 'Composites foreground over background using a mask. Dark areas show background, bright areas show foreground. Optional invert swaps the mask.',
   inputs: [
     { name: 'bg', type: 'float', fallbackParameter: 'bg', label: 'Background' },
     { name: 'mask', type: 'float', fallbackParameter: 'mask', label: 'Mask' },
@@ -109,7 +106,8 @@ export const maskCompositeFloatNodeSpec: NodeSpec = {
       knobPolarity: 'two-sided' },
     mask: { type: 'float', default: 0.5, min: 0.0, max: 1.0, step: 0.01, label: 'Mask' },
     fg: { type: 'float', default: 1.0, min: -10.0, max: 10.0, step: 0.001, label: 'Foreground',
-      knobPolarity: 'two-sided' }
+      knobPolarity: 'two-sided' },
+    invert: { type: 'int', default: 0, min: 0, max: 1, step: 1, label: 'Invert' }
   },
   parameterLayout: {
     elements: [
@@ -117,11 +115,18 @@ export const maskCompositeFloatNodeSpec: NodeSpec = {
         type: 'grid',
         parameters: ['bg', 'mask', 'fg'],
         layout: { columns: 3 }
+      },
+      {
+        type: 'grid',
+        parameters: ['invert'],
+        parameterUI: { invert: 'toggle' },
+        layout: { columns: 1 }
       }
     ]
   },
   mainCode: `
-    $output.out = mix($input.bg, $input.fg, $input.mask);
+    float maskCompositeM = ($param.invert != 0) ? (1.0 - $input.mask) : $input.mask;
+    $output.out = mix($input.bg, $input.fg, maskCompositeM);
   `
 };
 
@@ -130,7 +135,7 @@ export const maskCompositeVec3NodeSpec: NodeSpec = {
   id: 'mask-composite-vec3',
   category: 'Mask',
   displayName: 'Mask Color',
-  description: 'Composites colored foreground over colored background using a mask. Dark areas show background, bright areas show foreground.',
+  description: 'Composites colored foreground over colored background using a mask. Dark areas show background, bright areas show foreground. Optional invert swaps the mask.',
   inputs: [
     { name: 'bg', type: 'vec3', label: 'Background' },
     { name: 'mask', type: 'float', fallbackParameter: 'mask', label: 'Mask' },
@@ -140,14 +145,23 @@ export const maskCompositeVec3NodeSpec: NodeSpec = {
     { name: 'out', type: 'vec3', label: 'Color' }
   ],
   parameters: {
-    mask: { type: 'float', default: 0.5, min: 0.0, max: 1.0, step: 0.01, label: 'Mask' }
+    mask: { type: 'float', default: 0.5, min: 0.0, max: 1.0, step: 0.01, label: 'Mask' },
+    invert: { type: 'int', default: 0, min: 0, max: 1, step: 1, label: 'Invert' }
   },
   parameterLayout: {
-    elements: [{ type: 'auto-grid' }],
+    elements: [
+      {
+        type: 'grid',
+        parameters: ['mask', 'invert'],
+        parameterUI: { invert: 'toggle' },
+        layout: { columns: 2 }
+      }
+    ],
     minColumns: 2
   },
   mainCode: `
-    $output.out = mix($input.bg, $input.fg, $input.mask);
+    float maskCompositeM = ($param.invert != 0) ? (1.0 - $input.mask) : $input.mask;
+    $output.out = mix($input.bg, $input.fg, maskCompositeM);
   `
 };
 

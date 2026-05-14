@@ -7,12 +7,13 @@
 
 import { GraphChangeDetector } from '../utils/changeDetection/GraphChangeDetector';
 import type {
-  IRenderer,
   IAudioManager,
   ICompilationManager,
   TimelineState,
   PreviewDependencyMask
 } from './types';
+import type { IRenderBackend } from './renderBackends/IRenderBackend';
+import type { RenderBackendSelection } from './renderBackends/renderBackendTypes';
 import type { NodeGraph, NodeInstance, Connection } from '../data-model/types';
 import type { AudioSetup } from '../data-model/audioSetupTypes';
 import { getPrimaryFileId } from '../data-model/audioSetupTypes';
@@ -29,13 +30,14 @@ import {
   applyRadialPulseSpawnUniforms,
   clearRadialPulseSpawnArmingState
 } from './audio/radialPulsePreviewSpawn';
+import { resolveWebGpuPreviewDependencyMaskForClock } from './webGpuPreviewDependencyClock';
 
 /** Callback when playlist advances (e.g. on track end or next); app updates store and calls setAudioSetup + playPrimary. */
 export type OnPlaylistAdvance = (nextState: { currentIndex: number }) => void;
 
 export class RuntimeManager implements Disposable {
   private compilationManager: ICompilationManager;
-  private renderer: IRenderer;
+  private renderer: IRenderBackend;
   private audioManager: IAudioManager;
   private currentGraph: NodeGraph | null = null;
   /** Current audio setup (for primary resolution and playlist state). */
@@ -59,20 +61,29 @@ export class RuntimeManager implements Disposable {
   private onContextLostCallback?: () => void;
 
   /**
+   * When true and preview raster is WebGPU, pass compile `previewDependencies` into `TimeManager`
+   * if {@link resolveWebGpuPreviewDependencyMaskForClock} accepts the mask (fail-open otherwise).
+   * Default false — see `setTime` comment.
+   */
+  private readonly webGpuPreviewDependencyClockMask: boolean;
+
+  /**
    * Create a RuntimeManager with injected dependencies.
-   * @param renderer - Renderer instance
+   * @param renderBackend - Active preview raster backend (WebGL or WebGPU)
    * @param audioManager - AudioManager instance
    * @param compilationManager - CompilationManager instance
    * @param errorHandler - Optional error handler (falls back to globalErrorHandler when not set)
    */
   constructor(
-    renderer: IRenderer,
+    renderBackend: IRenderBackend,
     audioManager: IAudioManager,
     compilationManager: ICompilationManager,
-    errorHandler?: ErrorHandler
+    errorHandler?: ErrorHandler,
+    runtimeOptions?: { webGpuPreviewDependencyClockMask?: boolean }
   ) {
+    this.webGpuPreviewDependencyClockMask = runtimeOptions?.webGpuPreviewDependencyClockMask ?? false;
     this.errorHandler = errorHandler;
-    this.renderer = renderer;
+    this.renderer = renderBackend;
     this.audioManager = audioManager;
     this.compilationManager = compilationManager;
 
@@ -295,6 +306,22 @@ export class RuntimeManager implements Disposable {
       this.timeManager.markDirty(this.renderer, 'audio');
     }
 
+    // WebGPU-exclusive preview: by default do not throttle the clock on `previewDependencies`.
+    // WGSL MVP mask inference has missed real motion (audio hydrate / primary transport / pass-plan
+    // slices), which skips `setTime` + `render` and looks like a frozen canvas. Opt-in:
+    // `?webgpuPreviewDependencyClock=1` + fail-open in `resolveWebGpuPreviewDependencyMaskForClock`.
+    // WebGL always uses the compile mask so paused idle graphs do not pay full-rate analyser work.
+    const mask = this.compilationManager.getPreviewDependencyMask();
+    const audioPrimaryPresent = getPrimaryFileId(this.currentAudioSetup) != null;
+    const previewDepsForClock =
+      this.getExportRasterBackend() === 'webgpu'
+        ? resolveWebGpuPreviewDependencyMaskForClock(
+            this.webGpuPreviewDependencyClockMask,
+            mask,
+            audioPrimaryPresent
+          )
+        : mask;
+
     // Use TimeManager to handle time updates; pass audio-uniforms callback so shader receives band/remap values every frame
     this.timeManager.updateTime(
       time,
@@ -311,7 +338,7 @@ export class RuntimeManager implements Disposable {
         });
       },
       {
-        previewDependencies: this.compilationManager.getPreviewDependencyMask(),
+        previewDependencies: previewDepsForClock,
         timelinePlaying: !!timelineState?.isPlaying
       }
     );
@@ -470,10 +497,18 @@ export class RuntimeManager implements Disposable {
   }
   
   /**
-   * Get renderer (for advanced use).
+   * Active preview render backend (raster + compile install hooks).
    */
-  getRenderer(): IRenderer {
+  getRenderBackend(): IRenderBackend {
     return this.renderer;
+  }
+
+  /**
+   * Raster API for export jobs — same exclusive choice as preview compilation
+   * ({@link IRenderBackend.getPreviewCompileExclusiveGpu}).
+   */
+  getExportRasterBackend(): RenderBackendSelection['selected'] {
+    return this.renderer.getPreviewCompileExclusiveGpu();
   }
 
   /** Last successful compile preview dependency snapshot. */
@@ -498,7 +533,7 @@ export class RuntimeManager implements Disposable {
     safeDestroy(this.audioManager as unknown as Disposable);
     
     // Finally clean up Renderer (it manages the canvas and WebGL context)
-    safeDestroy(this.renderer as unknown as Disposable);
+    safeDestroy(this.renderer);
     
     // Clear references
     this.currentGraph = null;

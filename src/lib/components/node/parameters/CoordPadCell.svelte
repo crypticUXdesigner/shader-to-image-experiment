@@ -81,6 +81,8 @@
   let liveValueY = $state(0);
   let effectiveValueX = $state<number | null>(null);
   let effectiveValueY = $state<number | null>(null);
+  /** Same as ParamPortWithAudioState: nudge displayValue when RAF updates effective values. */
+  let tickCount = $state(0);
 
   function applyInputMode(configNum: number, inputValue: number, mode: ParameterInputMode): number {
     switch (mode) {
@@ -171,6 +173,7 @@
       } else {
         effectiveValueY = null;
       }
+      tickCount++;
     });
   });
 
@@ -197,8 +200,20 @@
     modeY === 'multiply' &&
     (inputValueY === null || (typeof inputValueY === 'number' && Math.abs(inputValueY) < 1e-10))
   );
-  const displayValueX = $derived(useConfigForInputX ? getParamValue(paramX) : (effectiveValueX ?? getParamValue(paramX)));
-  const displayValueY = $derived(useConfigForInputY ? getParamValue(paramY) : (effectiveValueY ?? getParamValue(paramY)));
+  const displayValueX = $derived.by(() => {
+    if (connX.state !== 'default' || connY.state !== 'default') {
+      const _ = tickCount;
+      void _;
+    }
+    return useConfigForInputX ? getParamValue(paramX) : (effectiveValueX ?? getParamValue(paramX));
+  });
+  const displayValueY = $derived.by(() => {
+    if (connX.state !== 'default' || connY.state !== 'default') {
+      const _ = tickCount;
+      void _;
+    }
+    return useConfigForInputY ? getParamValue(paramY) : (effectiveValueY ?? getParamValue(paramY));
+  });
 
   function getParamValue(name: string): number {
     const val = node.parameters[name];
@@ -305,8 +320,6 @@
   label={label}
   x={displayValueX}
   y={displayValueY}
-  valueForEditX={getParamValue(paramX)}
-  valueForEditY={getParamValue(paramY)}
   minX={paramSpecX?.min ?? -2}
   maxX={paramSpecX?.max ?? 2}
   minY={paramSpecY?.min ?? -2}

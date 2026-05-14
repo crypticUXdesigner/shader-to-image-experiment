@@ -5,7 +5,11 @@
  * Extracted from RuntimeManager to improve separation of concerns.
  */
 
-import type { IRenderer, PreviewDependencyMask, PreviewProgramInstance } from '../types';
+import type { PreviewDependencyMask, PreviewProgramInstance } from '../types';
+import type { IRenderBackend } from '../renderBackends/IRenderBackend';
+
+/** Clock/present path only needs mark+draw from the backend. */
+export type ITimeManagerRasterSink = Pick<IRenderBackend, 'markDirty' | 'render'>;
 
 export interface TimeManagerUpdateOptions {
   /** From last successful compile; null = legacy full-rate behavior. */
@@ -35,14 +39,14 @@ export class TimeManager {
    *
    * @param time - Current time value
    * @param shaderInstance - Shader instance to update
-   * @param renderer - Renderer to mark dirty and render
+   * @param rasterSink - Preview backend (mark dirty + present)
    * @param updateAudioUniforms - Callback to update audio uniforms
    * @returns true if time was updated and render ran, false otherwise
    */
   updateTime(
     time: number,
     shaderInstance: PreviewProgramInstance | null,
-    renderer: IRenderer,
+    rasterSink: ITimeManagerRasterSink,
     updateAudioUniforms?: (shaderInstance: PreviewProgramInstance) => void,
     options?: TimeManagerUpdateOptions
   ): boolean {
@@ -94,8 +98,8 @@ export class TimeManager {
     this.lastTime = time;
     shaderInstance.setTime(time);
 
-    renderer.markDirty('time');
-    renderer.render();
+    rasterSink.markDirty('time');
+    rasterSink.render();
     this.isDirty = false;
 
     return true;
@@ -104,23 +108,23 @@ export class TimeManager {
   /**
    * Mark runtime as dirty (something changed that requires render).
    *
-   * @param renderer - Renderer to mark dirty
+   * @param rasterSink - Preview backend (mark dirty)
    * @param reason - Reason for marking dirty
    */
-  markDirty(renderer: IRenderer, reason: string): void {
+  markDirty(rasterSink: ITimeManagerRasterSink, reason: string): void {
     this.isDirty = true;
-    renderer.markDirty(reason);
+    rasterSink.markDirty(reason);
   }
 
   /**
    * Render if dirty.
    *
-   * @param renderer - Renderer to use
+   * @param rasterSink - Preview backend (present)
    * @returns true if rendered, false if not dirty
    */
-  renderIfDirty(renderer: IRenderer): boolean {
+  renderIfDirty(rasterSink: ITimeManagerRasterSink): boolean {
     if (this.isDirty) {
-      renderer.render();
+      rasterSink.render();
       this.isDirty = false;
       return true;
     }

@@ -55,6 +55,12 @@
   --node-header-name-color: var(--node-header-print-inputs);
   --param-group-header-color: var(--param-group-header-color-inputs);
   --param-cell-border-radius: var(--radius-md);
+  /*
+   * Connected param cell: Inputs nodes have a light body; the global connected
+   * token is too bright here, especially for audio-connected ports.
+   */
+  --param-cell-bg-connected: #ffffff2e;
+  --param-cell-border-connected: #ffffff80;
   --knob-ring-color: var(--node-knob-ring-color-inputs);
   --knob-ring-active-color-static: var(--node-knob-arc-active-inputs);
   --knob-marker-color: var(--node-knob-marker-inputs);
@@ -75,6 +81,52 @@
   /* Node body */
   .node-body {
     background: radial-gradient(ellipse 120% 160% at 50% 25%, var(--color-clean-gray-70), var(--color-gray-60));
+  }
+
+  /* Parameter groups: make sections visually distinct (Inputs-only). */
+  .node-body {
+    .content {
+      .layout-group {
+        /* Layout */
+        margin-top: var(--pd-sm);
+      }
+
+      .layout-group:first-child {
+        margin-top: 0;
+      }
+
+      .layout-group {
+        .group-header {
+        /* Box model */
+        border: 1px solid #0000001f;
+        border-bottom: 0;
+        border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+        background: #ffffff14;
+        box-shadow:
+          inset 0 1px 0 #ffffff14,
+          0 10px 26px -18px #00000085;
+        backdrop-filter: blur(2px);
+      }
+
+        /* Group content block for the common case: header + grid. */
+        .param-grid {
+          border: 1px solid #0000001a;
+          border-top: 0;
+          border-radius: 0 0 var(--radius-lg) var(--radius-lg);
+        background: #ffffff0f;
+        padding: var(--pd-sm);
+      }
+
+        /* When the header precedes a custom element (color map preview, etc.). */
+        .element {
+          border: 1px solid #0000001a;
+          border-top: 0;
+          border-radius: 0 0 var(--radius-lg) var(--radius-lg);
+        background: #ffffff0f;
+        padding: var(--pd-sm);
+      }
+      }
+    }
   }
 
   /* Icon box */

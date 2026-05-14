@@ -287,6 +287,13 @@ export class AudioPlaybackController extends BaseDisposable {
     this.ensureNotDestroyed();
     
     const wasPlaying = Array.from(this.audioNodes.values()).some(s => s.isPlaying);
+    // Commit logical time before any await (playAudio awaits AudioContext resume).
+    // Otherwise a quick scrub-then-play can read stale currentTime in getGlobalAudioState().
+    for (const state of this.audioNodes.values()) {
+      if (!state.audioBuffer) continue;
+      state.currentTime = Math.max(0, Math.min(time, state.audioBuffer.duration));
+    }
+
     await this.playAllAudio(time);
     if (!wasPlaying) {
       // If it wasn't playing before, pause after seeking so the playhead stays at the seek time.

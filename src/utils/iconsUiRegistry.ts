@@ -68,6 +68,7 @@ export type IconName =
   | 'trash'
   | 'wave-sine'
   | 'waveform'
+  | 'line-segments'
   | 'flame'
   | 'lock-access'
   | 'lock-access-off'
@@ -155,6 +156,7 @@ export const iconNameMap: Record<IconName, string> = {
   'trash': 'trash',
   'wave-sine': 'wave-sine',
   'waveform': 'waveform',
+  'line-segments': 'line-segments',
   'flame': 'flame',
   'lock-access': 'lock',
   'lock-access-off': 'lock-open',

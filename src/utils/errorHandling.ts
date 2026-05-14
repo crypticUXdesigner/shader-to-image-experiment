@@ -265,9 +265,8 @@ class DefaultErrorHandler implements ErrorHandler {
       }
     );
     // Log individual error details when present (e.g. shader compilation errors).
-    // Match the parent severity so an `info` notice (e.g. "Switching to WebGL fallback...")
-    // doesn't surface its details as red `console.error` lines, which previously made benign
-    // recoverable fallbacks look like hard failures.
+    // Match the parent severity so an `info` notice with structured details
+    // doesn't surface its details as red `console.error` lines when the notice is benign.
     if (error.details && error.details.length > 0) {
       const detailLogger =
         error.severity === 'info' ? console.log :

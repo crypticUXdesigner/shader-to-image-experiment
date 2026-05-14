@@ -4,6 +4,7 @@
  * Used by preview (`WebGpuRenderBackend`) and export paths.
  */
 import type { CompilationResult, WebGpuPassPlan } from '../types';
+import { previewPerformanceMark, PreviewPerfMark } from '../previewPerformanceMarks';
 import { ResourcePool, textureDescKey, type WebGpuTextureDesc as FrameGraphTextureDesc } from '../webgpuFrameGraph';
 
 export type GlowBloomV1Plan = Extract<WebGpuPassPlan, { kind: 'pass.glow-bloom.v1' }>;
@@ -253,6 +254,7 @@ export function encodeGlowBloomV1Frame(
     };
   }
 
+  previewPerformanceMark(PreviewPerfMark.previewUniformsStart);
   rt.globalsData[0] = rt.time;
   rt.globalsData[1] = rt.timelineTime;
   rt.globalsData[2] = width;
@@ -284,7 +286,9 @@ export function encodeGlowBloomV1Frame(
     );
     rt.paramsDirty = false;
   }
+  previewPerformanceMark(PreviewPerfMark.previewUniformsEnd);
 
+  previewPerformanceMark(PreviewPerfMark.previewDrawStart);
   const encoder = device.createCommandEncoder();
   const { source, bright, blur } = rt.textures!;
 
@@ -387,4 +391,5 @@ export function encodeGlowBloomV1Frame(
   }
 
   queue.submit([encoder.finish()]);
+  previewPerformanceMark(PreviewPerfMark.previewDrawEnd);
 }

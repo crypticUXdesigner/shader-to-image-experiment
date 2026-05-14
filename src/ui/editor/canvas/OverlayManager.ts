@@ -386,6 +386,12 @@ export class OverlayManager {
         this.getOnConnectionCreated?.()?.(payload.virtualNodeId, 'out', targetNodeId, undefined, targetParameter);
       } else if (payload.type === 'disconnect' && payload.connectionId != null) {
         this.getOnConnectionRemoved?.()?.(payload.connectionId);
+      } else if (
+        payload.type === 'set-connection-disabled' &&
+        payload.connectionId != null &&
+        payload.disabled != null
+      ) {
+        // OverlayManager currently has no "update connection" callback; fall back to no-op here.
       }
       this.render();
     };

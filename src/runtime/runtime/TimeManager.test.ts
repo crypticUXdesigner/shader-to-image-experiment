@@ -36,7 +36,7 @@ describe('TimeManager (preview scheduling)', () => {
     const tm = new TimeManager();
     const render = vi.fn();
     const markDirty = vi.fn();
-    const renderer = { markDirty, render } as import('../types').IRenderer;
+    const renderer = { markDirty, render } as import('./TimeManager').ITimeManagerRasterSink;
     const updateAudio = vi.fn();
     const shader = { setTime: vi.fn() };
 
@@ -61,7 +61,7 @@ describe('TimeManager (preview scheduling)', () => {
     const nowSpy = vi.spyOn(performance, 'now').mockReturnValue(0);
     const tm = new TimeManager();
     const render = vi.fn();
-    const renderer = { markDirty: vi.fn(), render } as import('../types').IRenderer;
+    const renderer = { markDirty: vi.fn(), render } as import('./TimeManager').ITimeManagerRasterSink;
     const updateAudio = vi.fn();
     const shader = { setTime: vi.fn() };
 
@@ -86,7 +86,7 @@ describe('TimeManager (preview scheduling)', () => {
     const nowSpy = vi.spyOn(performance, 'now').mockReturnValue(0);
     const tm = new TimeManager();
     const render = vi.fn();
-    const renderer = { markDirty: vi.fn(), render } as import('../types').IRenderer;
+    const renderer = { markDirty: vi.fn(), render } as import('./TimeManager').ITimeManagerRasterSink;
     const updateAudio = vi.fn();
     const shader = { setTime: vi.fn() };
 

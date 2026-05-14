@@ -10,6 +10,7 @@
  *   4. present tex0 to swapchain
  */
 import type { CompilationResult, WebGpuPassPlan } from '../types';
+import { previewPerformanceMark, PreviewPerfMark } from '../previewPerformanceMarks';
 import { ResourcePool, textureDescKey, type WebGpuTextureDesc as FrameGraphTextureDesc } from '../webgpuFrameGraph';
 
 export type BlurGaussianSeparableV1Plan = Extract<
@@ -276,6 +277,7 @@ export function encodeBlurGaussianSeparableV1Frame(
     rt.pingpong = { read: rt.pool.acquire(texKey), write: rt.pool.acquire(texKey) };
   }
 
+  previewPerformanceMark(PreviewPerfMark.previewUniformsStart);
   // globals.v0 = (time, timelineTime, width, height)
   rt.globalsData[0] = rt.time;
   rt.globalsData[1] = rt.timelineTime;
@@ -310,7 +312,9 @@ export function encodeBlurGaussianSeparableV1Frame(
     );
     rt.paramsDirty = false;
   }
+  previewPerformanceMark(PreviewPerfMark.previewUniformsEnd);
 
+  previewPerformanceMark(PreviewPerfMark.previewDrawStart);
   const encoder = device.createCommandEncoder();
 
   const { read: tex0, write: tex1 } = rt.pingpong!;
@@ -424,4 +428,5 @@ export function encodeBlurGaussianSeparableV1Frame(
   }
 
   queue.submit([encoder.finish()]);
+  previewPerformanceMark(PreviewPerfMark.previewDrawEnd);
 }

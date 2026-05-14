@@ -6,7 +6,7 @@ alwaysApply: false
 
 # Undo / history
 
-- **Push:** Meaningful graph edits (nodes, connections, parameters, view state, automation) must go through paths that **`graphStore`** uses; the store calls `graphChangedListener` → `undoRedoManager.pushState(graph)` — call sites rely on this hook, not manual `pushState` everywhere.
+- **Push:** Semantic graph edits (nodes, connections, parameters, automation on the graph, etc.) go through **`graphStore`**; the store calls `graphChangedListener` → `undoRedoManager.pushState(graph)` for those paths. **Pan/zoom/selection** (`updateViewState`) notifies the listener with `recordUndo: false` so undo history stays semantic-only; applying undo/redo merges **live** view state onto the snapshot before `setGraph`.
 - **Preset / full replace:** `undoRedoManager.clear()` then `graphStore.setGraph(...)` so history starts from the loaded graph.
 
 **Don’t:** Mutate graph outside store (or bypass listener); push duplicate state on preset load.

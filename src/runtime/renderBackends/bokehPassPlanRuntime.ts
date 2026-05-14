@@ -4,6 +4,7 @@
  * Used by preview (`WebGpuRenderBackend`) and export paths.
  */
 import type { CompilationResult, WebGpuPassPlan } from '../types';
+import { previewPerformanceMark, PreviewPerfMark } from '../previewPerformanceMarks';
 import { ResourcePool, textureDescKey, type WebGpuTextureDesc as FrameGraphTextureDesc } from '../webgpuFrameGraph';
 
 export type BokehV1Plan = Extract<WebGpuPassPlan, { kind: 'pass.bokeh.v1' }>;
@@ -245,6 +246,7 @@ export function encodeBokehV1Frame(
     };
   }
 
+  previewPerformanceMark(PreviewPerfMark.previewUniformsStart);
   // globals: v0(time,timeline,width,height), v1(threshold,intensity,radius,strength), v2(blades,rotation,_,_)
   rt.globalsData[0] = rt.time;
   rt.globalsData[1] = rt.timelineTime;
@@ -277,7 +279,9 @@ export function encodeBokehV1Frame(
     );
     rt.paramsDirty = false;
   }
+  previewPerformanceMark(PreviewPerfMark.previewUniformsEnd);
 
+  previewPerformanceMark(PreviewPerfMark.previewDrawStart);
   const encoder = device.createCommandEncoder();
   const { source, bright, blur } = rt.textures!;
 
@@ -368,5 +372,6 @@ export function encodeBokehV1Frame(
   }
 
   queue.submit([encoder.finish()]);
+  previewPerformanceMark(PreviewPerfMark.previewDrawEnd);
 }
 

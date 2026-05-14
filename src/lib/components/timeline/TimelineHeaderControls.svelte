@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { untrack } from 'svelte';
   import { Button, Input, DropdownMenu, IconSvg, MenuHeader, MenuInput, MenuItem, MenuNoResults } from '../ui';
 
   interface FloatParamOption {
@@ -36,6 +37,8 @@
     onCloseSnapGrid: () => void;
 
     onClose?: () => void;
+    /** Wider horizontal padding when merged into `FloatingPanel` header (center drag grip). */
+    layoutVariant?: 'default' | 'floatingPanel';
   }
 
   let {
@@ -57,13 +60,99 @@
     onToggleSnapGridOpen,
     onCloseSnapGrid,
     onClose,
+    layoutVariant = 'default',
   }: Props = $props();
 
   let addLaneButtonEl = $state<HTMLDivElement | null>(null);
   let snapGridButtonEl = $state<HTMLDivElement | null>(null);
+  let addLaneSelectedIndex = $state(-1);
+
+  function getAddLaneInput(): HTMLInputElement | null {
+    return document.querySelector(
+      '.timeline-add-lane-dropdown input.input'
+    ) as HTMLInputElement | null;
+  }
+
+  function getAddLaneListEl(): HTMLElement | null {
+    return document.querySelector('.timeline-add-lane-list');
+  }
+
+  // Focus the search input when the dropdown opens; reset highlight.
+  $effect(() => {
+    if (!addLaneOpen) {
+      untrack(() => {
+        addLaneSelectedIndex = -1;
+      });
+      return;
+    }
+    untrack(() => {
+      addLaneSelectedIndex = -1;
+    });
+    let cancelled = false;
+    // Two rAFs: wait for Popover portal + measurement pass to mount the input.
+    const frame = requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        if (cancelled) return;
+        const input = getAddLaneInput();
+        input?.focus();
+        input?.select();
+      });
+    });
+    return () => {
+      cancelled = true;
+      cancelAnimationFrame(frame);
+    };
+  });
+
+  function scrollAddLaneSelectionIntoView(): void {
+    requestAnimationFrame(() => {
+      const list = getAddLaneListEl();
+      const el = list?.querySelector('.menu-item.is-selected');
+      el?.scrollIntoView({ block: 'nearest' });
+    });
+  }
+
+  function handleAddLaneKeydown(e: KeyboardEvent): void {
+    const items = filteredFloatParams.options;
+    if (e.key === 'Escape') {
+      e.preventDefault();
+      onCloseAddLane();
+      return;
+    }
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      if (items.length === 0) return;
+      addLaneSelectedIndex =
+        addLaneSelectedIndex < 0
+          ? 0
+          : Math.min(addLaneSelectedIndex + 1, items.length - 1);
+      scrollAddLaneSelectionIntoView();
+      return;
+    }
+    if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      if (items.length === 0) return;
+      addLaneSelectedIndex = Math.max(-1, addLaneSelectedIndex - 1);
+      if (addLaneSelectedIndex >= 0) scrollAddLaneSelectionIntoView();
+      return;
+    }
+    if (e.key === 'Enter') {
+      if (addLaneSelectedIndex >= 0 && addLaneSelectedIndex < items.length) {
+        e.preventDefault();
+        const sel = items[addLaneSelectedIndex]!;
+        onAddLane(sel.nodeId, sel.paramName);
+      }
+      return;
+    }
+  }
+
+  function handleAddLaneInput(e: Event): void {
+    addLaneSelectedIndex = -1;
+    onUpdateAddLaneSearch((e.currentTarget as HTMLInputElement).value);
+  }
 </script>
 
-<header class="timeline-header">
+<header class="timeline-header" class:is-floating-panel-chrome={layoutVariant === 'floatingPanel'}>
   <div class="header-left">
     <div class="actions">
       <div bind:this={addLaneButtonEl} class="add-lane-btn-anchor">
@@ -90,7 +179,8 @@
           <MenuInput
             value={addLaneSearch}
             placeholder="Search node or param…"
-            oninput={(e) => onUpdateAddLaneSearch((e.currentTarget as HTMLInputElement).value)}
+            oninput={handleAddLaneInput}
+            onkeydown={handleAddLaneKeydown}
           />
           <div class="timeline-add-lane-list scrollbar-styled">
             {#if filteredFloatParams.options.length === 0}
@@ -102,7 +192,12 @@
                 {@const headerLabel = params[0]?.nodeLabel ?? nodeId}
                 <MenuHeader text={headerLabel} />
                 {#each params as p}
-                  <MenuItem label={p.paramLabel} onclick={() => onAddLane(p.nodeId, p.paramName)} />
+                  {@const flatIdx = filteredFloatParams.options.indexOf(p)}
+                  <MenuItem
+                    label={p.paramLabel}
+                    selected={flatIdx === addLaneSelectedIndex}
+                    onclick={() => onAddLane(p.nodeId, p.paramName)}
+                  />
                 {/each}
               {/each}
             {/if}
@@ -223,6 +318,14 @@
     gap: var(--pd-md);
     min-height: var(--size-sm);
     padding: var(--pd-xs);
+    box-sizing: border-box;
+  }
+
+  .timeline-header.is-floating-panel-chrome {
+    width: 100%;
+    min-width: 0;
+    /* Reserve horizontal lane for the floating panel grip (see FloatingPanel `.drag-indicator`). */
+    padding-inline: 64px;
   }
 
   .timeline-header :global(.button.sm.ghost) {

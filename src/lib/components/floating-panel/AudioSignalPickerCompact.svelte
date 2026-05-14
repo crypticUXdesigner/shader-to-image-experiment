@@ -19,6 +19,7 @@
     onAudioSetupChange,
     connectedSignalId,
     connectionId,
+    connectionDisabled,
     getAudioManager,
     onOpenLargeWithBand,
   }: CompactSlotProps = $props();
@@ -84,6 +85,22 @@
     onSelect({ type: 'disconnect', connectionId });
   }
 
+  const isAudioOff = $derived(connectionDisabled === true);
+  const powerHelp = $derived(
+    isAudioOff
+      ? 'Power — turn on audio for this parameter'
+      : 'Power — turn off audio for this parameter'
+  );
+
+  function handleConnectionPowerClick(e: MouseEvent) {
+    e.stopPropagation();
+    onSelect({
+      type: 'set-connection-disabled',
+      connectionId,
+      disabled: !connectionDisabled,
+    });
+  }
+
   function handleBandChange(bandId: string, updater: (b: AudioBandEntry) => AudioBandEntry) {
     onAudioSetupChange(updateAudioBand(audioSetup, bandId, updater));
   }
@@ -96,10 +113,10 @@
   let sourceFileOpen = $state(false);
 
   type BandMode = 'mean' | 'max' | 'rms';
-  const BAND_MODE_OPTIONS: ReadonlyArray<{ value: BandMode; label: string }> = [
-    { value: 'mean', label: 'Mean' },
-    { value: 'max', label: 'Max' },
-    { value: 'rms', label: 'RMS' },
+  const BAND_MODE_OPTIONS: ReadonlyArray<{ value: BandMode; label: string; desc: string }> = [
+    { value: 'mean', label: 'Mean', desc: 'Smooth response. Transients are softened.' },
+    { value: 'max', label: 'Max', desc: 'Snappy response. Reacts to transients.' },
+    { value: 'rms', label: 'RMS', desc: 'Balanced. Loudness-weighted average.' },
   ];
 
   let modeButtonEl: HTMLDivElement | undefined = $state();
@@ -185,6 +202,8 @@
               {#each BAND_MODE_OPTIONS as option (option.value)}
                 <MenuItem
                   label={option.label}
+                  desc={option.desc}
+                  selected={(band.bandMode ?? 'mean') === option.value}
                   onclick={() => {
                     handleBandChange(bandId, (b) => ({ ...b, bandMode: option.value }));
                     modeOpen = false;
@@ -228,6 +247,17 @@
             onCommit={(value) => handleRemapperChange(remapperId, (r) => ({ ...r, name: value }))}
           />
         </div>
+        <Button
+          variant="secondary"
+          size="sm"
+          mode="icon-only"
+          aria-pressed={isAudioOff}
+          aria-label={powerHelp}
+          title={powerHelp}
+          onclick={handleConnectionPowerClick}
+        >
+          <IconSvg name="power" variant="line" class="power-audio-icon {isAudioOff ? 'is-dimmed' : ''}" />
+        </Button>
         {#if onOpenLargeWithBand}
           <Button
             variant="secondary"
@@ -292,6 +322,10 @@
         gap: var(--pd-md);
         width: 100%;
         min-height: var(--size-md);
+
+        :global(.power-audio-icon.is-dimmed svg) {
+          color: var(--color-blue-110);
+        }
       }
 
       .label-wrap {

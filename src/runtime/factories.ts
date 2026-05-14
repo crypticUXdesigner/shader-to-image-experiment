@@ -12,7 +12,8 @@ import { getPreviewScheduler, installPreviewSchedulerDebugGlobal } from './Previ
 import { selectRenderBackend } from './renderBackends/selectRenderBackend';
 import type { IRenderBackend } from './renderBackends/IRenderBackend';
 import type { RenderBackendMode } from './renderBackends/renderBackendTypes';
-import type { ShaderCompiler, IRenderer, IAudioManager, ICompilationManager } from './types';
+import type { ShaderCompiler, IAudioManager, ICompilationManager } from './types';
+import type { PreviewCompileUiSink } from './previewCompileUiSink';
 import type { NodeSpec } from '../types';
 
 /**
@@ -49,13 +50,10 @@ export function createCompilationManager(
   compiler: ShaderCompiler,
   renderer: IRenderBackend,
   errorHandler?: import('../utils/errorHandling').ErrorHandler,
-  worker: Worker | null = null
+  worker: Worker | null = null,
+  previewCompileUiSink?: PreviewCompileUiSink
 ): ICompilationManager {
-  const cm = new CompilationManager(
-    compiler,
-    renderer,
-    errorHandler
-  );
+  const cm = new CompilationManager(compiler, renderer, errorHandler, previewCompileUiSink);
   if (worker !== null) {
     cm.setWorker(worker);
   }
@@ -115,18 +113,27 @@ export function createRuntimeManager(
   nodeSpecsForWorker?: Map<string, NodeSpec> | Record<string, NodeSpec>,
   options?: {
     renderBackend?: RenderBackendMode;
+    /** Opt-in; default false. See `resolveWebGpuPreviewDependencyMaskForClock`. */
+    webGpuPreviewDependencyClockMask?: boolean;
+    previewCompileUiSink?: PreviewCompileUiSink;
   }
 ): RuntimeManager | Promise<RuntimeManager> {
-  const renderBackend = createRenderBackend(canvas, options?.renderBackend ?? 'auto', errorHandler);
+  const renderBackend = createRenderBackend(canvas, options?.renderBackend ?? 'webgl', errorHandler);
   getPreviewScheduler().setRenderBackendSelection?.(renderBackend.selection);
 
-  // Keep default behavior identical: runtime still consumes the legacy renderer surface.
-  const renderer = renderBackend as unknown as IRenderer;
   const audioManager = createAudioManager(errorHandler);
 
   if (nodeSpecsForWorker == null) {
-    const compilationManager = createCompilationManager(compiler, renderBackend, errorHandler);
-    const rm = new RuntimeManager(renderer, audioManager, compilationManager, errorHandler);
+    const compilationManager = createCompilationManager(
+      compiler,
+      renderBackend,
+      errorHandler,
+      null,
+      options?.previewCompileUiSink
+    );
+    const rm = new RuntimeManager(renderBackend, audioManager, compilationManager, errorHandler, {
+      webGpuPreviewDependencyClockMask: options?.webGpuPreviewDependencyClockMask,
+    });
     installPreviewSchedulerDebugGlobal();
     return rm;
   }
@@ -141,8 +148,16 @@ export function createRuntimeManager(
       nodeSpecsForWorker instanceof Map ? Object.fromEntries(nodeSpecsForWorker) : nodeSpecsForWorker;
     worker.postMessage({ type: 'init', nodeSpecs: nodeSpecsObj });
     await waitForWorkerInited(worker);
-    const compilationManager = createCompilationManager(compiler, renderBackend, errorHandler, worker);
-    const rm = new RuntimeManager(renderer, audioManager, compilationManager, errorHandler);
+    const compilationManager = createCompilationManager(
+      compiler,
+      renderBackend,
+      errorHandler,
+      worker,
+      options?.previewCompileUiSink
+    );
+    const rm = new RuntimeManager(renderBackend, audioManager, compilationManager, errorHandler, {
+      webGpuPreviewDependencyClockMask: options?.webGpuPreviewDependencyClockMask,
+    });
     installPreviewSchedulerDebugGlobal();
     return rm;
   })();
@@ -150,19 +165,20 @@ export function createRuntimeManager(
 
 /**
  * Create a RuntimeManager instance with custom dependencies (for testing).
- * @param renderer - Renderer instance
+ * @param renderBackend - Preview raster backend
  * @param audioManager - AudioManager instance
  * @param compilationManager - CompilationManager instance
  * @param errorHandler - Optional error handler (falls back to globalErrorHandler when not set)
  * @returns RuntimeManager instance
  */
 export function createRuntimeManagerWithDependencies(
-  renderer: IRenderer,
+  renderBackend: IRenderBackend,
   audioManager: IAudioManager,
   compilationManager: ICompilationManager,
-  errorHandler?: import('../utils/errorHandling').ErrorHandler
+  errorHandler?: import('../utils/errorHandling').ErrorHandler,
+  runtimeOptions?: { webGpuPreviewDependencyClockMask?: boolean }
 ): RuntimeManager {
-  const rm = new RuntimeManager(renderer, audioManager, compilationManager, errorHandler);
+  const rm = new RuntimeManager(renderBackend, audioManager, compilationManager, errorHandler, runtimeOptions);
   installPreviewSchedulerDebugGlobal();
   return rm;
 }

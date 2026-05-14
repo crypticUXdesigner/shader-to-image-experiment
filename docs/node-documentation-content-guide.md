@@ -25,7 +25,7 @@ This guide defines how to write and edit user-facing node documentation in `src/
 
 ## Document ID
 
-- **Key format:** `node:<nodeTypeId>` (e.g. `node:noise`, `node:color-map`).
+- **Key format:** `node:<nodeTypeId>` (e.g. `node:noise`, `node:mix`).
 - **Node type id** must match the node’s `id` in the shader/node registry so the app can resolve the spec for port labels and headline styling.
 
 ---
@@ -34,7 +34,7 @@ This guide defines how to write and edit user-facing node documentation in `src/
 
 | Field | Used in UI | Guidance |
 | --- | --- | --- |
-| **title** | Headline (h2) | Short display name (e.g. “Noise”, “Color Map”). Can match or slightly rephrase the node’s display name. |
+| **title** | Headline (h2) | Short display name (e.g. “Noise”, “Output”). Can match or slightly rephrase the node’s display name. |
 | **titleType** | Logic (e.g. “Used by”) | Use `"node"` for node docs. Use `"type"` only for port-type help (e.g. `type:float`). |
 | **tagline** | Headline subtitle | One short sentence: what the node is for and what you get (e.g. “Creates a random-looking pattern from coordinates…”). |
 | **description** | Main body | 1–3 sentences: what it does, main parameters, and a concrete “connect to X then Y” so the user can get a visible result. |

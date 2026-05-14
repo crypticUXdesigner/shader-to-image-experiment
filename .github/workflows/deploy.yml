@@ -52,6 +52,9 @@ jobs:
       - name: Install Playwright browsers
         run: npx playwright install chromium --with-deps
 
+      - name: ValueInput strict double-click (Chromium)
+        run: npm run test:value-input-chromium
+
       - name: Run a11y check
         continue-on-error: true
         run: |

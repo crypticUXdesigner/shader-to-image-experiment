@@ -8,7 +8,7 @@
    * Undo/copy-paste: parent owns them; wrapper only forwards events.
    */
 
-  import { untrack } from 'svelte';
+  import { onMount, untrack } from 'svelte';
   import { NodeEditorCanvas, CopyPasteManager } from '../../../ui/editor';
   import {
     addNodes,
@@ -19,12 +19,15 @@
     type AddConnectionWithValidationResult,
     type NodeSpecification,
     type InsertNodeIntoConnectionErrorCode,
+    type ConnectionValidationContext,
   } from '../../../data-model';
   import { wheelNonPassive } from '../../actions/wheelPassive';
   import type { NodeGraph, Connection, NodeInstance, ParameterValue } from '../../../data-model/types';
   import type { NodeSpec, ParameterInputMode } from '../../../types/nodeSpec';
+  import type { RenderBackendSelected } from '../../../runtime/renderBackends/renderBackendTypes';
   import { graphStore } from '../../stores';
   import { appToastStore } from '../../stores/appToastStore';
+  import { firstUnsupportedWebGpuMvpNodeType } from '../../utils/webGpuMvpNodeSupport';
   import { getVirtualNodeIdsFromAudioSetup } from '../../../utils/virtualNodes';
   import { hasPaletteNodeMime, readPaletteNodeType } from '../../../utils/paletteNodeDrag';
   import DomNodeLayer from './DomNodeLayer.svelte';
@@ -33,6 +36,7 @@
     NodeEditorCanvasWrapperCallbacks,
     NodeEditorCanvasWrapperAPI
   } from './NodeEditorCanvasWrapper.types';
+  import { syncCanvasAfterParameterStoreUpdateThenRuntime } from './parameterChangeSync';
 
   interface Props {
     nodeSpecs: NodeSpec[];
@@ -44,6 +48,13 @@
     getTimelineCurrentTime?: () => number;
     /** Timeline state for the dirty-runner (mark automation nodes dirty when playing). */
     getTimelineState?: () => import('../../../runtime/types').TimelineState | null;
+    /** Same exclusive raster API as preview/export — drives WebGPU-only wire validation. */
+    getExclusiveRasterGpu?: () => RenderBackendSelected | null;
+    /**
+     * When false (e.g. fullscreen preview), skip idle DomNodeLayer view-state polling.
+     * Final canvas view is flushed once when hidden; one catch-up sync runs when visible again.
+     */
+    editorSurfaceVisible?: boolean;
   }
 
   let {
@@ -54,6 +65,8 @@
     overlayBridge = null,
     getTimelineCurrentTime,
     getTimelineState,
+    getExclusiveRasterGpu,
+    editorSurfaceVisible = true,
   }: Props = $props();
 
   const copyPasteManager = new CopyPasteManager();
@@ -115,12 +128,13 @@
     paletteDragHighlight = false;
     const nodeType = readPaletteNodeType(e.dataTransfer);
     if (!nodeType || !apiProp?.screenToCanvas || !apiProp.addNode) return;
+    if (webGpuSessionBlocksUnsupportedNodeTypes([nodeType])) return;
     const pos = apiProp.screenToCanvas(e.clientX, e.clientY);
     apiProp.addNode(nodeType, pos.x, pos.y);
   }
 
   /** Palette drag cancelled or finished outside the editor — clear drop highlight. */
-  $effect(() => {
+  onMount(() => {
     const onWindowDragEnd = () => {
       paletteDragHighlight = false;
     };
@@ -151,8 +165,36 @@
     }));
   }
 
+  function webGpuSessionBlocksUnsupportedNodeTypes(nodeTypes: readonly string[]): boolean {
+    if (getExclusiveRasterGpu?.() !== 'webgpu') return false;
+    const bad = firstUnsupportedWebGpuMvpNodeType(nodeTypes);
+    if (bad == null) return false;
+    appToastStore.addToast({
+      variant: 'error',
+      message: `WebGPU preview does not support this node yet (${bad}). Add ?renderBackend=webgl to the URL and reload, or pick a different node.`,
+      source: 'webgpu-node-guard',
+    });
+    return true;
+  }
+
+  function webGpuConnectionValidation(): ConnectionValidationContext | undefined {
+    const sel = getExclusiveRasterGpu?.() ?? null;
+    if (sel === 'webgpu') return { exclusiveRasterGpu: 'webgpu' };
+    return undefined;
+  }
+
+  function optionsForNewConnection(): { connectionValidation?: ConnectionValidationContext } {
+    const v = webGpuConnectionValidation();
+    return v ? { connectionValidation: v } : {};
+  }
+
   function applyAddConnectionResult(result: AddConnectionWithValidationResult): void {
     if (result.errors.length > 0) {
+      appToastStore.addToast({
+        variant: 'error',
+        message: result.errors[0] ?? 'Could not create connection.',
+        source: 'connection-validation',
+      });
       return;
     }
     // If an existing connection was replaced, notify the callback.
@@ -252,6 +294,8 @@
         return 'Where is the cable?';
       case 'insert_node_not_found':
         return 'Where is the node?';
+      case 'connection_validation_failed':
+        return 'WebGPU preview blocked this patch.';
       default:
         return "Patching not possible.";
     }
@@ -284,11 +328,18 @@
 
   function tryCommitPatch(connectionId: string, insertNodeId: string): void {
     const specs = toNodeSpecifications(nodeSpecs);
-    const result = insertNodeIntoConnection(graphStore.graph, connectionId, insertNodeId, specs);
+    const gpuCtx = webGpuConnectionValidation();
+    const result = insertNodeIntoConnection(
+      graphStore.graph,
+      connectionId,
+      insertNodeId,
+      specs,
+      gpuCtx ? { connectionValidation: gpuCtx } : undefined
+    );
     if (!result.ok) {
       appToastStore.addToast({
         variant: 'error',
-        message: mapPatchError(result.code),
+        message: result.detail ?? mapPatchError(result.code),
         source: 'patch-commit',
       });
       return;
@@ -433,7 +484,7 @@
           targetPort: undefined,
           targetParameter,
         };
-        const result = addConnectionWithValidation(graphStore.graph, conn, validationSpecs);
+        const result = addConnectionWithValidation(graphStore.graph, conn, validationSpecs, optionsForNewConnection());
         if (canvasInstance) syncViewStateFromCanvas(canvasInstance);
         applyAddConnectionResult(result);
       } else if (payload.type === 'audio' && payload.virtualNodeId != null) {
@@ -445,13 +496,21 @@
           targetPort: undefined,
           targetParameter,
         };
-        const result = addConnectionWithValidation(graphStore.graph, conn, validationSpecs);
+        const result = addConnectionWithValidation(graphStore.graph, conn, validationSpecs, optionsForNewConnection());
         if (canvasInstance) syncViewStateFromCanvas(canvasInstance);
         applyAddConnectionResult(result);
       } else if (payload.type === 'disconnect' && payload.connectionId != null) {
         if (canvasInstance) syncViewStateFromCanvas(canvasInstance);
         graphStore.removeConnection(payload.connectionId);
         callbacks.onConnectionRemoved?.(payload.connectionId);
+        notifyGraphChanged();
+      } else if (
+        payload.type === 'set-connection-disabled' &&
+        payload.connectionId != null &&
+        payload.disabled != null
+      ) {
+        if (canvasInstance) syncViewStateFromCanvas(canvasInstance);
+        graphStore.setConnectionDisabled(payload.connectionId, payload.disabled);
         notifyGraphChanged();
       }
       canvasInstance?.requestRender?.();
@@ -469,16 +528,18 @@
     });
   }
 
-  /**
-   * Single parameter-change path: update store, call app callback (await if thenable),
-   * then sync canvas view state, setGraph, and requestRender so paint happens after runtime sync.
-   *
-   * Push `setGraph` immediately after the store update (before awaiting `onParameterChanged`).
-   * The app callback is async (runtime parameter sync); if we only setGraph after `await`,
-   * Svelte can re-render DomNodeLayer with new parameters while `getNodeMetrics` still serves
-   * stale heights — e.g. triangle-grid hiding the Infinite plane section but keeping the old
-   * min-height until runtime finishes.
-   */
+  /** Copy canvas view state into `liveViewState` (DomNodeLayer) without touching the graph store. */
+  function flushLiveViewStateFromApi(api: NodeEditorCanvasWrapperAPI): void {
+    const vs = api.getViewState();
+    const ids = vs.selectedNodeIds ?? [];
+    liveViewState = {
+      panX: vs.panX,
+      panY: vs.panY,
+      zoom: vs.zoom,
+      selectedNodeIds: [...ids],
+    };
+  }
+
   async function handleParameterChange(
     nodeId: string,
     paramName: string,
@@ -486,25 +547,14 @@
     canvas: NodeEditorCanvas | null
   ): Promise<void> {
     graphStore.updateNodeParameter(nodeId, paramName, value);
-    if (canvas) {
-      syncViewStateFromCanvas(canvas);
-      canvas.setGraph(graphStore.graph);
-    }
-    const result = callbacks.onParameterChanged?.(
-      nodeId,
-      paramName,
-      value,
-      graphStore.graph
-    );
-    if (result != null && typeof (result as Promise<unknown>).then === 'function') {
-      await (result as Promise<unknown>);
-    }
-    if (canvas) {
-      syncViewStateFromCanvas(canvas);
-      canvas.setGraph(graphStore.graph);
-      canvas.requestRender();
-    }
-    notifyGraphChanged();
+    await syncCanvasAfterParameterStoreUpdateThenRuntime({
+      canvas,
+      getGraph: () => graphStore.graph,
+      syncViewStateFromCanvas,
+      notifyRuntimeParameterChanged: () =>
+        callbacks.onParameterChanged?.(nodeId, paramName, value, graphStore.graph),
+      notifyGraphChanged,
+    });
   }
 
   // View state sync from canvas (for DOM layer transform)
@@ -517,7 +567,16 @@
   const PAN_ZOOM_UPDATE_EVERY_N_FRAMES = 1;
   $effect(() => {
     const api = apiProp;
+    const surfaceVisible = editorSurfaceVisible;
     if (!api) return;
+
+    if (!surfaceVisible) {
+      flushLiveViewStateFromApi(api);
+      return;
+    }
+
+    flushLiveViewStateFromApi(api);
+
     let rafId: number | undefined;
     let timeoutId: ReturnType<typeof setTimeout> | undefined;
     let lastRunTime = 0;
@@ -690,14 +749,14 @@
           targetPort,
           targetParameter,
         };
-        const result = addConnectionWithValidation(graphStore.graph, conn, validationSpecs);
+        const result = addConnectionWithValidation(graphStore.graph, conn, validationSpecs, optionsForNewConnection());
         syncViewStateFromCanvas(canvas);
         applyAddConnectionResult(result);
       },
       onConnectionSelected: () => {},
       onNodeDeleted: (nodeId) => {
         syncViewStateFromCanvas(canvas);
-        graphStore.removeNode(nodeId, validationSpecs);
+        graphStore.removeNode(nodeId, validationSpecs, webGpuConnectionValidation());
         notifyGraphChanged();
       },
       onConnectionDeleted: (connectionId) => {
@@ -757,6 +816,7 @@
         const pos = c.screenToCanvas(r.left + r.width / 2, r.top + r.height / 2);
         const data = copyPasteManager.paste(pos.x, pos.y);
         if (!data) return;
+        if (webGpuSessionBlocksUnsupportedNodeTypes(data.nodes.map((n) => n.type))) return;
         syncViewStateFromCanvas(canvas);
         let newGraph = addNodes(graphStore.graph, data.nodes);
         newGraph = addConnections(newGraph, data.connections);
@@ -795,6 +855,7 @@
         const offset = 24;
         const data = copyPasteManager.paste(centerX + offset, centerY + offset);
         if (!data) return;
+        if (webGpuSessionBlocksUnsupportedNodeTypes(data.nodes.map((n) => n.type))) return;
         syncViewStateFromCanvas(canvas);
         let newGraph = addNodes(graphStore.graph, data.nodes);
         newGraph = addConnections(newGraph, data.connections);
@@ -823,6 +884,7 @@
     });
 
     function addNodeToGraph(nodeType: string, x: number, y: number): NodeInstance | null {
+      if (webGpuSessionBlocksUnsupportedNodeTypes([nodeType])) return null;
       const spec = nodeSpecsMap.get(nodeType);
       if (!spec) return null;
       const parameters: Record<string, ParameterValue> = {};
@@ -890,14 +952,21 @@
 
   // Forward connection clicks from DOM layer to canvas. Parameter connections render over node
   // bodies; DOM nodes capture clicks before the canvas. Capture-phase intercept when on a connection.
+  /** Real DOM controls inside a `.node` must own their own pointer/click sequences (e.g. ValueInput double-click). Match the same set Node.svelte exempts from patch-into double-click. */
+  const NODE_INTERACTIVE_SELECTOR =
+    '.node :is(button, input, textarea, select, .value-input-wrapper, .value-input, .knob, .param-port, [role="textbox"], [role="slider"], .toggle, .bezier-editor, .color-picker-row, .coord-pad, .coord-pad-cell, .remap-range-editor, .frequency-range-editor, .enum-selector-trigger)';
+  /** PERF: Subscribe only to wrapper + API identity; read `graphStore.activeTool` / `isSpacebarPressed` inside the handler so tool/space changes do not remove/re-add capture listeners. */
   $effect(() => {
     const wrapper = wrapperEl;
     const api = apiProp;
-    const tool = activeTool;
-    const space = isSpacebarPressed;
     if (!wrapper || !api?.hitTestConnection) return;
     const handler = (e: MouseEvent) => {
-      if (space || e.button !== 0) return;
+      if (graphStore.isSpacebarPressed || e.button !== 0) return;
+      const tool = graphStore.activeTool;
+      const target = e.target;
+      if (target instanceof Element && target.closest(NODE_INTERACTIVE_SELECTOR)) {
+        return;
+      }
       const connId = api.hitTestConnection?.(e.clientX, e.clientY);
       if (connId && tool === 'patch') {
         e.preventDefault();

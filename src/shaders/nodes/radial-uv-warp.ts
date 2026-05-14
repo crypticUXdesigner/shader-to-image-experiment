@@ -132,14 +132,14 @@ export const radialUvWarpNodeSpec: NodeSpec = {
       },
       {
         type: 'grid',
-        label: 'Fisheye (lens)',
+        label: 'Fisheye',
         visibleWhen: { parameter: 'warpMode', equals: 1 },
         parameters: ['fisheyeStrength', 'fisheyeAspect'],
         layout: { columns: 2 },
       },
       {
         type: 'grid',
-        label: 'Spherize (hemisphere)',
+        label: 'Spherize',
         visibleWhen: { parameter: 'warpMode', equals: 2 },
         parameters: ['spherizeRadius', 'spherizeStrength'],
         layout: { columns: 2 },

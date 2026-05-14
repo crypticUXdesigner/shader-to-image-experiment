@@ -10,7 +10,11 @@ import { VariableNameGenerator } from './compilation/VariableNameGenerator';
 import { UniformGenerator } from './compilation/UniformGenerator';
 import { FunctionGenerator } from './compilation/FunctionGenerator';
 import { MainCodeGenerator } from './compilation/MainCodeGenerator';
-import { computePreviewDependencyMask, computePreviewDependencyMaskForWgslMvp } from './compilation/previewDependencyMask';
+import {
+  computePreviewDependencyMask,
+  computePreviewDependencyMaskForWgslMvp,
+  mergeWebGpuPreviewDependencyMask
+} from './compilation/previewDependencyMask';
 import { computeEffectiveNodeSpecs } from './compilation/effectiveNodeSpecs';
 import { compileWgslMvp } from './compilation/WgslMvpCompiler';
 import { buildCompileGraphView, filterExecutionOrderForBypass } from './compilation/CompileGraphView';
@@ -458,23 +462,24 @@ export class NodeShaderCompiler {
         audioSetup ?? null
       );
       if (!wgslResult.supported) return wgslResult;
-      // Pass-plan variants may provide their own dependency snapshot (e.g. iterative simulations that
-      // must keep rendering even without explicit time nodes in the graph).
-      const providedDeps = wgslResult.metadata.previewDependencies;
+      const computedDeps = computePreviewDependencyMaskForWgslMvp(
+        compileGraph,
+        wgslResult.uniforms,
+        wgslResult.code,
+        this.nodeSpecs,
+        audioSetup ?? null,
+        wgslResult.metadata.finalOutputNodeId
+      );
+      const previewDependencies = mergeWebGpuPreviewDependencyMask(
+        computedDeps,
+        wgslResult.metadata.previewDependencies,
+        wgslResult.webgpuPassPlan != null
+      );
       return {
         ...wgslResult,
         metadata: {
           ...wgslResult.metadata,
-          previewDependencies:
-            providedDeps ??
-            computePreviewDependencyMaskForWgslMvp(
-              compileGraph,
-              wgslResult.uniforms,
-              wgslResult.code,
-              this.nodeSpecs,
-              audioSetup ?? null,
-              wgslResult.metadata.finalOutputNodeId
-            )
+          previewDependencies
         }
       };
     }

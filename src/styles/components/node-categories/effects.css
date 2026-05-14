@@ -74,6 +74,9 @@
   --node-bezier-curve-effects-stylize: var(--color-red-purple-90);
   --node-bezier-control-effects-stylize: var(--color-red-purple-90);
   --node-bezier-control-hover-effects-stylize: var(--color-red-purple-100);
+
+  /* Param grid / grouped parameters — subtle lift vs default 2% white */
+  --node-param-grid-bg-effects-stylize: rgba(255, 255, 255, 0.042);
 }
 
 .node.effects {
@@ -194,7 +197,7 @@
     );
     .param-grid {
       border-radius: var(--radius-xl);
-      background: rgba(255,255,255,0.02);
+      background: var(--node-param-grid-bg-effects-stylize);
     }
   }
 

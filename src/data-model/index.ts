@@ -135,7 +135,12 @@ export {
   insertNodeIntoConnection,
   type InsertNodeIntoConnectionResult,
   type InsertNodeIntoConnectionErrorCode,
+  type InsertNodeIntoConnectionOptions,
 } from './insertNodeIntoConnection';
+export type {
+  ConnectionValidationExclusiveGpu,
+  ConnectionValidationContext,
+} from './connectionValidationContext';
 export {
   addFile as addAudioFile,
   updateFile as updateAudioFile,
@@ -201,6 +206,7 @@ export {
 
 // Distort: translate + directional-displace -> displace (modes)
 export { migrateDisplace2dUnify, hasLegacyDisplace2dNodes } from './displace2dUnifyMigration';
+export { migrateDisplaceRemoveLegacyInputPorts } from './displaceRemoveLegacyInputPortsMigration';
 
 // Particle system: fold legacy UV scale into grid spacing
 export { migrateParticleSystemFoldScale } from './particleSystemGrainMigration';
@@ -216,3 +222,6 @@ export { migrateRadialRepeatSdfParameters } from './radialRepeatSdfMigration';
 
 // Mixed wave signal: cosine toggles -> per-wave shape enum
 export { migrateMixedWaveSignalShapes } from './mixedWaveSignalShapeMigration';
+
+// Legacy color-map (float→vec3 broadcast) removal — splice through on load
+export { migrateRemoveColorMapNodes } from './colorMapNodeRemovalMigration';

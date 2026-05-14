@@ -18,5 +18,9 @@ export class WebGlRenderBackend extends Renderer implements IRenderBackend {
     super(canvas, rendererOptions);
     this.selection = selection;
   }
+
+  getPreviewCompileExclusiveGpu(): RenderBackendSelection['selected'] {
+    return this.selection.selected;
+  }
 }
 

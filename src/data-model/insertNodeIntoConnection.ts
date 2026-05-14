@@ -5,6 +5,7 @@
 
 import type { NodeGraph, Connection } from './types';
 import type { NodeSpecification } from './validationTypes';
+import type { ConnectionValidationContext } from './connectionValidationContext';
 import { removeConnection, addConnectionWithValidation } from './immutableUpdates';
 import { isPortConnection } from './connectionUtils';
 import { generateUUID } from './utils';
@@ -15,11 +16,16 @@ export type InsertNodeIntoConnectionErrorCode =
   | 'connection_not_found'
   | 'insert_node_not_found'
   | 'cannot_patch_endpoint_node'
-  | 'no_valid_ports';
+  | 'no_valid_ports'
+  | 'connection_validation_failed';
 
 export type InsertNodeIntoConnectionResult =
   | { ok: true; graph: NodeGraph }
-  | { ok: false; code: InsertNodeIntoConnectionErrorCode };
+  | { ok: false; code: InsertNodeIntoConnectionErrorCode; detail?: string };
+
+export type InsertNodeIntoConnectionOptions = {
+  connectionValidation?: ConnectionValidationContext;
+};
 
 function inputPortOccupied(graph: NodeGraph, nodeId: string, portName: string): boolean {
   return graph.connections.some(
@@ -73,8 +79,9 @@ function tryBuildGraph(
   conn: Connection,
   insertNodeId: string,
   pair: { inName: string; outName: string },
-  specs: NodeSpecification[]
-): NodeGraph | null {
+  specs: NodeSpecification[],
+  opts?: InsertNodeIntoConnectionOptions
+): { ok: true; graph: NodeGraph } | { ok: false; connectionErrors?: string[] } {
   const id1 = generateUUID();
   const id2 = generateUUID();
 
@@ -102,11 +109,17 @@ function tryBuildGraph(
         targetParameter: conn.targetParameter,
       };
 
-  const r1 = addConnectionWithValidation(graphAfterRemove, c1, specs, { replaceExisting: true });
-  if (r1.errors.length > 0) return null;
-  const r2 = addConnectionWithValidation(r1.graph, c2, specs, { replaceExisting: true });
-  if (r2.errors.length > 0) return null;
-  return r2.graph;
+  const r1 = addConnectionWithValidation(graphAfterRemove, c1, specs, {
+    replaceExisting: true,
+    connectionValidation: opts?.connectionValidation,
+  });
+  if (r1.errors.length > 0) return { ok: false, connectionErrors: r1.errors };
+  const r2 = addConnectionWithValidation(r1.graph, c2, specs, {
+    replaceExisting: true,
+    connectionValidation: opts?.connectionValidation,
+  });
+  if (r2.errors.length > 0) return { ok: false, connectionErrors: r2.errors };
+  return { ok: true, graph: r2.graph };
 }
 
 /**
@@ -117,7 +130,8 @@ export function insertNodeIntoConnection(
   graph: NodeGraph,
   connectionId: string,
   insertNodeId: string,
-  specs: NodeSpecification[]
+  specs: NodeSpecification[],
+  options?: InsertNodeIntoConnectionOptions
 ): InsertNodeIntoConnectionResult {
   const conn = graph.connections.find((c) => c.id === connectionId);
   if (!conn) return { ok: false, code: 'connection_not_found' };
@@ -136,8 +150,17 @@ export function insertNodeIntoConnection(
   const pair = pickPatchPorts(graphWithout, conn, insertSpec, insertNodeId, specs);
   if (!pair) return { ok: false, code: 'no_valid_ports' };
 
-  const g = tryBuildGraph(graphWithout, conn, insertNodeId, pair, specs);
-  if (g == null) return { ok: false, code: 'no_valid_ports' };
+  const built = tryBuildGraph(graphWithout, conn, insertNodeId, pair, specs, options);
+  if (!built.ok) {
+    if (built.connectionErrors?.length) {
+      return {
+        ok: false,
+        code: 'connection_validation_failed',
+        detail: built.connectionErrors[0],
+      };
+    }
+    return { ok: false, code: 'no_valid_ports' };
+  }
 
-  return { ok: true, graph: g };
+  return { ok: true, graph: built.graph };
 }

@@ -16,23 +16,10 @@
         "parameters": {}
       },
       {
-        "id": "node-1774046857199-const-vec3",
-        "type": "constant-vec3",
-        "position": {
-          "x": 450,
-          "y": 0
-        },
-        "parameters": {
-          "x": 0.2,
-          "y": 0.2,
-          "z": 0.2
-        }
-      },
-      {
         "id": "node-1774046857199-ma9b97y9s",
         "type": "final-output",
         "position": {
-          "x": 900,
+          "x": 450,
           "y": 0
         },
         "parameters": {}
@@ -40,8 +27,8 @@
     ],
     "connections": [
       {
-        "id": "conn-1774046857199-const-to-out",
-        "sourceNodeId": "node-1774046857199-const-vec3",
+        "id": "conn-1774046857199-uv-to-out",
+        "sourceNodeId": "node-1774046857199-z1e8p50xf",
         "sourcePort": "out",
         "targetNodeId": "node-1774046857199-ma9b97y9s",
         "targetPort": "in"

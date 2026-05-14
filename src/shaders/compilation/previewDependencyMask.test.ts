@@ -2,7 +2,21 @@ import { describe, expect, it } from 'vitest';
 import type { NodeGraph } from '../../data-model/types';
 import type { NodeSpec } from '../../types/nodeSpec';
 import { nodeSystemSpecs } from '../nodes';
-import { computePreviewDependencyMask } from './previewDependencyMask';
+import { computePreviewDependencyMask, mergeWebGpuPreviewDependencyMask } from './previewDependencyMask';
+import type { PreviewDependencyMask } from '../../runtime/types';
+
+function allFalseMask(): PreviewDependencyMask {
+  return {
+    usesWallTime: false,
+    usesTimelineTime: false,
+    usesAudioUniforms: false,
+    usesRadialPulseVirtualDrive: false,
+    usesRadialPulseSpawnUniformPass: false,
+    usesResolutionUniform: false,
+    usesMouseUniforms: false,
+    usesFrameIndex: false
+  };
+}
 
 function specsMap(): Map<string, NodeSpec> {
   return new Map(nodeSystemSpecs.map((s) => [s.id, s]));
@@ -103,5 +117,39 @@ describe('computePreviewDependencyMask (radial pulse spawn)', () => {
     const mask = computePreviewDependencyMask(graph, [], 'uniform float uTime;', specsMap(), null);
     expect(mask.usesRadialPulseVirtualDrive).toBe(false);
     expect(mask.usesRadialPulseSpawnUniformPass).toBe(true);
+  });
+});
+
+describe('mergeWebGpuPreviewDependencyMask', () => {
+  it('returns computed unchanged when no pass plan and no provided mask', () => {
+    const computed = { ...allFalseMask(), usesWallTime: true };
+    expect(mergeWebGpuPreviewDependencyMask(computed, undefined, false)).toEqual(computed);
+    expect(mergeWebGpuPreviewDependencyMask(computed, null, false)).toEqual(computed);
+  });
+
+  it('forces usesWallTime when a WebGPU pass plan is active', () => {
+    const computed = allFalseMask();
+    const merged = mergeWebGpuPreviewDependencyMask(computed, undefined, true);
+    expect(merged.usesWallTime).toBe(true);
+    expect(merged.usesAudioUniforms).toBe(false);
+  });
+
+  it('forces usesWallTime when panel audio uniforms are present (no pass plan)', () => {
+    const computed = { ...allFalseMask(), usesAudioUniforms: true, usesWallTime: false };
+    const merged = mergeWebGpuPreviewDependencyMask(computed, undefined, false);
+    expect(merged.usesWallTime).toBe(true);
+    expect(merged.usesAudioUniforms).toBe(true);
+  });
+
+  it('OR-merges provided snapshot with computed', () => {
+    const computed = { ...allFalseMask(), usesWallTime: false, usesAudioUniforms: true };
+    const provided: PreviewDependencyMask = {
+      ...allFalseMask(),
+      usesWallTime: true,
+      usesAudioUniforms: false
+    };
+    const merged = mergeWebGpuPreviewDependencyMask(computed, provided, false);
+    expect(merged.usesWallTime).toBe(true);
+    expect(merged.usesAudioUniforms).toBe(true);
   });
 });

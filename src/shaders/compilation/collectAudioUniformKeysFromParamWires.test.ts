@@ -73,6 +73,20 @@ describe('collectAudioUniformKeysFromParamWires', () => {
     expect(collectAudioUniformKeysFromParamWires(graph, new Set(['n-b']))).toEqual(new Set());
   });
 
+  it('ignores disabled parameter wires', () => {
+    const graph = minimalGraph([
+      {
+        id: 'c1',
+        sourceNodeId: `${VIRTUAL_NODE_PREFIX}remap-x`,
+        sourcePort: 'out',
+        targetNodeId: 'n-a',
+        targetParameter: 'value',
+        disabled: true,
+      },
+    ]);
+    expect(collectAudioUniformKeysFromParamWires(graph, new Set(['n-a']))).toEqual(new Set());
+  });
+
   it('ignores non-virtual sources and port-only targets', () => {
     const graph = minimalGraph([
       {

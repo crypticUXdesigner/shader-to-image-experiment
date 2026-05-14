@@ -18,7 +18,7 @@ export function assertCompileDeterministic(
   expect(a.metadata.executionOrder, `${label}: executionOrder`).toEqual(b.metadata.executionOrder);
 }
 
-/** Rule A fixture: `uv → rotate(bypassed) → noise → color-map → final-output`. */
+/** Rule A fixture: `uv → rotate(bypassed) → noise → final-output`. */
 export function bypassRuleAGraph(): NodeGraph {
   return {
     id: 'graph-rule-a-bypass-export',
@@ -28,20 +28,18 @@ export function bypassRuleAGraph(): NodeGraph {
       { id: 'n-uv', type: 'uv-coordinates', position: { x: 0, y: 0 }, parameters: {} },
       { id: 'n-rotate', type: 'rotate', position: { x: 0, y: 0 }, parameters: {}, bypassed: true },
       { id: 'n-noise', type: 'noise', position: { x: 0, y: 0 }, parameters: {} },
-      { id: 'n-cmap', type: 'color-map', position: { x: 0, y: 0 }, parameters: {} },
       { id: 'n-out', type: 'final-output', position: { x: 0, y: 0 }, parameters: {} },
     ],
     connections: [
       { id: 'c-uv-rot', sourceNodeId: 'n-uv', sourcePort: 'out', targetNodeId: 'n-rotate', targetPort: 'in' },
       { id: 'c-rot-noise', sourceNodeId: 'n-rotate', sourcePort: 'out', targetNodeId: 'n-noise', targetPort: 'in' },
-      { id: 'c-noise-cmap', sourceNodeId: 'n-noise', sourcePort: 'out', targetNodeId: 'n-cmap', targetPort: 'in' },
-      { id: 'c-cmap-out', sourceNodeId: 'n-cmap', sourcePort: 'out', targetNodeId: 'n-out', targetPort: 'in' },
+      { id: 'c-noise-out', sourceNodeId: 'n-noise', sourcePort: 'out', targetNodeId: 'n-out', targetPort: 'in' },
     ],
   };
 }
 
 /**
- * Rule B fixture (WGSL MVP–friendly): `uv → noise(bypassed) → color-map → final-output`.
+ * Rule B fixture (WGSL MVP–friendly): `uv → noise(bypassed) → final-output`.
  * Matches `nodePower.compile.test.ts` Rule B pattern — heavy raymarcher graphs may be `supported: false` for WebGPU export gates.
  */
 export function bypassRuleBPatternGraph(): NodeGraph {
@@ -52,13 +50,11 @@ export function bypassRuleBPatternGraph(): NodeGraph {
     nodes: [
       { id: 'n-uv', type: 'uv-coordinates', position: { x: 0, y: 0 }, parameters: {} },
       { id: 'n-noise', type: 'noise', position: { x: 0, y: 0 }, parameters: {}, bypassed: true },
-      { id: 'n-cmap', type: 'color-map', position: { x: 0, y: 0 }, parameters: {} },
       { id: 'n-out', type: 'final-output', position: { x: 0, y: 0 }, parameters: {} },
     ],
     connections: [
       { id: 'c-uv-noise', sourceNodeId: 'n-uv', sourcePort: 'out', targetNodeId: 'n-noise', targetPort: 'in' },
-      { id: 'c-noise-cmap', sourceNodeId: 'n-noise', sourcePort: 'out', targetNodeId: 'n-cmap', targetPort: 'in' },
-      { id: 'c-cmap-out', sourceNodeId: 'n-cmap', sourcePort: 'out', targetNodeId: 'n-out', targetPort: 'in' },
+      { id: 'c-noise-out', sourceNodeId: 'n-noise', sourcePort: 'out', targetNodeId: 'n-out', targetPort: 'in' },
     ],
   };
 }

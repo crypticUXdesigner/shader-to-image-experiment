@@ -72,17 +72,19 @@
     >
       <IconSvg name="trash" variant="line" />
     </Button>
-    <Button
-      variant="ghost"
-      size="sm"
-      mode="both"
-      title="Connect"
-      aria-label={`Connect: ${remapper.name || remapper.id}`}
-      onclick={(e) => { e.stopPropagation(); onConnect?.(); }}
-    >
-      <IconSvg name="plug" variant="line" />
-      Connect
-    </Button>
+    {#if onConnect}
+      <Button
+        variant="ghost"
+        size="sm"
+        mode="both"
+        title="Connect"
+        aria-label={`Connect: ${remapper.name || remapper.id}`}
+        onclick={(e) => { e.stopPropagation(); onConnect?.(); }}
+      >
+        <IconSvg name="plug" variant="line" />
+        Connect
+      </Button>
+    {/if}
   </div>
   <div class="editor-wrap">
     <RemapRangeEditor

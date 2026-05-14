@@ -1,13 +1,20 @@
 /**
- * Preview scheduler (dev/debug): records dirty + compile signals.
+ * Preview scheduler: records dirty + compile signals (telemetry for debug overlay).
  * Does not change presentation cadence.
  *
- * Task 11 — selection vs effective preview backend:
+ * Task 11 / Task 04 — selection vs effective preview backend:
  * - `renderBackendSelection` mirrors URL/engine choice (`auto` / forced WebGPU / WebGL).
  * - `effectiveBackend` reflects what actually draws the current frame: WebGPU when a WGSL
- *   program is installed, otherwise WebGL2 — including automatic fallback when WebGPU init,
- *   device-lost, coverage, or **WebGPU compile failure** occurs (`CompilationManager`
- *   calls {@link PreviewScheduler.setEffectiveBackend} with reasons in `details`).
+ *   program is installed, otherwise WebGL2 when the session uses the WebGL preview surface.
+ *   WebGPU-only sessions no longer flip to WebGL2 from a silent compile fallback; unusable
+ *   WGSL preview stays `effectiveBackend.selected === 'webgpu'` with reason
+ *   `compile.webgpu.unsupported` and optional `details` (`CompilationManager` calls
+ *   {@link PreviewScheduler.setEffectiveBackend}).
+ *
+ * **Adaptive preview (P2)** caps preview backing DPR during continuous interaction when enabled.
+ * It is a **developer-only experiment** (localStorage / `__previewSchedulerDebug` / `?previewOverlay`),
+ * not a shipped end-user preference. Product stance:
+ * `docs/architecture/PRODUCTIZATION.md`.
  */
 
 import type {
@@ -41,6 +48,23 @@ export function mapLegacyDirtyReason(reason: string | undefined): PreviewDirtyRe
 }
 
 const ADAPTIVE_PREVIEW_STORAGE_KEY = 'shadernoice.previewAdaptive';
+const PREVIEW_SCHEDULER_OVERLAY_STORAGE_KEY = 'shadernoice.previewSchedulerOverlay';
+
+/**
+ * Whether to show the floating preview-scheduler overlay on load (`?previewOverlay`, `?previewOverlay=1`, …)
+ * or via `localStorage` key `shadernoice.previewSchedulerOverlay` = `1` when the URL omits `previewOverlay`.
+ * `?previewOverlay=0` or `false` disables for that load even if localStorage is set.
+ */
+export function isPreviewSchedulerOverlayRequestedFromEnv(): boolean {
+  if (typeof window === 'undefined') return false;
+  const sp = new URLSearchParams(window.location.search);
+  if (sp.has('previewOverlay')) {
+    const v = sp.get('previewOverlay');
+    if (v === '0' || (v !== null && v.toLowerCase() === 'false')) return false;
+    return true;
+  }
+  return typeof localStorage !== 'undefined' && localStorage.getItem(PREVIEW_SCHEDULER_OVERLAY_STORAGE_KEY) === '1';
+}
 
 export class PreviewScheduler {
   private mode: PreviewSchedulerState = 'legacyStub';
@@ -294,6 +318,9 @@ export class PreviewScheduler {
         `wgpu modules: +${previewPerfCounters.webgpuShaderModuleCreates} (hit ${previewPerfCounters.webgpuShaderModuleCacheHits})`,
         `wgpu cache evict: ${previewPerfCounters.webgpuShaderPipelineCacheEvictions}`,
         `wgpu pipes: +${previewPerfCounters.webgpuRenderPipelineCreates} (hit ${previewPerfCounters.webgpuRenderPipelineCacheHits})`,
+        `wgpu commits simple: ${previewPerfCounters.webgpuPreviewCommitsSimple}`,
+        `wgpu commits blur/glow/bokeh/crep: ${previewPerfCounters.webgpuPreviewCommitsPassBlur}/${previewPerfCounters.webgpuPreviewCommitsPassGlowBloom}/${previewPerfCounters.webgpuPreviewCommitsPassBokeh}/${previewPerfCounters.webgpuPreviewCommitsPassCrepuscular}`,
+        `wgpu commits smoke fg/cs: ${previewPerfCounters.webgpuPreviewCommitsSmokeFramegraph}/${previewPerfCounters.webgpuPreviewCommitsSmokeCompute}`,
         `adaptive: ${this.adaptivePreviewEnabled ? 'on' : 'off'}`,
         `window.devicePixelRatio: ${dpr}`
       ].join('\n');
@@ -324,17 +351,18 @@ export type PreviewSchedulerDebugApi = {
   getLastFrames: (n: number) => PreviewDirtyEvent[];
   enableMarks: (on: boolean) => void;
   enableOverlay: (on: boolean) => void;
-  /** Toggle adaptive preview DPR cap (persists `localStorage` key). */
+  /** Toggle adaptive preview DPR cap — dev experiment only; persists `localStorage` key. */
   setAdaptivePreview: (on: boolean) => void;
 };
 
 /**
- * Attach dev-only debug API (plan §6 P1a). After calling, `window.__previewSchedulerDebug` exposes:
- * `getState()`, `getLastFrames(n)`, `enableMarks(on)` (reserved; P0 marks always on), `enableOverlay(on)`.
+ * Attach optional debug API on `window.__previewSchedulerDebug`:
+ * `getState()`, `getLastFrames(n)`, `enableMarks(on)` (reserved; P0 marks always on), `enableOverlay(on)`,
+ * `setAdaptivePreview(on)` (dev-only adaptive DPR experiment; see `docs/architecture/PRODUCTIZATION.md`).
+ * Available in all builds; overlay auto-starts when `isPreviewSchedulerOverlayRequestedFromEnv()` is true.
  */
 export function installPreviewSchedulerDebugGlobal(): void {
   if (typeof window === 'undefined') return;
-  if (!import.meta.env.DEV) return;
 
   const api: PreviewSchedulerDebugApi = {
     getState: () => getPreviewScheduler().getState(),
@@ -345,4 +373,8 @@ export function installPreviewSchedulerDebugGlobal(): void {
   };
 
   (window as unknown as { __previewSchedulerDebug: PreviewSchedulerDebugApi }).__previewSchedulerDebug = api;
+
+  if (isPreviewSchedulerOverlayRequestedFromEnv()) {
+    getPreviewScheduler().enableOverlay(true);
+  }
 }

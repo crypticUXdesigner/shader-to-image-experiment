@@ -1,9 +1,11 @@
 <script lang="ts">
+  import { tick } from 'svelte';
   import { createStrictTapThenDownDouble } from '../../../utils/strictDoubleClick';
+  import { pointerModifierDragMultiplier } from './valueInputDragSensitivity';
 
   interface Props {
     value: number;
-    /** When provided, this value is shown in edit mode (e.g. on double-click) instead of value. Use for "config" vs "display": display shows live value, edit shows configured value. */
+    /** When set, inline edit (double-click) seeds from this instead of `value`. Must match what `onChange` interprets (usually the same domain as `value`). */
     valueForEdit?: number;
     min?: number;
     max?: number;
@@ -64,16 +66,55 @@
 
   const displayText = $derived(editMode ? editText : formatDisplay(value));
 
+  function handleDisplayFocus(ev: FocusEvent) {
+    if (disabled || editMode) return;
+    const el = ev.currentTarget as HTMLElement;
+    requestAnimationFrame(() => {
+      if (disabled || editMode) return;
+      if (document.activeElement !== el) return;
+      if (el.matches(':focus-visible')) {
+        void enterEditMode();
+      }
+    });
+  }
+
+  async function enterEditMode() {
+    if (disabled || editMode) return;
+    valueTapStrictDouble.reset();
+    if (wrapperEl) lockedWidthPx = wrapperEl.offsetWidth;
+    editMode = true;
+    editText = formatDisplay(valueForEdit ?? value);
+    await tick();
+    inputEl?.focus();
+    inputEl?.select();
+  }
+
   function handlePointerDown(e: PointerEvent) {
     if (disabled || editMode) return;
     if (valueTapStrictDouble.consumeIfSecondPress(e)) {
-      handleDblClick();
+      // Strict-tap-then-down has decided this primary-mouse pointerdown completes a double-tap;
+      // suppress the compatibility `mousedown → click → dblclick` chain for this pointer. Without
+      // this, Chrome still dispatches `mousedown` whose default action retargets focus based on
+      // the (now-detached) `.value-display` — focus collapses to `<body>`, the freshly mounted
+      // `<input>` blurs, `handleBlur → commitEdit` closes edit mode within the same frame, and
+      // the user never gets to type. `preventDefault()` here is safe because we are *consuming*
+      // this press (no drag will start; no native dblclick is needed — we already enter edit
+      // mode via `enterEditMode()` below).
+      e.preventDefault();
+      void enterEditMode();
       return;
     }
-    e.preventDefault();
+    // IMPORTANT: do NOT `preventDefault()` here (first-press path). In Chrome, `preventDefault()`
+    // on a primary-mouse `pointerdown` suppresses the compatibility
+    // `mousedown → mouseup → click → dblclick` chain for that pointer. That kills the native
+    // double-click fallback (`ondblclick={handleDblClick}` below) used when the strict-tap-then-down
+    // gesture does not arm (e.g. user moved between taps). Text selection is already prevented
+    // by CSS (`user-select: none` on `.value-display`). We only need `preventDefault()` once a
+    // real drag begins, which is handled inside `handlePointerMove` below.
     const el = e.currentTarget as HTMLElement;
     const pointerId = e.pointerId;
     el.setPointerCapture(pointerId);
+    let currentX = e.clientX;
     let currentY = e.clientY;
     let dragMovedBeyondTap = false;
     /** Unsnapped float; small dy values accumulate across pointer moves until step snaps. */
@@ -85,18 +126,25 @@
         Math.abs(moveEvent.clientX - e.clientX) > 3 ||
         Math.abs(moveEvent.clientY - e.clientY) > 3
       ) {
-        dragMovedBeyondTap = true;
+        if (!dragMovedBeyondTap) {
+          dragMovedBeyondTap = true;
+        }
       }
+      // Once we're in a real drag, suppress default behavior (text selection start, drag images)
+      // for subsequent moves. We did not `preventDefault()` on pointerdown so the native click /
+      // dblclick chain is preserved for tap-only gestures.
+      if (dragMovedBeyondTap) {
+        moveEvent.preventDefault();
+      }
+      const dx = moveEvent.clientX - currentX;
       const dy = currentY - moveEvent.clientY;
+      currentX = moveEvent.clientX;
       currentY = moveEvent.clientY;
+      // Ignore horizontal-dominant moves so sideways scrubbing does not nudge the value.
+      if (Math.abs(dy) < Math.abs(dx)) return;
       const range = max - min;
-      const modifier = moveEvent.shiftKey
-        ? 'fine'
-        : moveEvent.ctrlKey || moveEvent.metaKey
-          ? 'coarse'
-          : 'normal';
-      const multipliers = { normal: 1, fine: 0.1, coarse: 10 };
-      const sensitivity = BASE_DRAG_SENSITIVITY / multipliers[modifier];
+      const mult = pointerModifierDragMultiplier(moveEvent);
+      const sensitivity = BASE_DRAG_SENSITIVITY / mult;
       const valueDelta = (dy / sensitivity) * range;
       dragAccumulator += valueDelta;
       dragAccumulator = Math.max(min, Math.min(max, dragAccumulator));
@@ -137,11 +185,7 @@
   }
 
   function handleDblClick() {
-    if (disabled) return;
-    if (wrapperEl) lockedWidthPx = wrapperEl.offsetWidth;
-    editMode = true;
-    editText = formatDisplay(valueForEdit ?? value);
-    requestAnimationFrame(() => inputEl?.select());
+    void enterEditMode();
   }
 
   function handleKeydown(e: KeyboardEvent) {
@@ -174,10 +218,20 @@
   }
 </script>
 
+<!--
+  Stop click / dblclick from bubbling to the parent `.node`. The node uses click events for
+  selection toggling and double-click for the patch-into shortcut. Clicks on the value belong
+  to ValueInput (single-click = no-op / focus, double-click = inline edit, drag = adjust). The
+  canvas wrapper's capture-phase mousedown listener already exempts `.value-input-wrapper`,
+  so connection picking and patch-on-cable are unaffected.
+-->
+<!-- svelte-ignore a11y_no_static_element_interactions a11y_click_events_have_key_events -->
 <div
   class="value-input-wrapper {className}"
   bind:this={wrapperEl}
   style={lockedWidthPx != null ? `width: ${lockedWidthPx}px` : ''}
+  onclick={(e) => e.stopPropagation()}
+  ondblclick={(e) => e.stopPropagation()}
 >
   {#if editMode}
     <input
@@ -195,9 +249,11 @@
       class="value-input value-display size-{size} {className}"
       role="textbox"
       tabindex={disabled ? -1 : 0}
-      aria-label="Value: {displayText}. Double-click to edit, drag to adjust."
+      aria-label="Value: {displayText}. Tab or double-click to edit, drag vertically to adjust."
       aria-readonly="false"
+      onfocus={handleDisplayFocus}
       onpointerdown={handlePointerDown}
+      ondblclick={handleDblClick}
       onkeydown={(e) => e.key === 'Enter' && handleDblClick()}
     >
       {displayText}
