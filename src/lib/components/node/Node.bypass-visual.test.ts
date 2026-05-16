@@ -6,7 +6,7 @@ import type { NodeGraph } from '../../../data-model/types';
 import Node from './Node.svelte';
 import { nodeSystemSpecs } from '../../../shaders/nodes';
 
-const rotateSpec = nodeSystemSpecs.find((s) => s.id === 'rotate')!;
+const transformSpec = nodeSystemSpecs.find((s) => s.id === 'transform')!;
 const nodeSpecs = new Map(nodeSystemSpecs.map((s) => [s.id, s]));
 
 afterEach(() => {
@@ -30,12 +30,12 @@ describe('Node — bypassed visual class', () => {
         nodeId: 'n1',
         node: {
           id: 'n1',
-          type: 'rotate',
+          type: 'transform',
           position: { x: 0, y: 0 },
-          parameters: { angle: 0, centerX: 0, centerY: 0 },
+          parameters: { angle: 0, pivotX: 0, pivotY: 0 },
           bypassed: true,
         },
-        spec: rotateSpec,
+        spec: transformSpec,
         metrics: { width: 200, height: 88, headerHeight: 88 },
         selected: false,
         graph,
@@ -69,11 +69,11 @@ describe('Node — bypassed visual class', () => {
         nodeId: 'n1',
         node: {
           id: 'n1',
-          type: 'rotate',
+          type: 'transform',
           position: { x: 0, y: 0 },
-          parameters: { angle: 0, centerX: 0, centerY: 0 },
+          parameters: { angle: 0, pivotX: 0, pivotY: 0 },
         },
-        spec: rotateSpec,
+        spec: transformSpec,
         metrics: { width: 200, height: 88, headerHeight: 88 },
         selected: false,
         graph,

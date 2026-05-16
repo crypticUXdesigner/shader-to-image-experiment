@@ -171,6 +171,7 @@
     height: calc(var(--size-md) + var(--pd-md) * 2);
     padding: 0 var(--pd-lg);
     z-index: 100;
+    pointer-events: none;
     transition: left var(--motion-spatial-fast-duration) var(--motion-spatial-fast-easing);
   }
 
@@ -183,6 +184,7 @@
     display: flex;
     align-items: center;
     gap: var(--pd-md);
+    pointer-events: auto;
   }
 
   .top-bar-center {
@@ -191,12 +193,14 @@
     align-items: center;
     justify-content: center;
     min-width: 0;
+    pointer-events: none;
   }
 
   .top-bar-right {
     display: flex;
     align-items: center;
     gap: var(--pd-md);
+    pointer-events: auto;
   }
 
   .top-bar-audiotool-signin {

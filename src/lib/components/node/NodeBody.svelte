@@ -28,7 +28,8 @@
   import FrequencyRangeEditor from '../audio/FrequencyRangeEditor.svelte';
   import CoordPadCell from './parameters/CoordPadCell.svelte';
   import MixedWaveHeaderViz from './MixedWaveHeaderViz.svelte';
-  import type { NodeGraph } from '../../../data-model/types';
+  import ArrangementTrackFilter from './parameters/ArrangementTrackFilter.svelte';
+  import type { NodeGraph, GraphUndoRecordingOptions } from '../../../data-model/types';
   import type { NodeSpec, ParameterSpec, ParameterUISelection, ParameterInputMode } from '../../../types/nodeSpec';
   import type { AudioSetup } from '../../../data-model/audioSetupTypes';
   import type { IAudioManager } from '../../../runtime/types';
@@ -50,7 +51,13 @@
     overlayBridge?: import('../../../types/editor').CanvasOverlayBridge | null;
     onPortPointerDownForConnection?: (screenX: number, screenY: number, pointerId?: number) => void;
     onPortClickForSignalPicker?: (screenX: number, screenY: number, nodeId: string, paramName: string, triggerElement?: HTMLElement | null) => void;
-    onParameterChange: (paramName: string, value: import('../../../data-model/types').ParameterValue) => void;
+    onParameterChange: (
+      paramName: string,
+      value: import('../../../data-model/types').ParameterValue,
+      options?: GraphUndoRecordingOptions
+    ) => void;
+    /** After a continuous parameter gesture (knob drag, etc.), record one undo snapshot if anything moved. */
+    onParameterGestureCommit?: () => void;
     onParameterInputModeChanged?: (paramName: string, mode: ParameterInputMode) => void;
   }
 
@@ -70,8 +77,26 @@
     onPortPointerDownForConnection,
     onPortClickForSignalPicker,
     onParameterChange,
+    onParameterGestureCommit,
     onParameterInputModeChanged,
   }: Props = $props();
+
+  let parameterGestureHadTransient = false;
+
+  function transientParameterChange(
+    paramName: string,
+    value: import('../../../data-model/types').ParameterValue
+  ) {
+    parameterGestureHadTransient = true;
+    onParameterChange(paramName, value, { recordUndo: false });
+  }
+
+  function commitParameterGestureUndo() {
+    if (parameterGestureHadTransient) {
+      parameterGestureHadTransient = false;
+      onParameterGestureCommit?.();
+    }
+  }
 
   const bodyHeight = $derived(Math.max(0, height - headerHeight));
   const layout = $derived(spec.parameterLayout ?? autoGenerateLayout(spec));
@@ -388,7 +413,8 @@
                         onPortDoubleClick={(e, p) =>
                           onPortClickForSignalPicker?.(e.clientX, e.clientY, nodeId, p, e.currentTarget as HTMLElement)}
                         onParameterInputModeChanged={onParameterInputModeChanged}
-                        onParameterChange={onParameterChange}
+                        onParameterChange={transientParameterChange}
+                        onParameterGestureCommit={commitParameterGestureUndo}
                         class="coord-pad-cell span-{coordsSpan}-cols"
                       />
                     {/if}
@@ -412,7 +438,8 @@
                     {#snippet children({ displayValue, useConfigForInput })}
                       <Toggle
                         value={displayValue}
-                        onChange={(v) => onParameterChange(paramName, useConfigForInput ? v : effectiveToConfig(paramName, v))}
+                        onChange={(v) => transientParameterChange(paramName, useConfigForInput ? v : effectiveToConfig(paramName, v))}
+                        onCommit={commitParameterGestureUndo}
                       />
                     {/snippet}
                   </ParamPortWithAudioState>
@@ -439,7 +466,8 @@
                         <EnumSelector
                           value={displayValue}
                           options={enumMap}
-                          onChange={(v) => onParameterChange(paramName, useConfigForInput ? v : effectiveToConfig(paramName, v))}
+                          onChange={(v) => transientParameterChange(paramName, useConfigForInput ? v : effectiveToConfig(paramName, v))}
+                        onCommit={commitParameterGestureUndo}
                         />
                       {/if}
                     {/snippet}
@@ -472,7 +500,8 @@
                         max={paramSpec.max ?? 1}
                         step={paramSpec.type === 'int' ? (paramSpec.step ?? 1) : (paramSpec.step ?? 0.01)}
                         decimals={paramSpec.type === 'int' ? 0 : (paramSpec.step && paramSpec.step >= 1 ? 0 : 3)}
-                        onChange={(v) => onParameterChange(paramName, useConfigForInput ? v : effectiveToConfig(paramName, v))}
+                        onChange={(v) => transientParameterChange(paramName, useConfigForInput ? v : effectiveToConfig(paramName, v))}
+                        onCommit={commitParameterGestureUndo}
                       />
                     {/snippet}
                   </ParamPortWithAudioState>
@@ -508,7 +537,8 @@
                         connected={connInfo.state !== 'default'}
                         knobPolarity={paramSpec.knobPolarity ?? 'one-sided'}
                         knobCenter={paramSpec.knobCenter ?? 0}
-                        onChange={(v) => onParameterChange(paramName, useConfigForInput ? v : effectiveToConfig(paramName, v))}
+                        onChange={(v) => transientParameterChange(paramName, useConfigForInput ? v : effectiveToConfig(paramName, v))}
+                        onCommit={commitParameterGestureUndo}
                       />
                     {/snippet}
                   </ParamPortWithAudioState>
@@ -541,7 +571,8 @@
                         max={paramSpec.max ?? 1}
                         step={paramSpec.type === 'int' ? (paramSpec.step ?? 1) : (paramSpec.step ?? 0.01)}
                         decimals={paramSpec.type === 'int' ? 0 : (paramSpec.step && paramSpec.step >= 1 ? 0 : 3)}
-                        onChange={(v) => onParameterChange(paramName, useConfigForInput ? v : effectiveToConfig(paramName, v))}
+                        onChange={(v) => transientParameterChange(paramName, useConfigForInput ? v : effectiveToConfig(paramName, v))}
+                        onCommit={commitParameterGestureUndo}
                       />
                     {/snippet}
                   </ParamPortWithAudioState>
@@ -599,7 +630,8 @@
                       onPortDoubleClick={(e, p) =>
                         onPortClickForSignalPicker?.(e.clientX, e.clientY, nodeId, p, e.currentTarget as HTMLElement)}
                       onParameterInputModeChanged={onParameterInputModeChanged}
-                      onParameterChange={onParameterChange}
+                      onParameterChange={transientParameterChange}
+                      onParameterGestureCommit={commitParameterGestureUndo}
                       class="coord-pad-cell span-{coordsSpan}-cols"
                     />
                   {/if}
@@ -623,7 +655,8 @@
                   {#snippet children({ displayValue, useConfigForInput })}
                     <Toggle
                       value={displayValue}
-                      onChange={(v) => onParameterChange(paramName, useConfigForInput ? v : effectiveToConfig(paramName, v))}
+                      onChange={(v) => transientParameterChange(paramName, useConfigForInput ? v : effectiveToConfig(paramName, v))}
+                        onCommit={commitParameterGestureUndo}
                     />
                   {/snippet}
                 </ParamPortWithAudioState>
@@ -650,7 +683,8 @@
                       <EnumSelector
                         value={displayValue}
                         options={enumMap}
-                        onChange={(v) => onParameterChange(paramName, useConfigForInput ? v : effectiveToConfig(paramName, v))}
+                        onChange={(v) => transientParameterChange(paramName, useConfigForInput ? v : effectiveToConfig(paramName, v))}
+                        onCommit={commitParameterGestureUndo}
                       />
                     {/if}
                   {/snippet}
@@ -683,7 +717,8 @@
                       max={paramSpec.max ?? 1}
                       step={paramSpec.type === 'int' ? (paramSpec.step ?? 1) : (paramSpec.step ?? 0.01)}
                       decimals={paramSpec.type === 'int' ? 0 : (paramSpec.step && paramSpec.step >= 1 ? 0 : 3)}
-                      onChange={(v) => onParameterChange(paramName, useConfigForInput ? v : effectiveToConfig(paramName, v))}
+                      onChange={(v) => transientParameterChange(paramName, useConfigForInput ? v : effectiveToConfig(paramName, v))}
+                        onCommit={commitParameterGestureUndo}
                     />
                   {/snippet}
                 </ParamPortWithAudioState>
@@ -719,7 +754,8 @@
                       connected={connInfo.state !== 'default'}
                       knobPolarity={paramSpec.knobPolarity ?? 'one-sided'}
                       knobCenter={paramSpec.knobCenter ?? 0}
-                      onChange={(v) => onParameterChange(paramName, useConfigForInput ? v : effectiveToConfig(paramName, v))}
+                      onChange={(v) => transientParameterChange(paramName, useConfigForInput ? v : effectiveToConfig(paramName, v))}
+                        onCommit={commitParameterGestureUndo}
                     />
                   {/snippet}
                 </ParamPortWithAudioState>
@@ -752,7 +788,8 @@
                       max={paramSpec.max ?? 1}
                       step={paramSpec.type === 'int' ? (paramSpec.step ?? 1) : (paramSpec.step ?? 0.01)}
                       decimals={paramSpec.type === 'int' ? 0 : (paramSpec.step && paramSpec.step >= 1 ? 0 : 3)}
-                      onChange={(v) => onParameterChange(paramName, useConfigForInput ? v : effectiveToConfig(paramName, v))}
+                      onChange={(v) => transientParameterChange(paramName, useConfigForInput ? v : effectiveToConfig(paramName, v))}
+                        onCommit={commitParameterGestureUndo}
                     />
                   {/snippet}
                 </ParamPortWithAudioState>
@@ -790,7 +827,8 @@
                   {#snippet children({ displayValue, useConfigForInput })}
                     <Toggle
                       value={displayValue}
-                      onChange={(v) => onParameterChange(paramName, useConfigForInput ? v : effectiveToConfig(paramName, v))}
+                      onChange={(v) => transientParameterChange(paramName, useConfigForInput ? v : effectiveToConfig(paramName, v))}
+                        onCommit={commitParameterGestureUndo}
                     />
                   {/snippet}
                 </ParamPortWithAudioState>
@@ -816,7 +854,8 @@
                       <EnumSelector
                         value={displayValue}
                         options={enumMap}
-                        onChange={(v) => onParameterChange(paramName, useConfigForInput ? v : effectiveToConfig(paramName, v))}
+                        onChange={(v) => transientParameterChange(paramName, useConfigForInput ? v : effectiveToConfig(paramName, v))}
+                        onCommit={commitParameterGestureUndo}
                       />
                     {/if}
                   {/snippet}
@@ -848,7 +887,8 @@
                       max={paramSpec.max ?? 1}
                       step={paramSpec.type === 'int' ? (paramSpec.step ?? 1) : (paramSpec.step ?? 0.01)}
                       decimals={paramSpec.type === 'int' ? 0 : (paramSpec.step && paramSpec.step >= 1 ? 0 : 3)}
-                      onChange={(v) => onParameterChange(paramName, useConfigForInput ? v : effectiveToConfig(paramName, v))}
+                      onChange={(v) => transientParameterChange(paramName, useConfigForInput ? v : effectiveToConfig(paramName, v))}
+                        onCommit={commitParameterGestureUndo}
                     />
                   {/snippet}
                 </ParamPortWithAudioState>
@@ -883,7 +923,8 @@
                     connected={connInfo.state !== 'default'}
                     knobPolarity={paramSpec.knobPolarity ?? 'one-sided'}
                     knobCenter={paramSpec.knobCenter ?? 0}
-                    onChange={(v) => onParameterChange(paramName, useConfigForInput ? v : effectiveToConfig(paramName, v))}
+                    onChange={(v) => transientParameterChange(paramName, useConfigForInput ? v : effectiveToConfig(paramName, v))}
+                        onCommit={commitParameterGestureUndo}
                   />
                 {/snippet}
               </ParamPortWithAudioState>
@@ -915,7 +956,8 @@
                       max={paramSpec.max ?? 1}
                       step={paramSpec.type === 'int' ? (paramSpec.step ?? 1) : (paramSpec.step ?? 0.01)}
                       decimals={paramSpec.type === 'int' ? 0 : (paramSpec.step && paramSpec.step >= 1 ? 0 : 3)}
-                      onChange={(v) => onParameterChange(paramName, useConfigForInput ? v : effectiveToConfig(paramName, v))}
+                      onChange={(v) => transientParameterChange(paramName, useConfigForInput ? v : effectiveToConfig(paramName, v))}
+                        onCommit={commitParameterGestureUndo}
                     />
                   {/snippet}
                 </ParamPortWithAudioState>
@@ -942,7 +984,8 @@
             onPortDoubleClick={(e, paramName) =>
               onPortClickForSignalPicker?.(e.clientX, e.clientY, nodeId, paramName, e.currentTarget as HTMLElement)}
             onParameterInputModeChanged={onParameterInputModeChanged}
-            onParameterChange={onParameterChange}
+            onParameterChange={transientParameterChange}
+            onParameterGestureCommit={commitParameterGestureUndo}
           />
         </div>
       {:else if element.type === 'remap-range'}
@@ -955,11 +998,12 @@
             min={-1000}
             max={1000}
             onChange={(p) => {
-              onParameterChange('inMin', p.inMin);
-              onParameterChange('inMax', p.inMax);
-              onParameterChange('outMin', p.outMin);
-              onParameterChange('outMax', p.outMax);
+              transientParameterChange('inMin', p.inMin);
+              transientParameterChange('inMax', p.inMax);
+              transientParameterChange('outMin', p.outMin);
+              transientParameterChange('outMax', p.outMax);
             }}
+            onCommit={commitParameterGestureUndo}
           />
         </div>
       {:else if element.type === 'bezier-editor'}
@@ -971,11 +1015,12 @@
             x2={getParamValue(params[2])}
             y2={getParamValue(params[3])}
             onChange={(p) => {
-              onParameterChange(params[0], p.x1);
-              onParameterChange(params[1], p.y1);
-              onParameterChange(params[2], p.x2);
-              onParameterChange(params[3], p.y2);
+              transientParameterChange(params[0], p.x1);
+              transientParameterChange(params[1], p.y1);
+              transientParameterChange(params[2], p.x2);
+              transientParameterChange(params[3], p.y2);
             }}
+            onCommit={commitParameterGestureUndo}
           />
         </div>
       {:else if element.type === 'bezier-editor-row'}
@@ -992,11 +1037,12 @@
                     x2={getParamValue(editorParams[2])}
                     y2={getParamValue(editorParams[3])}
                     onChange={(p) => {
-                      onParameterChange(editorParams[0], p.x1);
-                      onParameterChange(editorParams[1], p.y1);
-                      onParameterChange(editorParams[2], p.x2);
-                      onParameterChange(editorParams[3], p.y2);
+                      transientParameterChange(editorParams[0], p.x1);
+                      transientParameterChange(editorParams[1], p.y1);
+                      transientParameterChange(editorParams[2], p.x2);
+                      transientParameterChange(editorParams[3], p.y2);
                     }}
+                    onCommit={commitParameterGestureUndo}
                   />
                 </div>
               {/each}
@@ -1012,11 +1058,12 @@
                   x2={getParamValue(editorParams[2])}
                   y2={getParamValue(editorParams[3])}
                   onChange={(p) => {
-                    onParameterChange(editorParams[0], p.x1);
-                    onParameterChange(editorParams[1], p.y1);
-                    onParameterChange(editorParams[2], p.x2);
-                    onParameterChange(editorParams[3], p.y2);
+                    transientParameterChange(editorParams[0], p.x1);
+                    transientParameterChange(editorParams[1], p.y1);
+                    transientParameterChange(editorParams[2], p.x2);
+                    transientParameterChange(editorParams[3], p.y2);
                   }}
+                  onCommit={commitParameterGestureUndo}
                 />
               </div>
             {/each}
@@ -1178,6 +1225,45 @@
             })}
           />
         </div>
+      {:else if element.type === 'arrangement-track-filter'}
+        <div class="element arrangement-track-filter-wrap">
+          {#if element.label}
+            <div class="layout-group">
+              <div class="group-header">{element.label}</div>
+              <ArrangementTrackFilter
+                trackFilterMode={Number(node.parameters.trackFilterMode ?? 0)}
+                trackFilterList={typeof node.parameters.trackFilterList === 'string'
+                  ? node.parameters.trackFilterList
+                  : ''}
+                positionStorageVariant={node.id}
+                {audioSetup}
+                kinds={element.trackKinds}
+                hideEmpty={element.hideEmpty ?? false}
+                showNoteCounts={element.showNoteCounts ?? false}
+                onFilterChange={(mode, list) => {
+                  onParameterChange('trackFilterMode', mode);
+                  onParameterChange('trackFilterList', list);
+                }}
+              />
+            </div>
+          {:else}
+            <ArrangementTrackFilter
+              trackFilterMode={Number(node.parameters.trackFilterMode ?? 0)}
+              trackFilterList={typeof node.parameters.trackFilterList === 'string'
+                ? node.parameters.trackFilterList
+                : ''}
+              positionStorageVariant={node.id}
+              {audioSetup}
+              kinds={element.trackKinds}
+              hideEmpty={element.hideEmpty ?? false}
+              showNoteCounts={element.showNoteCounts ?? false}
+              onFilterChange={(mode, list) => {
+                onParameterChange('trackFilterMode', mode);
+                onParameterChange('trackFilterList', list);
+              }}
+            />
+          {/if}
+        </div>
       {:else if element.type === 'frequency-range'}
         {@const bandIndex = element.bandIndex ?? 0}
         {@const bands = getArrayParamValue(element.parameter, bandIndex)}
@@ -1189,8 +1275,9 @@
               const updated = [...arr];
               if (!updated[bandIndex]) updated[bandIndex] = [0, 1];
               updated[bandIndex] = [b[0][0], b[0][1]];
-              onParameterChange(element.parameter, updated);
+              transientParameterChange(element.parameter, updated);
             }}
+            onCommit={commitParameterGestureUndo}
           />
         </div>
       {/if}

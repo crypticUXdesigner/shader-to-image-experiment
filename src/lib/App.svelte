@@ -236,7 +236,7 @@
   $effect(() => {
     const rm = runtimeManager;
     if (!rm) return;
-    runtimeDispatcher?.setAudioSetup(graphStore.audioSetup);
+    rm.syncAudioSetupFromStore(graphStore.audioSetup);
   });
 
   // Dispose prior WaveformService when runtime is recreated or cleared so audiograph / decode
@@ -915,7 +915,7 @@
     hydrating = true;
     undoRedoManager?.clear();
     graphStore.setGraph(resolved.graph);
-    graphStore.setAudioSetup(resolved.audioSetup);
+    graphStore.setAudioSetup(clearArrangementSnapshotIfPrimaryMismatch(resolved.audioSetup));
     activeSession = resolved.activeSession;
     selectedPreset = resolved.selectedPreset;
     hydrating = false;
@@ -926,8 +926,7 @@
     lastSuccessfulPersistAt = Date.now();
     appToastStore.dismissBySource('autosave');
     if (!runtimeDispatcher) return;
-    // Audio setup is synced via $effect when graphStore.audioSetup updates.
-    await runtimeDispatcher.loadGraph(graphStore.graph);
+    await runtimeDispatcher.loadProject(graphStore.graph, graphStore.audioSetup);
     if (resolved.graph.nodes.length > 0) {
       setTimeout(() => canvasApi?.fitToView(), 150);
     }
@@ -1363,8 +1362,7 @@
       lastSuccessfulPersistAt = Date.now();
       appToastStore.dismissBySource('autosave');
       if (runtimeDispatcher) {
-        // Audio setup is synced via $effect when graphStore.audioSetup updates.
-        await runtimeDispatcher.loadGraph(graph);
+        await runtimeDispatcher.loadProject(graph, audioSetup);
       }
       if (graph.nodes.length > 0) {
         setTimeout(() => canvasApi?.fitToView(), 0);

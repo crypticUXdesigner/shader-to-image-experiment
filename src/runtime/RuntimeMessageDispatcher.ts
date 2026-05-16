@@ -181,6 +181,18 @@ export class RuntimeMessageDispatcher {
     }).then(() => {});
   }
 
+  /**
+   * Load a saved project into the runtime. Audio setup must be applied before the graph so the
+   * first compile bakes arrangement snapshots and other audio-derived shader data.
+   */
+  async loadProject(
+    graph: NodeGraph,
+    audioSetup: AudioSetup | null,
+    options?: { autoPlayWhenReady?: boolean }
+  ): Promise<void> {
+    await this.runtime.loadProject(graph, audioSetup, options);
+  }
+
   setAudioSetup(audioSetup: AudioSetup | null, options?: { autoPlayWhenReady?: boolean }): Promise<void> {
     return this.dispatch({
       version: RUNTIME_MESSAGE_VERSION,

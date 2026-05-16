@@ -9,6 +9,7 @@ export {
   type TimelineState,
   type GraphChangedOptions,
 } from './graphStore.svelte';
+export type { GraphUndoRecordingOptions } from '../../data-model/types';
 
 export {
   appToastStore,

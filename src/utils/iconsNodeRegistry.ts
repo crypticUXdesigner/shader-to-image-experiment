@@ -133,6 +133,7 @@ export type NodeIconIdentifier =
   | 'angle'
   | 'approximate-equals'
   | 'arrows-in-simple'
+  | 'arrows-out'
   | 'arrows-out-simple'
   | 'barcode'
   | 'beach-ball'
@@ -170,6 +171,7 @@ export type NodeIconIdentifier =
   | 'intersect-three'
   | 'meteor'
   | 'mouse-scroll'
+  | 'music-note-simple'
   | 'nut'
   | 'octagon'
   | 'parallelogram'
@@ -189,6 +191,7 @@ export type NodeIconIdentifier =
   | 'record'
   | 'rectangle-dashed'
   | 'robot'
+  | 'rows'
   | 'scan'
   | 'scan-smiley'
   | 'scribble'
@@ -354,6 +357,7 @@ export const ALL_NODE_ICON_IDENTIFIERS: readonly NodeIconIdentifier[] = [
   'angle',
   'approximate-equals',
   'arrows-in-simple',
+  'arrows-out',
   'arrows-out-simple',
   'barcode',
   'beach-ball',
@@ -391,6 +395,7 @@ export const ALL_NODE_ICON_IDENTIFIERS: readonly NodeIconIdentifier[] = [
   'intersect-three',
   'meteor',
   'mouse-scroll',
+  'music-note-simple',
   'nut',
   'octagon',
   'parallelogram',
@@ -410,6 +415,7 @@ export const ALL_NODE_ICON_IDENTIFIERS: readonly NodeIconIdentifier[] = [
   'record',
   'rectangle-dashed',
   'robot',
+  'rows',
   'scan',
   'scan-smiley',
   'scribble',

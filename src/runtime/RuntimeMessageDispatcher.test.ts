@@ -64,6 +64,34 @@ describe('RuntimeMessageDispatcher', () => {
     });
   });
 
+  it('loadProject delegates to RuntimeManager.loadProject', async () => {
+    const graph = makeEmptyGraph();
+    const audioSetup = makeAudioSetup();
+
+    const runtime = {
+      loadProject: vi.fn().mockResolvedValue(undefined),
+      setGraph: vi.fn(),
+      setAudioSetup: vi.fn(),
+      updateParameter: vi.fn(),
+      onAudioFileParameterChange: vi.fn().mockResolvedValue(undefined),
+      toggleGlobalAudioPlayback: vi.fn(),
+      playNext: vi.fn(),
+      playPrevious: vi.fn(),
+      playPrimary: vi.fn(),
+      seekGlobalAudio: vi.fn(),
+      getTimelineState: vi.fn().mockReturnValue(null),
+      getGlobalAudioState: vi.fn().mockReturnValue(null),
+    } as unknown as import('./RuntimeManager').RuntimeManager;
+
+    const dispatcher = new RuntimeMessageDispatcher(runtime);
+    await dispatcher.loadProject(graph, audioSetup, { autoPlayWhenReady: true });
+
+    expect((runtime.loadProject as any)).toHaveBeenCalledTimes(1);
+    expect((runtime.loadProject as any)).toHaveBeenCalledWith(graph, audioSetup, {
+      autoPlayWhenReady: true,
+    });
+  });
+
   it('round-trips a request message through JSON serialization', () => {
     const graph = makeEmptyGraph();
     const msg: RuntimeRequestMessage = {

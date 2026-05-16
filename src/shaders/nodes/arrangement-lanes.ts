@@ -11,7 +11,7 @@ export const arrangementLanesNodeSpec: NodeSpec = {
   displayName: 'Arrangement Lanes',
   description:
     'Draws DAW region blocks per track row, windowed against timeline time. Requires an imported arrangement snapshot on the playlist primary.',
-  icon: 'columns-plus-right',
+  icon: 'rows',
   inputs: [
     {
       name: 'in',
@@ -154,9 +154,9 @@ export const arrangementLanesNodeSpec: NodeSpec = {
     {
       id: 'arr-lanes-tracks',
       label: 'Tracks',
-      parameters: ['trackFilterMode'],
+      parameters: [],
       collapsible: true,
-      defaultCollapsed: true,
+      defaultCollapsed: false,
     },
     {
       id: 'arr-lanes-style',
@@ -182,10 +182,9 @@ export const arrangementLanesNodeSpec: NodeSpec = {
         layout: { columns: 'auto' },
       },
       {
-        type: 'grid',
+        type: 'arrangement-track-filter',
         label: 'Tracks',
-        parameters: ['trackFilterMode'],
-        layout: { columns: 'auto' },
+        hideEmpty: true,
       },
       {
         type: 'grid',
@@ -200,7 +199,13 @@ export const arrangementLanesNodeSpec: NodeSpec = {
         layout: { columns: 'auto' },
       },
     ],
-    parametersWithoutPorts: ['trackFilterList', 'backgroundR', 'backgroundG', 'backgroundB'],
+    parametersWithoutPorts: [
+      'trackFilterMode',
+      'trackFilterList',
+      'backgroundR',
+      'backgroundG',
+      'backgroundB',
+    ],
     minColumns: 3,
   },
   functions: `

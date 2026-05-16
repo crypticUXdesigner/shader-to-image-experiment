@@ -127,7 +127,13 @@ export class NodeEditorCanvas {
   getHasClipboard?: () => NodeEditorCanvas['hasClipboard'];
   getOnUndo?: () => NodeEditorCanvas['onUndo'];
   getOnRedo?: () => NodeEditorCanvas['onRedo'];
-  private onParameterChanged?: (nodeId: string, paramName: string, value: import('../../data-model/types').ParameterValue) => void;
+  private onParameterChanged?: (
+    nodeId: string,
+    paramName: string,
+    value: import('../../data-model/types').ParameterValue,
+    options?: import('../../data-model/types').GraphUndoRecordingOptions
+  ) => void;
+  private onParameterGestureCommit?: () => void;
   private onFileParameterChanged?: (nodeId: string, paramName: string, file: File) => void;
   private onFileDialogOpen?: () => void;
   private onFileDialogClose?: () => void;
@@ -220,7 +226,7 @@ export class NodeEditorCanvas {
     initializeCanvas(this as unknown as import('./CanvasInitializer').CanvasInitTarget, graph, overlayBridge);
     runNodeEditorCanvasPostInit(this as unknown as import('./NodeEditorCanvasPostInit').NodeEditorCanvasPostInitTarget);
     // Refs used by CanvasInitializer / layer system, EventHandlerDeps or buildManagerContextDeps / post-init (satisfy noUnusedLocals)
-    void [this.stateSync, this.setupManagerContexts, this.setupInteractionHandlers, this.initializeEventHandlers, this.setupEventListeners, this.draggedNodeIds, this.getValidVirtualNodeIds, this.onFileParameterChanged, this.onFileDialogOpen, this.onFileDialogClose, this.onNodeLabelChanged, this.onTypeLabelClick, this.getParamPortPositionsFromDOM, this.getHeaderOutputPortPositionsFromDOM, this.getCanvasRectForConnections, this.renderSelectionRectangle, this.getConnectionState, this.setConnectionState, this.getPanState, this.setPanState, this.getInteractionState, this.setInteractionState, this.updateMousePosition, this.detachDocumentListeners, this.onNodeDeleted, this.onConnectionDeleted, this.onSpacebarStateChange, this.isDialogVisible, this.onCopySelected, this.onPaste, this.onDuplicateSelected, this.hasClipboard, this.onUndo, this.onRedo, this.connectionLayerRenderer, this.parameterConnectionLayerRenderer, this.isSpacePressed, this.onNodeMoved, this.onNodeSelected, this.onConnectionSelected, this.onParameterChanged, this.onParameterInputModeChanged, this.connectionStateManager, this.getSelectionState, this.canvasToScreen, this.setDraggedNodeIds, this.setPanStateInternal, this.setSelectionRectangleInternal, this.renderState, this.screenToCanvas];
+    void [this.stateSync, this.setupManagerContexts, this.setupInteractionHandlers, this.initializeEventHandlers, this.setupEventListeners, this.draggedNodeIds, this.getValidVirtualNodeIds, this.onFileParameterChanged, this.onFileDialogOpen, this.onFileDialogClose, this.onNodeLabelChanged, this.onTypeLabelClick, this.getParamPortPositionsFromDOM, this.getHeaderOutputPortPositionsFromDOM, this.getCanvasRectForConnections, this.renderSelectionRectangle, this.getConnectionState, this.setConnectionState, this.getPanState, this.setPanState, this.getInteractionState, this.setInteractionState, this.updateMousePosition, this.detachDocumentListeners, this.onNodeDeleted, this.onConnectionDeleted, this.onSpacebarStateChange, this.isDialogVisible, this.onCopySelected, this.onPaste, this.onDuplicateSelected, this.hasClipboard, this.onUndo, this.onRedo, this.connectionLayerRenderer, this.parameterConnectionLayerRenderer, this.isSpacePressed, this.onNodeMoved, this.onNodeSelected, this.onConnectionSelected, this.onParameterChanged, this.onParameterGestureCommit, this.onParameterInputModeChanged, this.connectionStateManager, this.getSelectionState, this.canvasToScreen, this.setDraggedNodeIds, this.setPanStateInternal, this.setSelectionRectangleInternal, this.renderState, this.screenToCanvas];
   }
 
   private getViewStateInternal(): { panX: number; panY: number; zoom: number } {

@@ -6,7 +6,7 @@ alwaysApply: false
 
 # Undo / history
 
-- **Push:** Semantic graph edits (nodes, connections, parameters, automation on the graph, etc.) go through **`graphStore`**; the store calls `graphChangedListener` → `undoRedoManager.pushState(graph)` for those paths. **Pan/zoom/selection** (`updateViewState`) notifies the listener with `recordUndo: false` so undo history stays semantic-only; applying undo/redo merges **live** view state onto the snapshot before `setGraph`.
+- **Push:** Semantic graph edits (nodes, connections, parameters, automation on the graph, etc.) go through **`graphStore`**; the store calls `graphChangedListener` → `undoRedoManager.pushState(graph)` when `recordUndo !== false`. Mutations may pass **`GraphChangedOptions`** (e.g. **`{ recordUndo: false }`**) so continuous gestures do not push on every tick; **`graphStore.recordUndoSnapshot()`** (bookmark) may record one step after the gesture when the graph already matches the final value. **Pan/zoom/selection** (`updateViewState`) notifies the listener with `recordUndo: false` so undo history stays semantic-only; applying undo/redo merges **live** view state onto the snapshot before `setGraph`.
 - **Preset / full replace:** `undoRedoManager.clear()` then `graphStore.setGraph(...)` so history starts from the loaded graph.
 
 **Don’t:** Mutate graph outside store (or bypass listener); push duplicate state on preset load.

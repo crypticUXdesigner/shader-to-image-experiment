@@ -30,8 +30,8 @@ const missingIds = missing.map((k) => k.replace(/^node:/, '')).sort();
 // Category order from src/shaders/nodes/index.ts (spec order)
 const CATEGORIES = [
   ['input', ['uv-coordinates', 'time', 'resolution', 'fragment-coordinates', 'constant-float', 'constant-vec2', 'constant-vec3', 'constant-vec4', 'orbit-camera', 'look-at-camera', 'oklch-color', 'bezier-curve']],
-  ['transform', ['translate', 'rotate', 'scale']],
-  ['distort/pattern', ['polar-coordinates', 'vector-field', 'turbulence', 'kaleidoscope', 'radial-uv-warp', 'ripple', 'mirror-flip', 'displace', 'rain-drops', 'vortex', 'quad-warp', 'directional-displace', 'brick-tiling', 'infinite-zoom', 'kaleidoscope-smooth']],
+  ['transform', ['transform']],
+  ['distort/pattern', ['polar-coordinates', 'vector-field', 'turbulence', 'kaleidoscope', 'radial-uv-warp', 'ripple', 'displace', 'rain-drops', 'vortex', 'quad-warp', 'brick-tiling', 'infinite-zoom', 'kaleidoscope-smooth']],
   ['pattern/noise', ['noise', 'warp-terrain', 'voronoi-noise', 'cubic-curl-noise', 'rings', 'gradient', 'radial-rays', 'crepuscular-rays', 'volume-rays', 'streak', 'flow-field-pattern', 'hexagonal-grid', 'stripes', 'dots', 'disco-pattern', 'triangle-grid', 'particle-system']],
   ['shape/geometry', ['sphere-raymarch', 'spherical-fibonacci', 'bloom-sphere', 'box-torus-sdf', 'glass-shell', 'hex-prism-sdf', 'radial-repeat-sdf', 'repeated-hex-prism-sdf', 'kifs-sdf', 'ether-sdf', 'displacement-3d', 'generic-raymarcher', 'iridescent-tunnel', 'inflated-icosahedron', 'shapes-2d', 'star-shape-2d', 'metaballs', 'star-2d', 'superellipse', 'fractal', 'iterated-inversion', 'plane-grid', 'sky-dome', 'bokeh-point', 'drive-home-lights']],
   ['math', ['add', 'subtract', 'multiply', 'divide', 'power', 'square-root', 'absolute', 'floor', 'ceil', 'fract', 'modulo', 'min', 'max', 'clamp', 'mix', 'step', 'smoothstep', 'sine', 'cosine', 'tangent', 'arc-sine', 'arc-cosine', 'arc-tangent', 'arc-tangent-2', 'exponential', 'natural-logarithm', 'length', 'distance', 'dot-product', 'cross-product', 'normalize', 'reflect', 'refract']],

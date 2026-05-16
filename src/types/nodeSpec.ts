@@ -118,6 +118,7 @@ export type LayoutElement =
   | ColorPickerRowWithPortsElement
   | ColorMapPreviewElement
   | CoordPadElement
+  | ArrangementTrackFilterElement
   | CustomElement;
 
 /** XY coord pad: draggable 2D pad + X/Y ValueInputs below (size sm). Combined cell with ports for X and Y. */
@@ -266,6 +267,18 @@ export interface BezierEditorRowElement {
   height?: number;
   /** Three groups of 4 param names: [x1, y1, x2, y2] per editor (L, C, H curves). */
   editors: [[string, string, string, string], [string, string, string, string], [string, string, string, string]];
+}
+
+/** Multi-select track filter for arrangement snapshot nodes. */
+export interface ArrangementTrackFilterElement {
+  type: 'arrangement-track-filter';
+  label?: string;
+  /** Limit listed tracks to these kinds (default: all kinds). */
+  trackKinds?: Array<'note' | 'audio' | 'pattern'>;
+  /** Omit tracks with no notes/regions in the snapshot. */
+  hideEmpty?: boolean;
+  /** Show note counts in menu rows (notes node). */
+  showNoteCounts?: boolean;
 }
 
 // Custom element (for future extensibility)

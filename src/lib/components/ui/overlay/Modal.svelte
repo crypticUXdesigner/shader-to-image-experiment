@@ -119,7 +119,7 @@
     aria-modal="true"
     onclick={(e) => e.target === e.currentTarget && backdropDismisses && onClose?.()}
     use:portal
-    transition:fade={{ duration: fadeMs }}
+    transition:fade={() => ({ duration: fadeMs })}
   >
   <div
     bind:this={contentEl}

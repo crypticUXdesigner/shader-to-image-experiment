@@ -60,7 +60,12 @@ export interface MouseEventMoveContext {
   deps: MouseEventHandlerDependencies;
   getState: () => MouseEventFullState;
   setState: (u: MouseEventStateUpdates) => void;
-  flushParameterChangeAndRender: (nodeId: string, paramName: string, value: number | number[][]) => void;
+  flushParameterChangeAndRender: (
+    nodeId: string,
+    paramName: string,
+    value: import('../../../../data-model/types').ParameterValue,
+    recordUndo?: boolean
+  ) => void;
 }
 
 export interface MouseEventDownContext {

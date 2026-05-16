@@ -67,13 +67,19 @@
       background var(--motion-effects-fast-duration) var(--motion-effects-fast-easing),
       border-color var(--motion-effects-fast-duration) var(--motion-effects-fast-easing);
 
-    &:hover:not(:disabled) {
-      background: var(--toggle-bg-hover);
+    &:hover:not(:disabled):not(.on) {
+      background: var(--toggle-bg-hover-off);
+      border-color: var(--toggle-bg-hover-off);
     }
 
     &.on {
       background: var(--toggle-bg-on);
       border-color: var(--toggle-bg-on);
+
+      &:hover:not(:disabled) {
+        background: var(--toggle-bg-hover-on);
+        border-color: var(--toggle-bg-hover-on);
+      }
     }
 
     &:disabled {

@@ -49,6 +49,7 @@
     onPortDoubleClick?: (e: MouseEvent, paramName: string) => void;
     onParameterInputModeChanged?: (paramName: string, mode: ParameterInputMode) => void;
     onParameterChange: (paramName: string, value: number) => void;
+    onParameterGestureCommit?: () => void;
     disabled?: boolean;
     class?: string;
   }
@@ -70,6 +71,7 @@
     onPortDoubleClick,
     onParameterInputModeChanged,
     onParameterChange,
+    onParameterGestureCommit,
     disabled = false,
     class: className = '',
   }: Props = $props();
@@ -340,8 +342,5 @@
     onParameterChange(paramX, useConfigForInputX ? x : effectiveToConfig(paramX, x));
     onParameterChange(paramY, useConfigForInputY ? y : effectiveToConfig(paramY, y));
   }}
-  onCommit={(x, y) => {
-    onParameterChange(paramX, useConfigForInputX ? x : effectiveToConfig(paramX, x));
-    onParameterChange(paramY, useConfigForInputY ? y : effectiveToConfig(paramY, y));
-  }}
+  onCommit={() => onParameterGestureCommit?.()}
 />

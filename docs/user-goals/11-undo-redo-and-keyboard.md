@@ -11,7 +11,7 @@ Undo/redo and keyboard shortcuts make editing faster and reversible. Graph chang
 
 ## 3. User Goals
 
-- **Undo and redo graph changes (target)** — Undo history of graph states (limit **50**); each significant graph change (add/remove node, connection, parameter, view state, automation) **records** a new snapshot. **Target UX:** Undo (**Ctrl/Cmd+Z**) restores the previous graph; Redo (**Ctrl/Cmd+Shift+Z**) restores the next state when available. Loading a preset or replacing the graph (e.g. paste full graph) clears undo history. **Today:** snapshots are pushed via `UndoRedoManager`, but **undo/redo are not yet bound to keyboard or shell** — users cannot revert from the UI until that work lands (see [`../implementation/graph-undo-redo.md`](../implementation/graph-undo-redo.md)). When wired, the system should expose “can undo” / “can redo” for optional top-bar controls.
+- **Undo and redo graph changes** — Undo history of graph states (limit **50**); each significant graph change (add/remove node, connection, parameter, view state, automation) **records** a new snapshot. **Continuous** parameter edits (knob/slider drag, coordinated pointer-up on the canvas) aim for **one** snapshot per **completed gesture**—intermediate move events update the graph with **`recordUndo: false`**, then a commit/bookmark records undo once—rather than one snapshot per snapped step. **UX:** Undo (**Ctrl/Cmd+Z**) restores the previous graph when available; Redo (**Ctrl/Cmd+Shift+Z**) restores the next state. Loading a preset or replacing the graph (e.g. paste full graph) clears undo history. The shell exposes undo/redo and can surface “can undo” / “can redo” for controls (see [`../implementation/graph-undo-redo.md`](../implementation/graph-undo-redo.md)).
 - **Delete, copy, paste, duplicate** — Delete selection (nodes and connections) with Delete or Backspace. Copy selection (nodes and internal connections) with Ctrl/Cmd+C; stored in internal clipboard (“Copy preset” is separate). Paste with Ctrl/Cmd+V when clipboard has node data; pasted at target (offset or cursor) with remapped IDs. Duplicate with Ctrl/Cmd+D (copy then paste at offset). Shortcuts do not fire when focus in input or dialog open.
 - **Pan temporarily with spacebar** — Spacebar held for short delay (~200 ms) activates temporary pan (Hand); cursor changes (e.g. grab); release restores previous tool; quick press does not activate pan and can trigger play/pause in bottom bar. **While a modal dialog is open**, spacebar can activate pan **immediately** (no hold delay) so the canvas remains navigable without trapping the user.
 - **Other canvas shortcuts** — **F** toggles browser fullscreen when not typing in an input (capture-phase handler).
@@ -19,7 +19,7 @@ Undo/redo and keyboard shortcuts make editing faster and reversible. Graph chang
 
 ## 4. Key Flows
 
-- **Undo/redo (target):** Change → history pushes; Undo → graph reverts; Redo → re-applies. **Current:** changes push history only; user-invoked undo/redo pending implementation.
+- **Undo/redo:** Semantic change → history may push (per `recordUndo` policy); Undo → graph reverts; Redo → re-applies when available.
 - **Delete:** Select nodes → Delete → selection and connections removed; history records (same push pipeline as other edits).
 - **Copy/paste:** Select → Ctrl/Cmd+C → move view → Ctrl/Cmd+V → pasted at offset; history records.
 - **Spacebar pan:** Hold spacebar briefly → cursor grab → drag to pan → release → tool and cursor restore (immediate pan when a blocking dialog is open).

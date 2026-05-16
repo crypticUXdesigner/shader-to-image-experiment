@@ -20,6 +20,13 @@ export type ParameterValue =
   | number[][];                   // For array-of-arrays (e.g. frequencyBands)
 
 /**
+ * Options forwarded with graph mutations into `graphChangedListener` (undo snapshots vs transient drags).
+ */
+export type GraphUndoRecordingOptions = {
+  recordUndo?: boolean;
+};
+
+/**
  * Node position in the canvas (pixels).
  */
 export interface NodePosition {

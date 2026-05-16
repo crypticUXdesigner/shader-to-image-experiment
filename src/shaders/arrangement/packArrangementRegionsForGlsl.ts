@@ -1,5 +1,9 @@
 import type { NodeInstance } from '../../data-model/types';
 import {
+  parseTrackFilterList,
+  parseTrackFilterListOrdered,
+} from '../../audiotool/arrangement/arrangementTrackFilter';
+import {
   MAX_ARRANGEMENT_REGIONS,
   type ArrangementRegion,
   type ArrangementSnapshot,
@@ -20,15 +24,28 @@ export type ArrangementLanesPackOptions = {
   trackFilterList: string;
 };
 
-function parseTrackFilterList(raw: string): Set<string> {
-  const ids = raw
-    .split(',')
-    .map((s) => s.trim())
-    .filter(Boolean);
-  return new Set(ids);
+/** When filtering: order matches comma-separated ids (lane / notes stack bottom→top semantics). */
+function orderFilteredTracksByPreferredIds(
+  filteredTracks: ArrangementTrack[],
+  preferredOrderIds: readonly string[]
+): ArrangementTrack[] {
+  const byId = new Map(filteredTracks.map((t) => [t.id, t]));
+  const out: ArrangementTrack[] = [];
+  const seen = new Set<string>();
+  for (const id of preferredOrderIds) {
+    const t = byId.get(id);
+    if (t == null || seen.has(id)) continue;
+    seen.add(id);
+    out.push(t);
+  }
+  /** Stale snapshots: any visible track missing from list still participates (deterministic fallback). */
+  const rest = filteredTracks.filter((t) => !seen.has(t.id));
+  rest.sort((a, b) => a.orderAmongTracks - b.orderAmongTracks);
+  return [...out, ...rest];
 }
 
-function resolveVisibleTracks(
+/** Note / arrangement-lanes packing: enabled tracks; filter list order overrides project order when set. */
+export function resolveVisibleTracks(
   snapshot: ArrangementSnapshot,
   options: ArrangementLanesPackOptions
 ): ArrangementTrack[] {
@@ -36,11 +53,11 @@ function resolveVisibleTracks(
   if (options.trackFilterMode !== 1) {
     return [...enabled].sort((a, b) => a.orderAmongTracks - b.orderAmongTracks);
   }
+  const preferredOrderIds = parseTrackFilterListOrdered(options.trackFilterList);
   const allow = parseTrackFilterList(options.trackFilterList);
   if (allow.size === 0) return [];
-  return enabled
-    .filter((t) => allow.has(t.id))
-    .sort((a, b) => a.orderAmongTracks - b.orderAmongTracks);
+  const filtered = enabled.filter((t) => allow.has(t.id));
+  return orderFilteredTracksByPreferredIds(filtered, preferredOrderIds);
 }
 
 function trackRowNormalized(track: ArrangementTrack, visibleTracks: ArrangementTrack[]): number {

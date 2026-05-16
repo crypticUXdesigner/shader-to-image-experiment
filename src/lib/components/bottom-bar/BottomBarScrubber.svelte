@@ -382,7 +382,14 @@
   }
 
   function handleStripKeydown(e: KeyboardEvent) {
-    if (e.key !== ' ' && e.key !== 'Enter') return;
+    // Space is global play/pause (BottomBar listens on window keyup). When the strip stays
+    // focused after a click, we must not treat Space as "activate" — that used to seek to
+    // 50% (fake pointer at strip center). Only prevent scroll while focused.
+    if (e.key === ' ' || e.key === 'Space') {
+      e.preventDefault();
+      return;
+    }
+    if (e.key !== 'Enter') return;
     e.preventDefault();
     const rect = stripWrapperEl?.getBoundingClientRect();
     if (!rect) return;

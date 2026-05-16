@@ -100,6 +100,7 @@ const iconAliases: Record<string, CanonicalIconId> = {
   'waves': canonicalId('waves', 'line'),
   'ripple': canonicalId('wave-sine', 'line'),
   'trig-wave': canonicalId('wave-sine', 'line'),
+  'music-note-simple': canonicalId('music-note-simple', 'line'),
 
   // Math & operations
   'calculator': canonicalId('calculator', 'line'),
@@ -218,6 +219,7 @@ const iconAliases: Record<string, CanonicalIconId> = {
   'angle': canonicalId('angle', 'line'),
   'approximate-equals': canonicalId('approximate-equals', 'line'),
   'arrows-in-simple': canonicalId('arrows-in-simple', 'line'),
+  'arrows-out': canonicalId('arrows-out', 'line'),
   'arrows-out-simple': canonicalId('arrows-out-simple', 'line'),
   'barcode': canonicalId('barcode', 'line'),
   'beach-ball': canonicalId('beach-ball', 'line'),
@@ -273,6 +275,7 @@ const iconAliases: Record<string, CanonicalIconId> = {
   'record': canonicalId('record', 'line'),
   'rectangle-dashed': canonicalId('rectangle-dashed', 'line'),
   'robot': canonicalId('robot', 'line'),
+  'rows': canonicalId('rows', 'line'),
   'scan': canonicalId('scan', 'line'),
   'scan-smiley': canonicalId('scan-smiley', 'line'),
   'scribble': canonicalId('scribble', 'line'),

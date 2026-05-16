@@ -43,7 +43,13 @@ export interface HandlerContextSource {
   /** When set, used at invoke time so handlers see the current callback (callbacks are set after context is built). */
   getOnConnectionCreated?: () => HandlerContextSource['onConnectionCreated'];
   readonly onConnectionSelected?: (connectionId: string | null, multiSelect: boolean) => void;
-  readonly onParameterChanged?: (nodeId: string, paramName: string, value: import('../../data-model/types').ParameterValue) => void;
+  readonly onParameterChanged?: (
+    nodeId: string,
+    paramName: string,
+    value: import('../../data-model/types').ParameterValue,
+    options?: import('../../data-model/types').GraphUndoRecordingOptions
+  ) => void;
+  readonly onParameterGestureCommit?: () => void;
   readonly onParameterInputModeChanged?: (nodeId: string, paramName: string, mode: import('../../types/nodeSpec').ParameterInputMode) => void;
   readonly isSpacePressed: boolean;
   getActiveTool(): import('../../types/editor').ToolType;
@@ -88,6 +94,8 @@ export function createHandlerContext(source: HandlerContextSource): HandlerConte
     onConnectionSelected: source.onConnectionSelected,
     onParameterChanged: source.onParameterChanged,
     getOnParameterChanged: () => source.onParameterChanged,
+    onParameterGestureCommit: source.onParameterGestureCommit,
+    getOnParameterGestureCommit: () => source.onParameterGestureCommit,
     onParameterInputModeChanged: source.onParameterInputModeChanged,
     getOnParameterInputModeChanged: () => source.onParameterInputModeChanged,
     isSpacePressed: source.isSpacePressed,

@@ -605,6 +605,11 @@ export interface ICompilationManager {
    * Set audio setup from panel (for uniform generation from audio-derived signals).
    */
   setAudioSetup?(audioSetup: import('../data-model/audioSetupTypes').AudioSetup | null): void;
+
+  /**
+   * Force preview recompile (e.g. after atomic project load). Bypasses idle-skip dedupe.
+   */
+  requestFullPreviewRecompile?(): void;
   
   /**
    * Handle parameter change.

@@ -6,7 +6,7 @@
    */
 
   import Node from '../node/Node.svelte';
-  import type { NodeGraph, NodeInstance } from '../../../data-model/types';
+  import type { NodeGraph, NodeInstance, GraphUndoRecordingOptions } from '../../../data-model/types';
   import type { NodeSpec } from '../../../types/nodeSpec';
   import type { NodeEditorCanvasWrapperAPI } from './NodeEditorCanvasWrapper.types';
   import type { NodeRenderMetrics } from '../../../ui/editor';
@@ -32,7 +32,13 @@
     onNodeMoved: (nodeId: string, x: number, y: number) => void;
     onNodeSelected: (nodeId: string, multiSelect: boolean) => void;
     onNodeLabelChanged: (nodeId: string, label: string | undefined) => void;
-    onParameterChange?: (nodeId: string, paramName: string, value: import('../../../data-model/types').ParameterValue) => void;
+    onParameterChange?: (
+      nodeId: string,
+      paramName: string,
+      value: import('../../../data-model/types').ParameterValue,
+      options?: GraphUndoRecordingOptions
+    ) => void;
+    onParameterGestureCommit?: () => void;
     onParameterInputModeChanged?: (nodeId: string, paramName: string, mode: import('../../../types/nodeSpec').ParameterInputMode) => void;
     onNodeContextMenu?: (nodeId: string, clientX: number, clientY: number) => void;
     /** Double-click node body → Patch tool with this node as insert; next click picks cable. */
@@ -60,6 +66,7 @@
     onNodeSelected,
     onNodeLabelChanged,
     onParameterChange,
+    onParameterGestureCommit,
     onParameterInputModeChanged,
     onNodeContextMenu,
     onPatchIntoDoubleClick,
@@ -236,6 +243,7 @@
           onSelect={onNodeSelected}
           onLabelChange={onNodeLabelChanged}
           onParameterChange={onParameterChange ?? (() => {})}
+          onParameterGestureCommit={onParameterGestureCommit}
           onParameterInputModeChanged={onParameterInputModeChanged}
           onContextMenu={onNodeContextMenu}
           onPatchIntoDoubleClick={onPatchIntoDoubleClick}

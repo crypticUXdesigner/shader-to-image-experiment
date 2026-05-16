@@ -1,6 +1,21 @@
 /**
- * Format a numeric parameter value for GLSL (float literals for clamp etc.).
+ * Shader codegen helpers (literals, defaults, GLSL clamp).
  */
+/**
+ * Clamp a float GLSL expression to a parameter's min/max (matches `$param` / panel ranges).
+ */
+export function clampFloatExpressionGlsl(
+  expr: string,
+  paramSpec: { type?: string; min?: number; max?: number } | undefined
+): string {
+  if (!paramSpec || paramSpec.type !== 'float') return expr;
+  const min = typeof paramSpec.min === 'number' ? paramSpec.min : 0;
+  const max = typeof paramSpec.max === 'number' ? paramSpec.max : 1;
+  const minStr = formatParamLiteralForGlsl(min, { type: 'float' });
+  const maxStr = formatParamLiteralForGlsl(max, { type: 'float' });
+  return `clamp((${expr}), ${minStr}, ${maxStr})`;
+}
+
 export function formatParamLiteralForGlsl(
   value: number,
   paramSpec?: { type?: string } | null

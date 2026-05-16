@@ -115,8 +115,10 @@ export interface HandlerContextDependencies {
   onConnectionCreated?: (sourceNodeId: string, sourcePort: string, targetNodeId: string, targetPort?: string, targetParameter?: string) => void;
   getOnConnectionCreated?: () => HandlerContextDependencies['onConnectionCreated'];
   onConnectionSelected?: (connectionId: string | null, multiSelect: boolean) => void;
-  onParameterChanged?: (nodeId: string, paramName: string, value: import('../../../data-model/types').ParameterValue) => void;
+  onParameterChanged?: (nodeId: string, paramName: string, value: import('../../../data-model/types').ParameterValue, options?: import('../../../data-model/types').GraphUndoRecordingOptions) => void;
   getOnParameterChanged?: () => HandlerContextDependencies['onParameterChanged'];
+  onParameterGestureCommit?: () => void;
+  getOnParameterGestureCommit?: () => HandlerContextDependencies['onParameterGestureCommit'];
   onParameterInputModeChanged?: (nodeId: string, paramName: string, mode: import('../../../types/nodeSpec').ParameterInputMode) => void;
   getOnParameterInputModeChanged?: () => HandlerContextDependencies['onParameterInputModeChanged'];
   
@@ -195,9 +197,13 @@ export class HandlerContextBuilder {
         const fn = this.deps.getOnConnectionCreated?.() ?? this.deps.onConnectionCreated;
         if (fn) fn(...args);
       },
-      onParameterChanged: (nodeId, paramName, value) => {
+      onParameterChanged: (nodeId, paramName, value, options) => {
         const fn = this.deps.getOnParameterChanged?.() ?? this.deps.onParameterChanged;
-        if (fn) fn(nodeId, paramName, value);
+        if (fn) fn(nodeId, paramName, value, options);
+      },
+      onParameterGestureCommit: () => {
+        const fn = this.deps.getOnParameterGestureCommit?.() ?? this.deps.onParameterGestureCommit;
+        fn?.();
       },
       onParameterInputModeChanged: (nodeId, paramName, mode) => {
         const fn = this.deps.getOnParameterInputModeChanged?.() ?? this.deps.onParameterInputModeChanged;

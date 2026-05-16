@@ -6,7 +6,13 @@
  * Components import graphStore and read properties; changes propagate reactively.
  */
 
-import type { NodeGraph, Connection, GraphViewState, ParameterValue } from '../../data-model/types';
+import type {
+  NodeGraph,
+  Connection,
+  GraphViewState,
+  ParameterValue,
+  GraphUndoRecordingOptions,
+} from '../../data-model/types';
 import type { AudioSetup } from '../../data-model/audioSetupTypes';
 import {
   createEmptyGraph,
@@ -33,9 +39,7 @@ import type { ParameterInputMode, ParameterSpec } from '../../types/nodeSpec';
 import type { ToolType } from '../../types/editor';
 
 /** Passed to `graphChangedListener`; view-only updates set `recordUndo: false`. */
-export type GraphChangedOptions = {
-  recordUndo?: boolean;
-};
+export type GraphChangedOptions = GraphUndoRecordingOptions;
 
 export type { ToolType };
 
@@ -109,10 +113,16 @@ function updateNodePositionAction(
 function updateNodeParameterAction(
   nodeId: string,
   paramName: string,
-  value: ParameterValue
+  value: ParameterValue,
+  options?: GraphChangedOptions
 ): void {
   graph = updateNodeParameter(graph, nodeId, paramName, value);
-  graphChangedListener?.(graph);
+  graphChangedListener?.(graph, options);
+}
+
+/** Push one undo snapshot for the current graph (e.g. end of a drag after transient `recordUndo: false` updates). */
+function recordUndoSnapshotAction(): void {
+  graphChangedListener?.(graph, { recordUndo: true });
 }
 
 function updateNodeParameterInputModeAction(
@@ -272,6 +282,7 @@ export const graphStore = {
   setAudioSetup: setAudioSetupAction,
   updateNodePosition: updateNodePositionAction,
   updateNodeParameter: updateNodeParameterAction,
+  recordUndoSnapshot: recordUndoSnapshotAction,
   updateNodeParameterInputMode: updateNodeParameterInputModeAction,
   resetNodeParametersToDefaults: resetNodeParametersToDefaultsAction,
   updateNodeLabel: updateNodeLabelAction,

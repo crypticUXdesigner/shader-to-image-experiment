@@ -87,14 +87,17 @@ ArrangementSnapshot (normalized JSON)
 | 03B | [Region lanes node — WGSL MVP](./03B-region-lanes-node-wgsl-audiotool-arrangement.md) | ✅ | WebGPU parity for pillar 1 | — |
 | 04 | [Notes visualization node](./04-notes-visualization-node-audiotool-arrangement.md) | ✅ | Pillar 2 | — |
 | 05 | [DAW automation → parameter](./05-daw-automation-parameter-bindings-audiotool-arrangement.md) | ⏳ | Pillar 3 bindings + remap | — |
+| 06 | [Arrangement Notes — layout controls](./06-arrangement-notes-layout-controls-audiotool-arrangement.md) | ✅ | Padding/gap/orientation for `arrangement-notes` | — |
+| 07 | [Arrangement Notes — playhead, OKLCH, mask](./07-arrangement-notes-playhead-colors-mask-audiotool-arrangement.md) | ✅ | Playhead toggle/color; OKLCH bg; `mask` output | — |
 
-**Execution order:** `01` → `02` → (`03A` ∥ `03B` after 02) → `04` → `05`. Pillar 3 can slip to a follow-up sprint without invalidating 01–02.
+**Execution order:** `01` → `02` → (`03A` ∥ `03B` after 02) → `04` → (`06` → `07` notes UX follow-up) ∥ `05`. Pillar 3 can slip to a follow-up sprint without invalidating 01–02.
 
 ## Progress tracker
 
-- **Overall:** ~85% (tasks 01–04 shipped; 05 remains).
+- **Overall:** ~90% (tasks 01–04 + **06–07** shipped; 05 remains).
 - **Milestone A (foundation):** tasks 01–02 ✅.
 - **Milestone B (visual):** tasks 03A–03B, 04 ✅.
+- **Milestone B2 (notes polish):** tasks 06–07 ✅ (2026-05-16): layout/orientation/pitch pad/row gap; OKLCH bg + playhead pickers; **`mask`** float; WGSL binds eval once via fragment `let`; `migrateArrangementNotesParameters` for legacy RGB.
 - **Milestone C (control):** task 05.
 
 ## Notes & risks
@@ -104,6 +107,7 @@ ArrangementSnapshot (normalized JSON)
 - **Task 03A (2026-05-15):** `arrangement-lanes` node (`src/shaders/nodes/arrangement-lanes.ts`); compile-time bake via `src/shaders/arrangement/packArrangementRegionsForGlsl.ts` + `FunctionGenerator` (`{{ARRANGEMENT_BAKE}}` / per-node suffix); follow/fixed viewport, track filter, DAW/palette colors; cap **512** regions documented in `node-documentation.json`; WebGL only (03B for WGSL).
 - **Task 03B (2026-05-15):** `arrangement-lanes` in `WGSL_SUPPORTED_NODE_TYPES`; WGSL inline via `buildArrangementLanesWgslNodeHelper` + `WgslMvpCompiler` case (reuses `packArrangementRegionsForGlsl` packing); unwired `time` → `globals.v0.y` (`usesTimelineTime`); tests in `NodeShaderCompiler.test.ts` + `packArrangementRegionsForGlsl.test.ts`.
 - **Task 04 (2026-05-15):** Importer fills `notes[]` from Nexus `note` entities linked to enabled `noteRegion`s (absolute ticks = region start + `collectionOffsetTicks` + note `positionTicks`). `arrangement-notes` node + `packArrangementNotesForGlsl.ts` (bake cap **2048** / `MAX_ARRANGEMENT_NOTES_PACKED`); GLSL + WGSL; pitch→Y, time→X, velocity→brightness; tests in `buildArrangementSnapshot.test.ts`, `packArrangementNotesForGlsl.test.ts`, `NodeShaderCompiler.test.ts`.
+- **Tasks 06–07 (2026-05-16):** Shipped follow-up on **`arrangement-notes`** — layout (**Orient**, **Pitch pad**, **Row gap**); **Playhead** Off/On + OKLCH strip row with background (**Colors** row); **`mask`** float output (`out.a` equivalent weight); GLSL struct result per node instance; WGSL `fragmentLetStatements` avoids duplicate eval when both ports used; rename WGSL edge fade helper to **`arrangementNotesEdgeFadeWgsl`** to avoid colliding with **`arrangement-lanes-shared`** when both nodes compile; migration **`arrangementNotesParametersMigration`** (`backgroundR/G/B` → `backgroundL/C/H`).
 - **Notes loop fix (2026-05-15):** `collectNotes` expands loop repetitions using Region `loopOffsetTicks` / `loopDurationTicks` / `collectionOffsetTicks`; skips disabled regions and disabled note tracks; diagnostics report `noteExpansionFactor`.
 - **Track vs project:** Playlist row is `tracks/…`; snapshot needs `project_name` from `GetTrack` (already available in session RPC).
 - **Duration alignment:** Prefer `min(config.durationTicks, track play_duration)` when both exist—task 02 documents rule.

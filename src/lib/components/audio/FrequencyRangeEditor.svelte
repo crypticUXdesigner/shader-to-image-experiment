@@ -29,6 +29,7 @@
     /** When false, Smooth and FFT size row is hidden (e.g. when shown elsewhere). */
     showSmoothingFft?: boolean;
     onChange?: (bands: [[number, number]]) => void;
+    onCommit?: () => void;
     onSmoothingChange?: (value: number) => void;
     onAttackHalfLifeSecondsChange?: (value: number | undefined) => void;
     onReleaseHalfLifeSecondsChange?: (value: number | undefined) => void;
@@ -48,6 +49,7 @@
     class: className = '',
     showSmoothingFft = true,
     onChange,
+    onCommit,
     onSmoothingChange,
     onAttackHalfLifeSecondsChange,
     onReleaseHalfLifeSecondsChange,
@@ -124,6 +126,7 @@
         step={0.001}
         {disabled}
         onChange={handleRangeChange}
+        onCommit={() => onCommit?.()}
         class="freq-range-slider"
       />
     </div>
@@ -144,7 +147,7 @@
           size="sm"
           {disabled}
           onChange={handleMinHzChange}
-          onCommit={handleMinHzChange}
+          onCommit={() => onCommit?.()}
           class="freq-input freq-input-start"
         />
       </div>
@@ -159,7 +162,7 @@
           size="sm"
           {disabled}
           onChange={handleMaxHzChange}
-          onCommit={handleMaxHzChange}
+          onCommit={() => onCommit?.()}
           class="freq-input freq-input-end"
         />
       </div>

@@ -6,7 +6,7 @@ import { mount, unmount } from 'svelte';
 import NodeHeader from './NodeHeader.svelte';
 import { nodeSystemSpecs } from '../../../shaders/nodes';
 
-const rotateSpec = nodeSystemSpecs.find((s) => s.id === 'rotate')!;
+const transformSpec = nodeSystemSpecs.find((s) => s.id === 'transform')!;
 const addSpec = nodeSystemSpecs.find((s) => s.id === 'add')!;
 
 function mountHeader(props: {
@@ -38,8 +38,8 @@ afterEach(() => {
 });
 
 describe('NodeHeader — Power button', () => {
-  it('renders the power toggle for an eligible node (rotate)', () => {
-    const { target, instance } = mountHeader({ spec: rotateSpec });
+  it('renders the power toggle for an eligible node (transform)', () => {
+    const { target, instance } = mountHeader({ spec: transformSpec });
     expect(target.querySelector('.power-toggle')).not.toBeNull();
     unmount(instance);
   });
@@ -54,7 +54,7 @@ describe('NodeHeader — Power button', () => {
     const onPowerToggle = vi.fn();
     const user = userEvent.setup();
     const { target, instance } = mountHeader({
-      spec: rotateSpec,
+      spec: transformSpec,
       bypassed: false,
       onPowerToggle,
     });
@@ -67,7 +67,7 @@ describe('NodeHeader — Power button', () => {
 
   it('reflects bypassed state in aria-label and title', () => {
     const { target: onTarget, instance: onInst } = mountHeader({
-      spec: rotateSpec,
+      spec: transformSpec,
       bypassed: false,
     });
     const onBtn = onTarget.querySelector('.power-toggle') as HTMLButtonElement;
@@ -76,7 +76,7 @@ describe('NodeHeader — Power button', () => {
     unmount(onInst);
 
     const { target: offTarget, instance: offInst } = mountHeader({
-      spec: rotateSpec,
+      spec: transformSpec,
       bypassed: true,
     });
     const offBtn = offTarget.querySelector('.power-toggle') as HTMLButtonElement;
@@ -92,7 +92,7 @@ describe('NodeHeader — Power button', () => {
     const instance = mount(NodeHeader, {
       target,
       props: {
-        spec: rotateSpec,
+        spec: transformSpec,
         label: '',
         headerHeight: 88,
         nodePosition: { x: 0, y: 0 },
@@ -111,7 +111,7 @@ describe('NodeHeader — Power button', () => {
     const onPowerToggle = vi.fn();
     const user = userEvent.setup();
     const { target, instance } = mountHeader({
-      spec: rotateSpec,
+      spec: transformSpec,
       bypassed: false,
       onPowerToggle,
     });

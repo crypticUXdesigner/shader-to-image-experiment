@@ -164,16 +164,19 @@
       },
       {
         "id": "node-1774032571285-28njui1wn",
-        "type": "scale",
+        "type": "transform",
         "position": {
           "x": 1472,
           "y": -403
         },
         "parameters": {
+          "pivotX": 0,
+          "pivotY": 0,
+          "flipX": 0,
+          "flipY": 0,
           "scaleX": 0.6,
           "scaleY": 0.6,
-          "centerX": 0,
-          "centerY": 0
+          "angle": 0
         }
       },
       {

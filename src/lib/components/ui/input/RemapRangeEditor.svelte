@@ -26,6 +26,8 @@
       outMin: number;
       outMax: number;
     }) => void;
+    /** Fired once when a vertical range drag ends or after value field commit (for undo coalescing). */
+    onCommit?: () => void;
   }
 
   let {
@@ -41,6 +43,7 @@
     liveOutValue,
     class: className = '',
     onChange,
+    onCommit,
   }: Props = $props();
 
   const range = $derived(max - min || 1);
@@ -195,6 +198,7 @@
           {step}
           {disabled}
           onChange={handleInChange}
+          onCommit={() => onCommit?.()}
           class="remap-slider remap-slider-in"
         />
         {#if showNeedles && liveInY != null}
@@ -268,6 +272,7 @@
           {step}
           {disabled}
           onChange={handleOutChange}
+          onCommit={() => onCommit?.()}
           class="remap-slider remap-slider-out"
         />
         {#if showNeedles && liveOutY != null}
@@ -302,7 +307,7 @@
           size="sm"
           {disabled}
           onChange={handleInMaxChange}
-          onCommit={handleInMaxChange}
+          onCommit={() => onCommit?.()}
           class="value-input"
         />
       </div>
@@ -317,7 +322,7 @@
           size="sm"
           {disabled}
           onChange={handleInMinChange}
-          onCommit={handleInMinChange}
+          onCommit={() => onCommit?.()}
           class="value-input"
         />
       </div>
@@ -334,7 +339,7 @@
           size="sm"
           {disabled}
           onChange={handleOutMaxChange}
-          onCommit={handleOutMaxChange}
+          onCommit={() => onCommit?.()}
           class="value-input"
         />
       </div>
@@ -349,7 +354,7 @@
           size="sm"
           {disabled}
           onChange={handleOutMinChange}
-          onCommit={handleOutMinChange}
+          onCommit={() => onCommit?.()}
           class="value-input"
         />
       </div>

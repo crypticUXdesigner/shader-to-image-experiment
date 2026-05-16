@@ -35,6 +35,10 @@ import { resolveWebGpuPreviewDependencyMaskForClock } from './webGpuPreviewDepen
 /** Callback when playlist advances (e.g. on track end or next); app updates store and calls setAudioSetup + playPrimary. */
 export type OnPlaylistAdvance = (nextState: { currentIndex: number }) => void;
 
+function audioSetupFingerprint(setup: AudioSetup | null): string {
+  return setup == null ? '' : JSON.stringify(setup);
+}
+
 export class RuntimeManager implements Disposable {
   private compilationManager: ICompilationManager;
   private renderer: IRenderBackend;
@@ -192,6 +196,32 @@ export class RuntimeManager implements Disposable {
     this.compilationManager.onGraphStructureChange(onlyRegionTimes || connectionsOnly);
     const extraIds = [...this.audioSetupFileIds, ...this.audioSetupBandIds];
     this.audioManager.cleanupOrphanedResources(graph, extraIds.length > 0 ? extraIds : undefined);
+  }
+
+  /**
+   * Load graph + audio setup atomically for project open. Applies audio before the graph,
+   * then forces a full preview compile so arrangement snapshots and other audio-derived shader
+   * data are baked on the first kick (avoids idle-skip leaving a black/stale program).
+   */
+  async loadProject(
+    graph: NodeGraph,
+    audioSetup: AudioSetup | null,
+    options?: { autoPlayWhenReady?: boolean }
+  ): Promise<void> {
+    this.applyAudioSetupState(audioSetup, options, false);
+    await this.setGraph(graph);
+    this.compilationManager.requestFullPreviewRecompile?.();
+  }
+
+  /**
+   * Sync panel audio when the store changes without re-kicking compile if unchanged.
+   */
+  syncAudioSetupFromStore(audioSetup: AudioSetup | null): void {
+    const next = audioSetup ?? null;
+    if (audioSetupFingerprint(next) === audioSetupFingerprint(this.currentAudioSetup)) {
+      return;
+    }
+    this.setAudioSetup(next);
   }
 
   /**
@@ -450,6 +480,14 @@ export class RuntimeManager implements Disposable {
    * @param options.autoPlayWhenReady - If true, start playback when the primary is ready (immediately if already loaded, or when load completes).
    */
   setAudioSetup(audioSetup: AudioSetup | null, options?: { autoPlayWhenReady?: boolean }): void {
+    this.applyAudioSetupState(audioSetup, options, true);
+  }
+
+  private applyAudioSetupState(
+    audioSetup: AudioSetup | null,
+    options?: { autoPlayWhenReady?: boolean },
+    scheduleCompile = true
+  ): void {
     const autoPlayWhenReady = options?.autoPlayWhenReady ?? false;
     this.currentAudioSetup = audioSetup ?? null;
     const primaryId = getPrimaryFileId(audioSetup);
@@ -462,7 +500,9 @@ export class RuntimeManager implements Disposable {
       this.currentGraph ?? undefined,
       extraIds.length > 0 ? extraIds : undefined
     );
-    this.compilationManager.onGraphStructureChange(true);
+    if (scheduleCompile) {
+      this.compilationManager.onGraphStructureChange(true);
+    }
 
     // Load only the current primary (no preload)
     this.playbackHandler.loadPrimaryAndMaybePlay(

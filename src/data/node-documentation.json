@@ -13,8 +13,7 @@
           "description": "Position on screen (0–1 in x and y). Connect to Noise, Translate, Scale, or any node that takes vec2 coordinates.",
           "suggestedTargets": [
             "node:displace",
-            "node:scale",
-            "node:rotate",
+            "node:transform",
             "node:multiply",
             "node:noise",
             "node:hexagonal-grid",
@@ -144,7 +143,7 @@
             "node:add",
             "node:mix",
             "node:displace",
-            "node:rotate"
+            "node:transform"
           ]
         }
       ],
@@ -1099,7 +1098,7 @@
             "node:sine",
             "node:clamp",
             "node:displace",
-            "node:scale"
+            "node:transform"
           ]
         }
       ],
@@ -1164,8 +1163,7 @@
           "description": "The constant vec2 value with (x, y) components. Connect to Translate, Scale, Distance, or any vec2 input.",
           "suggestedTargets": [
             "node:displace",
-            "node:scale",
-            "node:rotate",
+            "node:transform",
             "node:uv-coordinates",
             "node:add",
             "node:multiply"
@@ -2773,7 +2771,7 @@
             "node:final-output",
             "node:blend-mode",
             "node:displace",
-            "node:scale"
+            "node:transform"
           ]
         }
       ],
@@ -3071,7 +3069,7 @@
             "node:mix",
             "node:stripes",
             "node:displace",
-            "node:rotate"
+            "node:transform"
           ]
         }
       ],
@@ -3142,7 +3140,7 @@
             "node:multiply",
             "node:mix",
             "node:stripes",
-            "node:rotate",
+            "node:transform",
             "node:vector-field"
           ]
         }
@@ -3286,7 +3284,7 @@
           "suggestedTargets": [
             "node:sine",
             "node:cosine",
-            "node:rotate",
+            "node:transform",
             "node:multiply"
           ]
         }
@@ -3355,7 +3353,7 @@
           "suggestedTargets": [
             "node:sine",
             "node:cosine",
-            "node:rotate",
+            "node:transform",
             "node:multiply"
           ]
         }
@@ -3423,7 +3421,7 @@
           "suggestedTargets": [
             "node:sine",
             "node:cosine",
-            "node:rotate",
+            "node:transform",
             "node:multiply"
           ]
         }
@@ -3501,7 +3499,7 @@
           "type": "float",
           "description": "The angle in radians (between -π and π)",
           "suggestedTargets": [
-            "node:rotate",
+            "node:transform",
             "node:sine",
             "node:cosine",
             "node:kaleidoscope",
@@ -3551,7 +3549,7 @@
       },
       "relatedItems": [
         "node:arc-tangent",
-        "node:rotate",
+        "node:transform",
         "type:float",
         "type:vec2"
       ]
@@ -5546,191 +5544,6 @@
         "Use with Normal Mapping: feed lit result back into Normal Mapping or Mix for layered shading."
       ]
     },
-    "node:rotate": {
-      "title": "Rotate",
-      "titleType": "node",
-      "tagline": "Ideal for rotating coordinates around a center point by a specified angle",
-      "description": "Rotates 2D coordinates around a specified center point by a given angle in radians. Uses standard rotation matrix calculations to transform the input coordinates. The rotation is counter-clockwise for positive angles. You can control both the rotation angle and the pivot point (center) of rotation.",
-      "inputs": [
-        {
-          "name": "in",
-          "type": "vec2",
-          "description": "The input 2D coordinates to rotate",
-          "suggestedSources": [
-            "type:vec2",
-            "node:uv-coordinates",
-            "node:displace",
-            "node:scale",
-            "node:polar-coordinates"
-          ]
-        }
-      ],
-      "outputs": [
-        {
-          "name": "out",
-          "type": "vec2",
-          "description": "The rotated coordinates around the specified center point",
-          "suggestedTargets": [
-            "node:displace",
-            "node:scale",
-            "node:noise",
-            "node:kaleidoscope",
-            "node:hexagonal-grid"
-          ]
-        }
-      ],
-      "relatedItems": [
-        "node:displace",
-        "node:scale",
-        "type:vec2",
-        "node:sine",
-        "node:cosine"
-      ],
-      "setupExampleGraph": {
-        "nodes": [
-          {
-            "id": "a",
-            "type": "uv-coordinates"
-          },
-          {
-            "id": "b",
-            "type": "rotate"
-          },
-          {
-            "id": "c",
-            "type": "noise"
-          },
-          {
-            "id": "e",
-            "type": "final-output"
-          }
-        ],
-        "connections": [
-          {
-            "from": "a",
-            "fromPort": "out",
-            "to": "b",
-            "toPort": "in"
-          },
-          {
-            "from": "b",
-            "fromPort": "out",
-            "to": "c",
-            "toPort": "in"
-          },
-          {
-            "from": "c",
-            "fromPort": "out",
-            "to": "e",
-            "toPort": "in"
-          }
-        ]
-      },
-      "examples": [
-        "Feed UV into Rotate then Noise and Output for a rotated pattern; drive angle with Time for spinning.",
-        "Use with Polar Coords and Kaleidoscope for radial symmetry, or with Displace to place the center.",
-        "Connect Sine(Time) to a center or angle for animated rotation."
-      ],
-      "advanced": "Angle is in radians; use Sine/Cosine of Time for smooth rotation. Rotate before pattern nodes so the whole pattern turns around the center."
-    },
-    "node:scale": {
-      "title": "Scale",
-      "titleType": "node",
-      "tagline": "Makes a pattern bigger or smaller by scaling the coordinates. Scale X and Scale Y control size; Center X/Y set the point everything scales around.",
-      "description": "Scale takes a vec2 (e.g. from UV Coords) and multiplies the distance from a center point. Scale X and Scale Y above 1 make the pattern repeat more (smaller tiles); below 1 make it stretch (fewer, bigger repeats). Center X and Center Y set the point around which scaling happens (0.5, 0.5 is the middle of the screen).",
-      "inputs": [
-        {
-          "name": "in",
-          "type": "vec2",
-          "description": "2D coordinates to scale. Usually UV Coords or Translate/Rotate output.",
-          "suggestedSources": [
-            "type:vec2",
-            "node:uv-coordinates",
-            "node:displace",
-            "node:rotate",
-            "node:polar-coordinates"
-          ]
-        }
-      ],
-      "outputs": [
-        {
-          "name": "out",
-          "type": "vec2",
-          "description": "Scaled coordinates. Connect to Noise, Translate, or other vec2 inputs.",
-          "suggestedTargets": [
-            "node:displace",
-            "node:rotate",
-            "node:noise",
-            "node:hexagonal-grid",
-            "node:stripes"
-          ]
-        }
-      ],
-      "parameters": [
-        {
-          "name": "Scale X",
-          "description": "How much to stretch coordinates horizontally. Higher = smaller repeating pattern (more tiles); lower = stretched, fewer repeats."
-        },
-        {
-          "name": "Scale Y",
-          "description": "How much to stretch coordinates vertically. Higher = more vertical repeats; lower = stretched vertically."
-        },
-        {
-          "name": "Center X",
-          "description": "Horizontal position of the center point that scaling is relative to. 0.5 = middle of screen; change to zoom from a different point."
-        },
-        {
-          "name": "Center Y",
-          "description": "Vertical position of the center point that scaling is relative to. 0.5 = middle of screen; change to zoom from a different point."
-        }
-      ],
-      "relatedItems": [
-        "node:displace",
-        "node:rotate",
-        "type:vec2",
-        "node:multiply"
-      ],
-      "setupExampleGraph": {
-        "nodes": [
-          {
-            "id": "a",
-            "type": "uv-coordinates"
-          },
-          {
-            "id": "b",
-            "type": "scale"
-          },
-          {
-            "id": "c",
-            "type": "noise"
-          },
-          {
-            "id": "e",
-            "type": "final-output"
-          }
-        ],
-        "connections": [
-          {
-            "from": "a",
-            "fromPort": "out",
-            "to": "b",
-            "toPort": "in"
-          },
-          {
-            "from": "b",
-            "fromPort": "out",
-            "to": "c",
-            "toPort": "in"
-          },
-          {
-            "from": "c",
-            "fromPort": "out",
-            "to": "e",
-            "toPort": "in"
-          }
-        ]
-      }
-    },
     "node:polar-coordinates": {
       "title": "Polar Coords",
       "titleType": "node",
@@ -5745,8 +5558,7 @@
             "type:vec2",
             "node:uv-coordinates",
             "node:displace",
-            "node:scale",
-            "node:rotate"
+            "node:transform"
           ]
         }
       ],
@@ -5765,8 +5577,7 @@
         }
       ],
       "relatedItems": [
-        "node:rotate",
-        "node:scale",
+        "node:transform",
         "type:vec2",
         "node:arc-tangent-2",
         "node:length"
@@ -5832,7 +5643,7 @@
             "type:vec2",
             "node:uv-coordinates",
             "node:polar-coordinates",
-            "node:rotate",
+            "node:transform",
             "node:displace"
           ]
         }
@@ -5856,7 +5667,7 @@
       ],
       "relatedItems": [
         "node:polar-coordinates",
-        "node:rotate",
+        "node:transform",
         "type:vec2",
         "node:arc-tangent-2"
       ],
@@ -6100,7 +5911,7 @@
           "description": "Warped coordinates",
           "suggestedTargets": [
             "node:noise",
-            "node:scale",
+            "node:transform",
             "node:chromatic-aberration",
             "node:sphere-raymarch"
           ]
@@ -6227,20 +6038,21 @@
         ]
       }
     },
-    "node:mirror-flip": {
-      "title": "Flip",
+    "node:transform": {
+      "title": "Transform",
       "titleType": "node",
-      "tagline": "Flip coordinates horizontally and/or vertically",
-      "description": "Flips input coordinates around an optional center. Enable Flip X and/or Flip Y for mirroring. Useful for symmetry and avoiding duplicate artwork.",
+      "tagline": "Flip, scale, and rotate UVs around one shared pivot",
+      "description": "Applies 2D affine transforms in a fixed order: flip (optional X/Y mirror), then scale, then rotate around Pivot X/Y. Use to zoom patterns, mirror coordinates, or spin a layout. For panning offsets, chain Displace separately—Transform does not add translation.",
       "inputs": [
         {
           "name": "in",
           "type": "vec2",
-          "description": "Input coordinates",
+          "description": "Input UV or coordinates to transform.",
           "suggestedSources": [
             "type:vec2",
             "node:uv-coordinates",
-            "node:scale"
+            "node:displace",
+            "node:polar-coordinates"
           ]
         }
       ],
@@ -6248,16 +6060,51 @@
         {
           "name": "out",
           "type": "vec2",
-          "description": "Flipped coordinates",
+          "description": "Transformed coordinates.",
           "suggestedTargets": [
+            "node:displace",
+            "node:noise",
             "node:kaleidoscope",
-            "node:noise"
+            "node:hexagonal-grid",
+            "node:polar-coordinates"
           ]
         }
       ],
+      "parameters": [
+        {
+          "name": "Pivot X",
+          "description": "Horizontal pivot for flip, scale, and rotate (0.5 = screen center)."
+        },
+        {
+          "name": "Pivot Y",
+          "description": "Vertical pivot for flip, scale, and rotate (0.5 = screen center)."
+        },
+        {
+          "name": "Flip X",
+          "description": "Mirror horizontally around the pivot when enabled."
+        },
+        {
+          "name": "Flip Y",
+          "description": "Mirror vertically around the pivot when enabled."
+        },
+        {
+          "name": "Scale X",
+          "description": "Horizontal scale (>1 = more repeats / smaller tiles)."
+        },
+        {
+          "name": "Scale Y",
+          "description": "Vertical scale (>1 = more repeats / smaller tiles)."
+        },
+        {
+          "name": "Angle",
+          "description": "Rotation in degrees; positive is counter-clockwise. 0 restores no rotation."
+        }
+      ],
       "relatedItems": [
-        "node:kaleidoscope",
-        "node:scale"
+        "node:displace",
+        "type:vec2",
+        "node:sine",
+        "node:cosine"
       ],
       "setupExampleGraph": {
         "nodes": [
@@ -6267,11 +6114,11 @@
           },
           {
             "id": "b",
-            "type": "mirror-flip"
+            "type": "transform"
           },
           {
             "id": "c",
-            "type": "length"
+            "type": "noise"
           },
           {
             "id": "e",
@@ -6300,11 +6147,11 @@
         ]
       },
       "examples": [
-        "Flip X and/or Y for mirror symmetry; connect UV → Flip → pattern for reflected layout.",
-        "Use with Kaleidoscope or tiling patterns to avoid drawing both sides of a symmetric design.",
-        "Set center for flip-around-point instead of screen edges."
+        "UV → Transform → Noise → Output for a scaled or rotated pattern; drive Angle with Time for spin.",
+        "Enable Flip X/Y for mirror symmetry before Kaleidoscope or tiling.",
+        "Chain Displace after Transform when you need both rotation/zoom and pan."
       ],
-      "advanced": "Flips coordinates; no scaling. Use before pattern nodes so the pattern itself is mirrored. Combine with Scale for flip then zoom."
+      "advanced": "Fixed order: Flip → Scale → Rotate around the same pivot. Legacy Rotate, Scale, and Flip nodes load as Transform with equivalent pivot and section parameters."
     },
     "node:displace": {
       "title": "Displace",
@@ -6319,8 +6166,7 @@
           "suggestedSources": [
             "type:vec2",
             "node:uv-coordinates",
-            "node:rotate",
-            "node:scale"
+            "node:transform"
           ]
         }
       ],
@@ -6361,8 +6207,7 @@
         "node:vector-field",
         "node:turbulence",
         "node:combine-vector",
-        "node:rotate",
-        "node:scale"
+        "node:transform"
       ],
       "setupExampleGraph": {
         "nodes": [
@@ -6528,8 +6373,7 @@
         }
       ],
       "relatedItems": [
-        "node:scale",
-        "node:rotate"
+        "node:transform"
       ],
       "setupExampleGraph": {
         "nodes": [
@@ -6591,7 +6435,7 @@
           "suggestedSources": [
             "type:vec2",
             "node:uv-coordinates",
-            "node:scale"
+            "node:transform"
           ]
         }
       ],
@@ -6607,7 +6451,7 @@
         }
       ],
       "relatedItems": [
-        "node:scale",
+        "node:transform",
         "node:hexagonal-grid"
       ],
       "parameters": [
@@ -6698,7 +6542,7 @@
       ],
       "relatedItems": [
         "node:brick-tiling",
-        "node:scale"
+        "node:transform"
       ],
       "setupExampleGraph": {
         "nodes": [
@@ -6755,7 +6599,7 @@
             "type:vec2",
             "node:uv-coordinates",
             "node:displace",
-            "node:scale",
+            "node:transform",
             "node:polar-coordinates"
           ]
         }
@@ -6932,7 +6776,7 @@
             "type:vec2",
             "node:uv-coordinates",
             "node:displace",
-            "node:scale",
+            "node:transform",
             "node:polar-coordinates"
           ]
         }
@@ -7080,7 +6924,7 @@
             "type:vec2",
             "node:uv-coordinates",
             "node:displace",
-            "node:scale"
+            "node:transform"
           ]
         }
       ],
@@ -7324,7 +7168,7 @@
             "type:vec2",
             "node:uv-coordinates",
             "node:displace",
-            "node:scale"
+            "node:transform"
           ]
         }
       ],
@@ -7396,7 +7240,12 @@
           "name": "in",
           "type": "vec2",
           "description": "Input UV or position coordinates",
-          "suggestedSources": ["type:vec2", "node:uv-coordinates", "node:scale", "node:displace"]
+          "suggestedSources": [
+            "type:vec2",
+            "node:uv-coordinates",
+            "node:transform",
+            "node:displace"
+          ]
         }
       ],
       "outputs": [
@@ -7404,21 +7253,58 @@
           "name": "out",
           "type": "vec2",
           "description": "Shifted coordinates; feed into patterns, noise, or further warps",
-          "suggestedTargets": ["node:hash32", "node:noise", "node:displace", "node:scale"]
+          "suggestedTargets": [
+            "node:hash32",
+            "node:noise",
+            "node:displace",
+            "node:transform"
+          ]
         }
       ],
-      "relatedItems": ["node:uv-block-glitch", "node:displace", "node:scanlines", "node:rgb-separation"],
+      "relatedItems": [
+        "node:uv-block-glitch",
+        "node:displace",
+        "node:scanlines",
+        "node:rgb-separation"
+      ],
       "setupExampleGraph": {
         "nodes": [
-          { "id": "n1", "type": "uv-coordinates" },
-          { "id": "n2", "type": "uv-band-shift" },
-          { "id": "n3", "type": "hash32" },
-          { "id": "n4", "type": "final-output" }
+          {
+            "id": "n1",
+            "type": "uv-coordinates"
+          },
+          {
+            "id": "n2",
+            "type": "uv-band-shift"
+          },
+          {
+            "id": "n3",
+            "type": "hash32"
+          },
+          {
+            "id": "n4",
+            "type": "final-output"
+          }
         ],
         "connections": [
-          { "from": "n1", "fromPort": "out", "to": "n2", "toPort": "in" },
-          { "from": "n2", "fromPort": "out", "to": "n3", "toPort": "in" },
-          { "from": "n3", "fromPort": "out", "to": "n4", "toPort": "in" }
+          {
+            "from": "n1",
+            "fromPort": "out",
+            "to": "n2",
+            "toPort": "in"
+          },
+          {
+            "from": "n2",
+            "fromPort": "out",
+            "to": "n3",
+            "toPort": "in"
+          },
+          {
+            "from": "n3",
+            "fromPort": "out",
+            "to": "n4",
+            "toPort": "in"
+          }
         ]
       }
     },
@@ -7432,7 +7318,12 @@
           "name": "in",
           "type": "vec2",
           "description": "Input UV or position coordinates",
-          "suggestedSources": ["type:vec2", "node:uv-coordinates", "node:scale", "node:displace"]
+          "suggestedSources": [
+            "type:vec2",
+            "node:uv-coordinates",
+            "node:transform",
+            "node:displace"
+          ]
         }
       ],
       "outputs": [
@@ -7440,21 +7331,58 @@
           "name": "out",
           "type": "vec2",
           "description": "Glitch-shifted coordinates",
-          "suggestedTargets": ["node:hash32", "node:noise", "node:displace", "node:scale"]
+          "suggestedTargets": [
+            "node:hash32",
+            "node:noise",
+            "node:displace",
+            "node:transform"
+          ]
         }
       ],
-      "relatedItems": ["node:uv-band-shift", "node:displace", "node:turbulence", "node:vector-field"],
+      "relatedItems": [
+        "node:uv-band-shift",
+        "node:displace",
+        "node:turbulence",
+        "node:vector-field"
+      ],
       "setupExampleGraph": {
         "nodes": [
-          { "id": "n1", "type": "uv-coordinates" },
-          { "id": "n2", "type": "uv-block-glitch" },
-          { "id": "n3", "type": "hash32" },
-          { "id": "n4", "type": "final-output" }
+          {
+            "id": "n1",
+            "type": "uv-coordinates"
+          },
+          {
+            "id": "n2",
+            "type": "uv-block-glitch"
+          },
+          {
+            "id": "n3",
+            "type": "hash32"
+          },
+          {
+            "id": "n4",
+            "type": "final-output"
+          }
         ],
         "connections": [
-          { "from": "n1", "fromPort": "out", "to": "n2", "toPort": "in" },
-          { "from": "n2", "fromPort": "out", "to": "n3", "toPort": "in" },
-          { "from": "n3", "fromPort": "out", "to": "n4", "toPort": "in" }
+          {
+            "from": "n1",
+            "fromPort": "out",
+            "to": "n2",
+            "toPort": "in"
+          },
+          {
+            "from": "n2",
+            "fromPort": "out",
+            "to": "n3",
+            "toPort": "in"
+          },
+          {
+            "from": "n3",
+            "fromPort": "out",
+            "to": "n4",
+            "toPort": "in"
+          }
         ]
       }
     },
@@ -7472,7 +7400,7 @@
             "type:vec2",
             "node:uv-coordinates",
             "node:displace",
-            "node:scale"
+            "node:transform"
           ]
         }
       ],
@@ -7545,7 +7473,7 @@
             "type:vec2",
             "node:uv-coordinates",
             "node:displace",
-            "node:scale"
+            "node:transform"
           ]
         }
       ],
@@ -7619,7 +7547,7 @@
             "type:vec2",
             "node:uv-coordinates",
             "node:displace",
-            "node:scale"
+            "node:transform"
           ]
         }
       ],
@@ -7692,7 +7620,7 @@
             "type:vec2",
             "node:uv-coordinates",
             "node:displace",
-            "node:scale"
+            "node:transform"
           ]
         }
       ],
@@ -7869,7 +7797,6 @@
       "relatedItems": [
         "node:worley-noise",
         "node:noise",
-        "node:noise",
         "node:distance",
         "type:vec2",
         "node:time"
@@ -7987,7 +7914,7 @@
             "type:vec2",
             "node:uv-coordinates",
             "node:displace",
-            "node:scale",
+            "node:transform",
             "node:brick-tiling"
           ]
         }
@@ -8004,7 +7931,6 @@
         }
       ],
       "relatedItems": [
-        "node:noise",
         "node:noise",
         "node:vector-field",
         "type:float"
@@ -8059,8 +7985,7 @@
           "suggestedSources": [
             "type:vec2",
             "node:uv-coordinates",
-            "node:scale",
-            "node:rotate"
+            "node:transform"
           ]
         },
         {
@@ -8096,7 +8021,7 @@
         },
         {
           "name": "Tracks",
-          "description": "0 = all enabled tracks; 1 = only track ids listed in Track ids (comma-separated)."
+          "description": "Dropdown checklist of arrangement tracks from the imported snapshot; toggle lanes on or off (all on by default)."
         },
         {
           "name": "Colors",
@@ -8112,19 +8037,38 @@
       ],
       "setupExampleGraph": {
         "nodes": [
-          { "id": "a", "type": "uv-coordinates" },
-          { "id": "b", "type": "arrangement-lanes" },
-          { "id": "d", "type": "final-output" }
+          {
+            "id": "a",
+            "type": "uv-coordinates"
+          },
+          {
+            "id": "b",
+            "type": "arrangement-lanes"
+          },
+          {
+            "id": "d",
+            "type": "final-output"
+          }
         ],
         "connections": [
-          { "from": "a", "fromPort": "out", "to": "b", "toPort": "in" },
-          { "from": "b", "fromPort": "out", "to": "d", "toPort": "in" }
+          {
+            "from": "a",
+            "fromPort": "out",
+            "to": "b",
+            "toPort": "in"
+          },
+          {
+            "from": "b",
+            "fromPort": "out",
+            "to": "d",
+            "toPort": "in"
+          }
         ]
       },
       "examples": [
         "Import arrangement on a playlist primary, add UV → Arrangement Lanes → Final Output.",
         "Use Mix to composite lanes over a generated background.",
-        "Set Tracks to subset and list track ids to show only selected rows."
+        "Use Tracks to show only the lane rows you need in a busy project."
       ],
       "advanced": "Snapshot data is compile-time baked; changing import or track filter requires recompilation. Cap: 512 regions (see arrangement types)."
     },
@@ -8132,23 +8076,22 @@
       "title": "Arrangement Notes",
       "titleType": "node",
       "tagline": "MIDI note dots by pitch and time vs playhead (requires imported arrangement snapshot)",
-      "description": "Renders notes from the Audiotool arrangement snapshot as a piano-roll style field: horizontal axis is timeline time (follow or fixed window), vertical axis is pitch (auto-scaled from baked notes). Note brightness follows velocity. Up to **2048** notes are baked at compile time. Import via the audio panel (**Import arrangement from project**).",
+      "description": "Renders notes from the Audiotool arrangement snapshot as a piano-roll style field: **time always follows** the wired timeline (defaults to **`uTimelineTime`**) inside the **Window** span. **Anchor** **Center** keeps the window symmetric around the timeline (playhead at the middle of the UV time axis); **Start** pins **now** to the time-axis origin—**left** when time runs on X, **bottom** when time runs on Y (**Orient**). Wire **UV Coords** into **in**: the node expects symmetric **p** space (center **0**, **Y** from **−1** to **1**, **X** from **−aspect** to **+aspect** with aspect = resolution width/height) and maps that to internal **0–1** for time and pitch—there is no separate UV mode control. **Layout** **Overlap** uses one global MIDI spread after the Tracks filter; **Lanes** stacks **horizontal strips per visible note track**—each lane’s height scales with that track’s min–max MIDI span vs other tracks (**single global timeline scale**, no automatic time zoom per track). **Pitch pad** trims top/bottom of the stacked band symmetrically; **Row gap** trims note thickness along the pitch axis so more background shows between adjacent pitch lanes. Velocity drives brightness; playhead (**On**) follows **Anchor**. Import via audio panel (**Import arrangement from project**). Up to **2048** notes baked at compile time.",
       "inputs": [
         {
           "name": "in",
           "type": "vec2",
-          "description": "UV across the note view: X = time within the window, Y = pitch (low to high).",
+          "description": "**UV Coords** output **p**: center **0**, **Y ∈ [−1, 1]**, **X ∈ [−aspect, +aspect]** (aspect = resolution **x/y**). The node remaps to **0–1** internally; **Orient** swaps which axis is time vs pitch.",
           "suggestedSources": [
             "type:vec2",
             "node:uv-coordinates",
-            "node:scale",
-            "node:rotate"
+            "node:transform"
           ]
         },
         {
           "name": "time",
           "type": "float",
-          "description": "Timeline seconds for follow mode; defaults to `uTimelineTime` when unwired.",
+          "description": "Timeline seconds; defaults to `uTimelineTime` when unwired. With **Anchor** **Center** the UV time axis is symmetric around this value over **Window** seconds; with **Start**, this time sits at the start of the time axis (X left / Y bottom).",
           "suggestedSources": [
             "type:float",
             "node:time"
@@ -8159,27 +8102,41 @@
         {
           "name": "out",
           "type": "vec4",
-          "description": "RGBA note colors with alpha for compositing.",
+          "description": "RGBA composite with alpha driven by note/playhead coverage (same numeric weight as **Mask** × opacity × edge fade).",
           "suggestedTargets": [
             "node:mix",
             "node:blend-color",
             "node:final-output",
             "node:arrangement-lanes"
           ]
+        },
+        {
+          "name": "mask",
+          "type": "float",
+          "description": "Scalar mask equal to the node’s final alpha weight — handy when you want a float wire instead of swizzling **out.a**.",
+          "suggestedTargets": [
+            "node:mix",
+            "node:blend-color",
+            "node:mask-composite-float"
+          ]
         }
       ],
       "parameters": [
         {
-          "name": "Viewport",
-          "description": "0 = follow playhead; 1 = fixed start."
+          "name": "Window",
+          "description": "Visible timeline span in seconds along the UV time axis."
         },
         {
-          "name": "Window",
-          "description": "Visible timeline span in seconds along UV X."
+          "name": "Anchor",
+          "description": "Center: timeline and playhead centered in the window (past on one side, future on the other). Start: **now** at the time-axis origin—left when time runs horizontally, bottom when time runs vertically."
+        },
+        {
+          "name": "Layout",
+          "description": "Overlap: single global pitch roll (tracks can overlap vertically). Lanes: one horizontal strip per visible note track, strip heights proportional to each track’s pitch span vs all visible tracks."
         },
         {
           "name": "Tracks",
-          "description": "0 = all enabled tracks; 1 = only listed track ids."
+          "description": "Dropdown checklist of note tracks from the imported snapshot; toggle lanes on or off (all on by default)."
         },
         {
           "name": "Note size",
@@ -8188,6 +8145,22 @@
         {
           "name": "Velocity",
           "description": "Scales MIDI velocity (0–1) into brightness."
+        },
+        {
+          "name": "Orient",
+          "description": "Horizontal: time on UV X, pitch on Y (default). Vertical: pitch on X, time on Y."
+        },
+        {
+          "name": "Pitch pad",
+          "description": "Symmetric margin (0–0.49) at top and bottom of the pitch band in UV space; lowest/highest notes stay away from the edges."
+        },
+        {
+          "name": "Row gap",
+          "description": "Subtracts from **Note size**/2 along the pitch axis so adjacent pitch lanes reveal more background (dead air between stripes). Larger values shrink each note perpendicular to time."
+        },
+        {
+          "name": "Playhead",
+          "description": "On draws the timeline playhead line; Off skips it entirely."
         }
       ],
       "relatedItems": [
@@ -8199,21 +8172,40 @@
       ],
       "setupExampleGraph": {
         "nodes": [
-          { "id": "a", "type": "uv-coordinates" },
-          { "id": "b", "type": "arrangement-notes" },
-          { "id": "d", "type": "final-output" }
+          {
+            "id": "a",
+            "type": "uv-coordinates"
+          },
+          {
+            "id": "b",
+            "type": "arrangement-notes"
+          },
+          {
+            "id": "d",
+            "type": "final-output"
+          }
         ],
         "connections": [
-          { "from": "a", "fromPort": "out", "to": "b", "toPort": "in" },
-          { "from": "b", "fromPort": "out", "to": "d", "toPort": "in" }
+          {
+            "from": "a",
+            "fromPort": "out",
+            "to": "b",
+            "toPort": "in"
+          },
+          {
+            "from": "b",
+            "fromPort": "out",
+            "to": "d",
+            "toPort": "in"
+          }
         ]
       },
       "examples": [
         "Stack Arrangement Notes over Arrangement Lanes for structure + melody.",
         "Use Mix to composite notes on a dark background.",
-        "Filter to one track id for a single instrument line."
+        "Use Tracks to hide duplicate MIDI layers and stay under the bake cap."
       ],
-      "advanced": "Pitch range is baked from visible notes after track filter. Shader loop cap: 2048 notes (`MAX_ARRANGEMENT_NOTES_PACKED`). Snapshot may store up to 8192 notes."
+      "advanced": "**Layout Lanes** distributes each note’s UV Y at compile time using project track order (`orderAmongTracks`): visible note tracks with at least one filtered note get a horizontal band; band height ∝ that track’s MIDI span (minimum one semitone step so single hits still get area). **Overlap** mode bakes a global min–max pitch norm as before. Shader loop cap: 2048 notes (`MAX_ARRANGEMENT_NOTES_PACKED`). Snapshot may store up to 8192 notes. Background and playhead use OKLCH pickers (converted to linear RGB in-shader). **mask** matches **out.a** for compositing weights."
     },
     "node:stripes": {
       "title": "Stripes",
@@ -8229,8 +8221,7 @@
             "type:vec2",
             "node:uv-coordinates",
             "node:displace",
-            "node:scale",
-            "node:rotate"
+            "node:transform"
           ]
         },
         {
@@ -8316,7 +8307,7 @@
             "type:vec2",
             "node:uv-coordinates",
             "node:displace",
-            "node:scale"
+            "node:transform"
           ]
         }
       ],
@@ -8389,8 +8380,7 @@
             "type:vec2",
             "node:uv-coordinates",
             "node:displace",
-            "node:scale",
-            "node:rotate"
+            "node:transform"
           ]
         }
       ],
@@ -8463,7 +8453,7 @@
             "type:vec2",
             "node:uv-coordinates",
             "node:displace",
-            "node:scale",
+            "node:transform",
             "node:floor",
             "node:fragment-coordinates"
           ]
@@ -8532,7 +8522,7 @@
             "type:vec2",
             "node:uv-coordinates",
             "node:displace",
-            "node:scale"
+            "node:transform"
           ]
         }
       ],
@@ -8606,8 +8596,7 @@
             "type:vec2",
             "node:uv-coordinates",
             "node:displace",
-            "node:scale",
-            "node:rotate"
+            "node:transform"
           ]
         }
       ],
@@ -8804,8 +8793,7 @@
             "type:vec2",
             "node:uv-coordinates",
             "node:displace",
-            "node:scale",
-            "node:rotate"
+            "node:transform"
           ]
         }
       ],
@@ -9307,7 +9295,7 @@
             "type:vec2",
             "node:uv-coordinates",
             "node:displace",
-            "node:scale"
+            "node:transform"
           ]
         },
         {
@@ -10499,7 +10487,7 @@
             "type:vec2",
             "node:uv-coordinates",
             "node:displace",
-            "node:scale"
+            "node:transform"
           ]
         }
       ],
@@ -10674,7 +10662,7 @@
             "type:vec2",
             "node:uv-coordinates",
             "node:displace",
-            "node:scale"
+            "node:transform"
           ]
         }
       ],
@@ -10743,7 +10731,7 @@
             "type:vec2",
             "node:uv-coordinates",
             "node:displace",
-            "node:scale"
+            "node:transform"
           ]
         }
       ],
@@ -10815,7 +10803,7 @@
             "type:vec2",
             "node:uv-coordinates",
             "node:displace",
-            "node:scale"
+            "node:transform"
           ]
         }
       ],

@@ -345,7 +345,7 @@
 --menu-min-width: 260px;
 --menu-max-width: 500px;
 --menu-max-height: 400px;
---menu-item-padding: 8px 12px;
+--menu-item-padding: 6px 12px;
 --menu-item-bg-hover: var(--search-result-bg-hover);
 --menu-item-color: var(--search-result-name-color);
 --menu-separator-color: var(--color-gray-70);

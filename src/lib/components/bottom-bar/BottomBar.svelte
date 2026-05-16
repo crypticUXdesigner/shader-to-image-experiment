@@ -284,7 +284,12 @@
       padding: var(--pd-lg) 0;
 
       /* Other */
-      pointer-events: auto;
+      pointer-events: none;
+
+      :global(.playback-controls),
+      :global(.tool-selector-wrapper) {
+        pointer-events: auto;
+      }
 
       &.center.timeline-center {
         position: absolute;
@@ -296,10 +301,11 @@
         pointer-events: none;
 
         :global(.playback-scrubber) {
-          pointer-events: auto;
+          pointer-events: none;
         }
 
-        :global(.playback-scrubber .timeline-preview-block) {
+        :global(.playback-scrubber .panel-toggles),
+        :global(.playback-scrubber .timeline-preview) {
           pointer-events: auto;
         }
       }

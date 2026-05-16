@@ -18,14 +18,13 @@ import { arrangementNotesNodeSpec } from './arrangement-notes';
 import { oscillator2dNodeSpec } from './oscillator-2d';
 import { orbitCameraNodeSpec } from './orbit-camera';
 import { lookAtCameraNodeSpec } from './look-at-camera';
-import { rotateNodeSpec, scaleNodeSpec } from './transform-nodes';
+import { transform2dNodeSpec } from './transform-2d';
 import { polarCoordinatesNodeSpec } from './polar-coordinates';
 import { vectorFieldNodeSpec } from './vector-field';
 import { turbulenceNodeSpec } from './turbulence';
 import { kaleidoscopeNodeSpec } from './kaleidoscope';
 import { radialUvWarpNodeSpec } from './radial-uv-warp';
 import { rippleNodeSpec } from './ripple';
-import { mirrorFlipNodeSpec } from './mirror-flip';
 import { displaceNodeSpec } from './displace';
 import { vortexNodeSpec } from './vortex';
 import { quadWarpNodeSpec } from './quad-warp';
@@ -177,18 +176,14 @@ export const nodeSystemSpecs: NodeSpec[] = [
   oklchColorNodeSpec,
   bezierCurveNodeSpec,
   
-  // Transform nodes
-  rotateNodeSpec,
-  scaleNodeSpec,
-
   // Distort/Transform nodes
+  transform2dNodeSpec,
   polarCoordinatesNodeSpec,
   vectorFieldNodeSpec,
   turbulenceNodeSpec,
   kaleidoscopeNodeSpec,
   radialUvWarpNodeSpec,
   rippleNodeSpec,
-  mirrorFlipNodeSpec,
   displaceNodeSpec,
   vortexNodeSpec,
   quadWarpNodeSpec,

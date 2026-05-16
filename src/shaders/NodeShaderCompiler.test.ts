@@ -2148,6 +2148,198 @@ describe('NodeShaderCompiler', () => {
       expect(result.metadata.errors).toHaveLength(0);
       expect(result.shaderCode.length).toBeGreaterThan(0);
     });
+
+    it('merges vec3 Start color port with wired Start Hue param (regression: panel matched shader)', () => {
+      const nodeSpecsMap = buildNodeSpecsMap();
+      const compiler = new NodeShaderCompiler(nodeSpecsMap);
+      const floatId = 'n-t';
+      const vec3Id = 'n-v3';
+      const mwsId = 'n-mws';
+      const mapId = 'n-map';
+      const outId = 'n-out';
+      const graph: NodeGraph = {
+        id: 'graph-oklch-merge',
+        name: 'OKLCH merge',
+        version: '2.0',
+        nodes: [
+          { id: floatId, type: 'constant-float', position: { x: 0, y: 0 }, parameters: { value: 0.5 } },
+          {
+            id: vec3Id,
+            type: 'constant-vec3',
+            position: { x: 0, y: 0 },
+            parameters: { x: 0.5, y: 0.1, z: 33.0 },
+          },
+          { id: mwsId, type: 'mixed-wave-signal', position: { x: 0, y: 0 }, parameters: {} },
+          { id: mapId, type: 'oklch-color-map-bezier', position: { x: 0, y: 0 }, parameters: {} },
+          { id: outId, type: 'final-output', position: { x: 0, y: 0 }, parameters: {} },
+        ],
+        connections: [
+          { id: 'c-t', sourceNodeId: floatId, sourcePort: 'out', targetNodeId: mapId, targetPort: 'in' },
+          { id: 'c-sc', sourceNodeId: vec3Id, sourcePort: 'out', targetNodeId: mapId, targetPort: 'startColor' },
+          {
+            id: 'c-hue',
+            sourceNodeId: mwsId,
+            sourcePort: 'out',
+            targetNodeId: mapId,
+            targetParameter: 'startColorH',
+          },
+          { id: 'c-out', sourceNodeId: mapId, sourcePort: 'out', targetNodeId: outId, targetPort: 'in' },
+        ],
+      };
+
+      const glsl = compiler.compile(structuredClone(graph));
+      expect(glsl.metadata.errors).toHaveLength(0);
+      expect(glsl.shaderCode).toContain(expectedOutputVariableName(mwsId, 'out'));
+      expect(glsl.shaderCode).toContain(expectedOutputVariableName(vec3Id, 'out'));
+
+      const wgsl = compiler.compile(structuredClone(graph), null, { backend: 'webgpu' });
+      expect(wgsl.supported).toBe(true);
+      expect(wgsl.metadata.errors).toHaveLength(0);
+      expect(wgsl.code.length).toBeGreaterThan(0);
+      expect(wgsl.code).toContain('mwsMixedWaveShape');
+    });
+
+    it('WebGL: Value + wired Start Hue only (Start color port unwired; regression for OKLCH vec3 fallback)', () => {
+      const nodeSpecsMap = buildNodeSpecsMap();
+      const compiler = new NodeShaderCompiler(nodeSpecsMap);
+      const floatId = 'n-f';
+      const mwsId = 'n-mws';
+      const mapId = 'n-map';
+      const outId = 'n-out';
+      const graph: NodeGraph = {
+        id: 'graph-oklch-hue-only-glsl',
+        name: 'OKLCH hue wire WebGL',
+        version: '2.0',
+        nodes: [
+          { id: floatId, type: 'constant-float', position: { x: 0, y: 0 }, parameters: { value: 0.5 } },
+          { id: mwsId, type: 'mixed-wave-signal', position: { x: 0, y: 0 }, parameters: {} },
+          { id: mapId, type: 'oklch-color-map-bezier', position: { x: 0, y: 0 }, parameters: {} },
+          { id: outId, type: 'final-output', position: { x: 0, y: 0 }, parameters: {} },
+        ],
+        connections: [
+          {
+            id: 'c-in',
+            sourceNodeId: floatId,
+            sourcePort: 'out',
+            targetNodeId: mapId,
+            targetPort: 'in',
+          },
+          {
+            id: 'c-hue',
+            sourceNodeId: mwsId,
+            sourcePort: 'out',
+            targetNodeId: mapId,
+            targetParameter: 'startColorH',
+          },
+          {
+            id: 'c-out',
+            sourceNodeId: mapId,
+            sourcePort: 'out',
+            targetNodeId: outId,
+            targetPort: 'in',
+          },
+        ],
+      };
+
+      const glsl = compiler.compile(structuredClone(graph));
+      expect(glsl.metadata.errors).toHaveLength(0);
+      expect(glsl.shaderCode).toContain(expectedOutputVariableName(mwsId, 'out'));
+      expect(glsl.shaderCode).toContain('mwsMixedWaveShape');
+    });
+
+    it('WebGL: Start Hue multiply mode combines slider uniform with wire in vec3 fallback', () => {
+      const nodeSpecsMap = buildNodeSpecsMap();
+      const compiler = new NodeShaderCompiler(nodeSpecsMap);
+      const floatId = 'n-f';
+      const mwsId = 'n-mws';
+      const mapId = 'n-map';
+      const outId = 'n-out';
+      const graph: NodeGraph = {
+        id: 'graph-oklch-hue-multiply-glsl',
+        name: 'OKLCH hue multiply',
+        version: '2.0',
+        nodes: [
+          { id: floatId, type: 'constant-float', position: { x: 0, y: 0 }, parameters: { value: 0.5 } },
+          { id: mwsId, type: 'mixed-wave-signal', position: { x: 0, y: 0 }, parameters: {} },
+          {
+            id: mapId,
+            type: 'oklch-color-map-bezier',
+            position: { x: 0, y: 0 },
+            parameters: { startColorH: 2.0 },
+            parameterInputModes: { startColorH: 'multiply' },
+          },
+          { id: outId, type: 'final-output', position: { x: 0, y: 0 }, parameters: {} },
+        ],
+        connections: [
+          {
+            id: 'c-in',
+            sourceNodeId: floatId,
+            sourcePort: 'out',
+            targetNodeId: mapId,
+            targetPort: 'in',
+          },
+          {
+            id: 'c-hue',
+            sourceNodeId: mwsId,
+            sourcePort: 'out',
+            targetNodeId: mapId,
+            targetParameter: 'startColorH',
+          },
+          {
+            id: 'c-out',
+            sourceNodeId: mapId,
+            sourcePort: 'out',
+            targetNodeId: outId,
+            targetPort: 'in',
+          },
+        ],
+      };
+
+      const glsl = compiler.compile(structuredClone(graph));
+      expect(glsl.metadata.errors).toHaveLength(0);
+      const mwsVar = expectedOutputVariableName(mwsId, 'out');
+      expect(glsl.shaderCode).toContain(mwsVar);
+      expect(glsl.shaderCode).toContain('un_mapStartColorH');
+      expect(glsl.shaderCode).toMatch(/un_mapStartColorH \* node_n_mws_out/);
+    });
+
+    it('WebGPU: UV (vec2) → Color Map Smooth Value + wired Start Hue (regression: vec2→f32 like GLSL)', () => {
+      const nodeSpecsMap = buildNodeSpecsMap();
+      const compiler = new NodeShaderCompiler(nodeSpecsMap);
+      const uvId = 'n-uv';
+      const mwsId = 'n-mws';
+      const mapId = 'n-map';
+      const outId = 'n-out';
+      const graph: NodeGraph = {
+        id: 'graph-oklch-uv-wgpu',
+        name: 'OKLCH UV WebGPU',
+        version: '2.0',
+        nodes: [
+          { id: uvId, type: 'uv-coordinates', position: { x: 0, y: 0 }, parameters: {} },
+          { id: mwsId, type: 'mixed-wave-signal', position: { x: 0, y: 0 }, parameters: {} },
+          { id: mapId, type: 'oklch-color-map-bezier', position: { x: 0, y: 0 }, parameters: {} },
+          { id: outId, type: 'final-output', position: { x: 0, y: 0 }, parameters: {} },
+        ],
+        connections: [
+          { id: 'c-uv', sourceNodeId: uvId, sourcePort: 'out', targetNodeId: mapId, targetPort: 'in' },
+          {
+            id: 'c-hue',
+            sourceNodeId: mwsId,
+            sourcePort: 'out',
+            targetNodeId: mapId,
+            targetParameter: 'startColorH',
+          },
+          { id: 'c-out', sourceNodeId: mapId, sourcePort: 'out', targetNodeId: outId, targetPort: 'in' },
+        ],
+      };
+
+      const wgsl = compiler.compile(structuredClone(graph), null, { backend: 'webgpu' });
+      expect(wgsl.supported).toBe(true);
+      expect(wgsl.metadata.errors).toHaveLength(0);
+      expect(wgsl.code.length).toBeGreaterThan(0);
+      expect(wgsl.code).toContain('in.uv');
+      expect(wgsl.code).toContain('mwsMixedWaveShape');
+    });
   });
 
   describe('oscillator-2d input node', () => {

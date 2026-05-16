@@ -324,8 +324,6 @@
   .timeline-header.is-floating-panel-chrome {
     width: 100%;
     min-width: 0;
-    /* Reserve horizontal lane for the floating panel grip (see FloatingPanel `.drag-indicator`). */
-    padding-inline: 64px;
   }
 
   .timeline-header :global(.button.sm.ghost) {

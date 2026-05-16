@@ -476,7 +476,7 @@
         <div class="sections">
           <section class="section" aria-labelledby="pp-my-projects">
             <div class="headline">
-              <h3 id="pp-my-projects" class="headline-text">My projects</h3>
+              <h3 id="pp-my-projects" class="headline-text">Your projects</h3>
             </div>
             <ul class="list" aria-label="Your projects">
               {#each sortedProjectsFiltered as p (p.projectId)}

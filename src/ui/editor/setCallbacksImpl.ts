@@ -3,7 +3,7 @@
  * Extracted from NodeEditorCanvas to reduce its size.
  */
 
-import type { ParameterValue } from '../../data-model/types';
+import type { ParameterValue, GraphUndoRecordingOptions } from '../../data-model/types';
 import type { ParameterInputMode } from '../../types/nodeSpec';
 
 export interface CanvasCallbacks {
@@ -13,7 +13,14 @@ export interface CanvasCallbacks {
   onConnectionSelected?: (connectionId: string | null, multiSelect: boolean) => void;
   onNodeDeleted?: (nodeId: string) => void;
   onConnectionDeleted?: (connectionId: string) => void;
-  onParameterChanged?: (nodeId: string, paramName: string, value: ParameterValue) => void;
+  onParameterChanged?: (
+    nodeId: string,
+    paramName: string,
+    value: ParameterValue,
+    options?: GraphUndoRecordingOptions
+  ) => void;
+  /** After transient canvas parameter drags (see `onParameterChanged` with `recordUndo: false`). */
+  onParameterGestureCommit?: () => void;
   onFileParameterChanged?: (nodeId: string, paramName: string, file: File) => void;
   onFileDialogOpen?: () => void;
   onFileDialogClose?: () => void;
@@ -41,6 +48,7 @@ export interface SetCallbacksCanvas {
   onNodeDeleted?: CanvasCallbacks['onNodeDeleted'];
   onConnectionDeleted?: CanvasCallbacks['onConnectionDeleted'];
   onParameterChanged?: CanvasCallbacks['onParameterChanged'];
+  onParameterGestureCommit?: CanvasCallbacks['onParameterGestureCommit'];
   onFileParameterChanged?: CanvasCallbacks['onFileParameterChanged'];
   onFileDialogOpen?: CanvasCallbacks['onFileDialogOpen'];
   onFileDialogClose?: CanvasCallbacks['onFileDialogClose'];
@@ -58,7 +66,16 @@ export interface SetCallbacksCanvas {
   onRequestAddNodeAtCanvas?: CanvasCallbacks['onRequestAddNodeAtCanvas'];
   onUndo?: CanvasCallbacks['onUndo'];
   onRedo?: CanvasCallbacks['onRedo'];
-  mouseEventHandler?: { deps?: { onTypeLabelClick?: CanvasCallbacks['onTypeLabelClick']; onNodeSelected?: CanvasCallbacks['onNodeSelected']; onParameterChanged?: CanvasCallbacks['onParameterChanged']; onConnectionCreated?: CanvasCallbacks['onConnectionCreated']; onRequestAddNodeAtCanvas?: CanvasCallbacks['onRequestAddNodeAtCanvas'] } };
+  mouseEventHandler?: {
+    deps?: {
+      onTypeLabelClick?: CanvasCallbacks['onTypeLabelClick'];
+      onNodeSelected?: CanvasCallbacks['onNodeSelected'];
+      onParameterChanged?: CanvasCallbacks['onParameterChanged'];
+      onParameterGestureCommit?: CanvasCallbacks['onParameterGestureCommit'];
+      onConnectionCreated?: CanvasCallbacks['onConnectionCreated'];
+      onRequestAddNodeAtCanvas?: CanvasCallbacks['onRequestAddNodeAtCanvas'];
+    };
+  };
   overlayManager?: { updateDependencies: (deps: Partial<Pick<CanvasCallbacks, 'onFileParameterChanged' | 'onFileDialogOpen' | 'onFileDialogClose' | 'onParameterChanged' | 'onNodeLabelChanged'>>) => void };
 }
 
@@ -70,6 +87,7 @@ export function setCallbacksImpl(canvas: SetCallbacksCanvas, callbacks: CanvasCa
   canvas.onNodeDeleted = callbacks.onNodeDeleted;
   canvas.onConnectionDeleted = callbacks.onConnectionDeleted;
   canvas.onParameterChanged = callbacks.onParameterChanged;
+  canvas.onParameterGestureCommit = callbacks.onParameterGestureCommit;
   canvas.onFileParameterChanged = callbacks.onFileParameterChanged;
   canvas.onFileDialogOpen = callbacks.onFileDialogOpen;
   canvas.onFileDialogClose = callbacks.onFileDialogClose;
@@ -93,6 +111,7 @@ export function setCallbacksImpl(canvas: SetCallbacksCanvas, callbacks: CanvasCa
     deps.onTypeLabelClick = canvas.onTypeLabelClick;
     deps.onNodeSelected = canvas.onNodeSelected;
     deps.onParameterChanged = canvas.onParameterChanged;
+    deps.onParameterGestureCommit = canvas.onParameterGestureCommit;
     deps.onConnectionCreated = canvas.onConnectionCreated;
     deps.onRequestAddNodeAtCanvas = canvas.onRequestAddNodeAtCanvas;
   }

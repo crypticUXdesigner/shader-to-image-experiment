@@ -65,7 +65,13 @@ export interface MouseEventHandlerDependencies {
   onNodeDeleted?: (nodeId: string) => void;
   onTypeLabelClick?: (portType: string, screenX: number, screenY: number, typeLabelBounds?: { left: number; top: number; right: number; bottom: number; width: number; height: number }) => void;
   onParameterInputModeChanged?: (nodeId: string, paramName: string, mode: import('../../../../types/nodeSpec').ParameterInputMode) => void;
-  onParameterChanged?: (nodeId: string, paramName: string, value: import('../../../../data-model/types').ParameterValue) => void;
+  onParameterChanged?: (
+    nodeId: string,
+    paramName: string,
+    value: import('../../../../data-model/types').ParameterValue,
+    options?: import('../../../../data-model/types').GraphUndoRecordingOptions
+  ) => void;
+  onParameterGestureCommit?: () => void;
   onConnectionCreated?: (sourceNodeId: string, sourcePort: string, targetNodeId: string, targetPort?: string, targetParameter?: string) => void;
   /** When set, used at invoke time so the current callback is used (callbacks are set after handler is built). */
   getOnConnectionCreated?: () => MouseEventHandlerDependencies['onConnectionCreated'];
@@ -278,8 +284,14 @@ export class MouseEventHandler {
        * Notify parameter change and then render. If the callback returns a Promise (e.g. async
        * runtime sync for audio-driven parameters), wait for it so the next paint sees the updated state.
        */
-  private flushParameterChangeAndRender(nodeId: string, paramName: string, value: number | number[][]): void {
-    const result = this.deps.onParameterChanged?.(nodeId, paramName, value);
+  private flushParameterChangeAndRender(
+    nodeId: string,
+    paramName: string,
+    value: import('../../../../data-model/types').ParameterValue,
+    recordUndo = true
+  ): void {
+    const opts = recordUndo ? undefined : ({ recordUndo: false } as const);
+    const result = this.deps.onParameterChanged?.(nodeId, paramName, value, opts);
     if (result != null && typeof (result as Promise<unknown>).then === 'function') {
       (result as Promise<unknown>).then(() => this.deps.handlerContext.render());
     } else {
@@ -374,6 +386,9 @@ export class MouseEventHandler {
    * Handle mouse up event
    */
   handleMouseUp(e: MouseEvent): void {
+    const stateBefore = this.getState() as MouseEventFullState;
+    const wasDraggingParameter = stateBefore.interaction.isDraggingParameter;
+    const wasDraggingBezier = stateBefore.interaction.isDraggingBezierControl;
     this.deps.detachDocumentListeners();
     // Complete connection first while state.connection.isConnecting is still true (has hoveredPort / last position).
     completeConnectionOnMouseUp(this.getMoveContext(), e);
@@ -389,6 +404,9 @@ export class MouseEventHandler {
     }
 
     resetInteractionState(this.getMoveContext());
+    if (wasDraggingParameter || wasDraggingBezier) {
+      this.deps.onParameterGestureCommit?.();
+    }
     const space = this.deps.getIsSpacePressed?.() ?? this.deps.isSpacePressed;
     const t = this.getActiveTool();
     if (space) {

@@ -35,7 +35,13 @@ export interface HandlerContext {
   onNodeMoved?: (nodeId: string, x: number, y: number) => void;
   onNodeSelected?: (nodeId: string | null, multiSelect: boolean) => void;
   onConnectionCreated?: (sourceNodeId: string, sourcePort: string, targetNodeId: string, targetPort?: string, targetParameter?: string) => void;
-  onParameterChanged?: (nodeId: string, paramName: string, value: import('../../data-model/types').ParameterValue) => void;
+  onParameterChanged?: (
+    nodeId: string,
+    paramName: string,
+    value: import('../../data-model/types').ParameterValue,
+    options?: import('../../data-model/types').GraphUndoRecordingOptions
+  ) => void;
+  onParameterGestureCommit?: () => void;
   onParameterInputModeChanged?: (nodeId: string, paramName: string, mode: import('../../types/nodeSpec').ParameterInputMode) => void;
   
   // Keyboard state

@@ -34,8 +34,7 @@
         "node:constant-vec2",
         "node:uv-coordinates",
         "node:displace",
-        "node:rotate",
-        "node:scale"
+        "node:transform"
       ]
     },
     "type:vec3": {

@@ -4,18 +4,18 @@ import { LEGACY_WORLEY_DRIFT_AMOUNT, LEGACY_WORLEY_DRIFT_DIRECTION_DEG } from '.
 import { linearRgbToOklch } from '../utils/colorConversion';
 
 /**
- * Per-node Power, Rule A (passthrough): `uv → rotate(bypassed) → noise → final-output`.
- * The bypassed rotate is a vec2 → vec2 node (Rule A applies). After the rewrite, noise reads
- * its `in` directly from `uv`; rotate emits no WGSL.
+ * Per-node Power, Rule A (passthrough): `uv → transform(bypassed) → noise → final-output`.
+ * The bypassed transform is a vec2 → vec2 node (Rule A applies). After the rewrite, noise reads
+ * its `in` directly from `uv`; transform emits no WGSL.
  */
 export function mvpBypassRuleARotateGraph(): NodeGraph {
   return {
     id: 'fixture-mvp-bypass-rule-a-rotate',
-    name: 'MVP bypass Rule A rotate',
+    name: 'MVP bypass Rule A transform',
     version: '2.0',
     nodes: [
       { id: 'n-uv', type: 'uv-coordinates', position: { x: 0, y: 0 }, parameters: {} },
-      { id: 'n-rotate', type: 'rotate', position: { x: 0, y: 0 }, parameters: {}, bypassed: true },
+      { id: 'n-rotate', type: 'transform', position: { x: 0, y: 0 }, parameters: {}, bypassed: true },
       { id: 'n-noise', type: 'noise', position: { x: 0, y: 0 }, parameters: {} },
       { id: 'n-out', type: 'final-output', position: { x: 0, y: 0 }, parameters: {} },
     ],
@@ -191,7 +191,7 @@ export function mvpOscillator2dGraph(): NodeGraph {
   };
 }
 
-/** UV transforms: uv -> scale -> rotate -> polar -> output vec2 length as grayscale */
+/** UV transforms: uv -> transform(scale) -> transform(rotate) -> polar -> output vec2 length as grayscale */
 export function mvpUvTransformBatchGraph(): NodeGraph {
   return {
     id: 'fixture-mvp-uv-transform-batch',
@@ -201,15 +201,15 @@ export function mvpUvTransformBatchGraph(): NodeGraph {
       { id: 'n-uv', type: 'uv-coordinates', position: { x: 0, y: 0 }, parameters: {} },
       {
         id: 'n-scale',
-        type: 'scale',
+        type: 'transform',
         position: { x: 0, y: 0 },
-        parameters: { scaleX: 1.5, scaleY: 0.9, centerX: 0.5, centerY: 0.5 },
+        parameters: { scaleX: 1.5, scaleY: 0.9, pivotX: 0.5, pivotY: 0.5 },
       },
       {
         id: 'n-rot',
-        type: 'rotate',
+        type: 'transform',
         position: { x: 0, y: 0 },
-        parameters: { angle: 1.2, centerX: 0.5, centerY: 0.5 },
+        parameters: { angle: 1.2, pivotX: 0.5, pivotY: 0.5 },
       },
       {
         id: 'n-polar',
@@ -268,19 +268,19 @@ export function mvpBrickTilingGraph(): NodeGraph {
   };
 }
 
-/** Mirror/Flip: uv -> mirror-flip -> length -> grayscale */
+/** Transform flip: uv -> transform -> length -> grayscale */
 export function mvpMirrorFlipGraph(): NodeGraph {
   return {
     id: 'fixture-mvp-mirror-flip',
-    name: 'MVP mirror flip',
+    name: 'MVP transform flip',
     version: '2.0',
     nodes: [
       { id: 'n-uv', type: 'uv-coordinates', position: { x: 0, y: 0 }, parameters: {} },
       {
         id: 'n-mir',
-        type: 'mirror-flip',
+        type: 'transform',
         position: { x: 0, y: 0 },
-        parameters: { mirrorFlipX: 1, mirrorFlipY: 0, mirrorCenterX: 0.5, mirrorCenterY: 0.5 },
+        parameters: { flipX: 1, flipY: 0, pivotX: 0.5, pivotY: 0.5 },
       },
       { id: 'n-len', type: 'length', position: { x: 0, y: 0 }, parameters: {} },
       { id: 'n-out', type: 'final-output', position: { x: 0, y: 0 }, parameters: {} },

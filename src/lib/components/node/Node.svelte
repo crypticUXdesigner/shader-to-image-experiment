@@ -18,7 +18,7 @@
     isSdfRaymarcherNode,
     isShinyNode,
   } from '../../../utils/cssTokens';
-  import type { NodeInstance, NodeGraph } from '../../../data-model/types';
+  import type { NodeInstance, NodeGraph, GraphUndoRecordingOptions } from '../../../data-model/types';
   import type { NodeSpec } from '../../../types/nodeSpec';
   import type { DomNodeMetrics } from './types';
   import type { AudioSetup } from '../../../data-model/audioSetupTypes';
@@ -49,7 +49,13 @@
     onDrag: (nodeId: string, clientX: number, clientY: number, shiftKey: boolean) => void;
     onSelect: (nodeId: string, multiSelect: boolean) => void;
     onLabelChange: (nodeId: string, label: string | undefined) => void;
-    onParameterChange: (nodeId: string, paramName: string, value: import('../../../data-model/types').ParameterValue) => void;
+    onParameterChange: (
+      nodeId: string,
+      paramName: string,
+      value: import('../../../data-model/types').ParameterValue,
+      options?: GraphUndoRecordingOptions
+    ) => void;
+    onParameterGestureCommit?: () => void;
     onParameterInputModeChanged?: (nodeId: string, paramName: string, mode: import('../../../types/nodeSpec').ParameterInputMode) => void;
     onContextMenu?: (nodeId: string, clientX: number, clientY: number) => void;
     /** Double-click node chrome outside interactive controls → Patch tool: insert this node into a cable on next click. */
@@ -79,6 +85,7 @@
     onSelect,
     onLabelChange,
     onParameterChange,
+    onParameterGestureCommit,
     onParameterInputModeChanged,
     onContextMenu,
     onPatchIntoDoubleClick,
@@ -171,7 +178,8 @@
     overlayBridge={overlayBridge}
     onPortPointerDownForConnection={onPortPointerDownForConnection}
     onPortClickForSignalPicker={onPortClickForSignalPicker}
-    onParameterChange={(paramName, value) => onParameterChange(nodeId, paramName, value)}
+    onParameterChange={(paramName, value, options) => onParameterChange(nodeId, paramName, value, options)}
+    onParameterGestureCommit={onParameterGestureCommit}
     onParameterInputModeChanged={onParameterInputModeChanged ? (paramName, mode) => onParameterInputModeChanged(nodeId, paramName, mode) : undefined}
   />
   {/if}

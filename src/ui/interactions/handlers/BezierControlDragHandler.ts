@@ -21,6 +21,7 @@ export class BezierControlDragHandler implements InteractionHandler {
   private draggingBezierControlIndex: number | null = null;
   private draggingParamNames: [string, string, string, string] | null = null; // [x1, y1, x2, y2]
   private dragBezierStartValues: { x1: number; y1: number; x2: number; y2: number } | null = null;
+  private hadThrottledParameterUpdates = false;
   
   // Phase 3.4: Throttle parameter updates for smooth performance
   private bezierThrottler: Throttler;
@@ -80,6 +81,7 @@ export class BezierControlDragHandler implements InteractionHandler {
     const x2 = (node.parameters[x2Name] ?? spec.parameters[x2Name]?.default ?? 1) as number;
     const y2 = (node.parameters[y2Name] ?? spec.parameters[y2Name]?.default ?? 1) as number;
     this.dragBezierStartValues = { x1, y1, x2, y2 };
+    this.hadThrottledParameterUpdates = false;
     
     this.context.setCursor('move');
   }
@@ -123,20 +125,24 @@ export class BezierControlDragHandler implements InteractionHandler {
       node.parameters[x1Name] = newX;
       node.parameters[y1Name] = newY;
       this.bezierThrottler.schedule(`${this.draggingBezierNodeId!}:${x1Name}`, newX, () => {
-        this.context.onParameterChanged?.(this.draggingBezierNodeId!, x1Name, newX);
+        this.hadThrottledParameterUpdates = true;
+        this.context.onParameterChanged?.(this.draggingBezierNodeId!, x1Name, newX, { recordUndo: false });
       });
       this.bezierThrottler.schedule(`${this.draggingBezierNodeId!}:${y1Name}`, newY, () => {
-        this.context.onParameterChanged?.(this.draggingBezierNodeId!, y1Name, newY);
+        this.hadThrottledParameterUpdates = true;
+        this.context.onParameterChanged?.(this.draggingBezierNodeId!, y1Name, newY, { recordUndo: false });
       });
       this.context.requestRender();
     } else if (this.draggingBezierControlIndex === 1) {
       node.parameters[x2Name] = newX;
       node.parameters[y2Name] = newY;
       this.bezierThrottler.schedule(`${this.draggingBezierNodeId!}:${x2Name}`, newX, () => {
-        this.context.onParameterChanged?.(this.draggingBezierNodeId!, x2Name, newX);
+        this.hadThrottledParameterUpdates = true;
+        this.context.onParameterChanged?.(this.draggingBezierNodeId!, x2Name, newX, { recordUndo: false });
       });
       this.bezierThrottler.schedule(`${this.draggingBezierNodeId!}:${y2Name}`, newY, () => {
-        this.context.onParameterChanged?.(this.draggingBezierNodeId!, y2Name, newY);
+        this.hadThrottledParameterUpdates = true;
+        this.context.onParameterChanged?.(this.draggingBezierNodeId!, y2Name, newY, { recordUndo: false });
       });
       this.context.requestRender();
     }
@@ -149,6 +155,11 @@ export class BezierControlDragHandler implements InteractionHandler {
       this.bezierThrottler.flush();
     }
     
+    if (this.hadThrottledParameterUpdates) {
+      this.context.onParameterGestureCommit?.();
+    }
+    this.hadThrottledParameterUpdates = false;
+
     // Clean up drag state
     this.isDraggingBezierControl = false;
     this.draggingBezierNodeId = null;

@@ -26,7 +26,7 @@ export function bypassRuleAGraph(): NodeGraph {
     version: '2.0',
     nodes: [
       { id: 'n-uv', type: 'uv-coordinates', position: { x: 0, y: 0 }, parameters: {} },
-      { id: 'n-rotate', type: 'rotate', position: { x: 0, y: 0 }, parameters: {}, bypassed: true },
+      { id: 'n-rotate', type: 'transform', position: { x: 0, y: 0 }, parameters: {}, bypassed: true },
       { id: 'n-noise', type: 'noise', position: { x: 0, y: 0 }, parameters: {} },
       { id: 'n-out', type: 'final-output', position: { x: 0, y: 0 }, parameters: {} },
     ],

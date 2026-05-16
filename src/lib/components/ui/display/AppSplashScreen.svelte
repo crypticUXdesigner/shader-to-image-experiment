@@ -168,7 +168,7 @@
   aria-busy={splashAriaBusy}
   aria-labelledby="app-splash-title"
   aria-describedby="app-splash-desc"
-  transition:fade={{ duration: fadeMs, easing: cubicOut }}
+  transition:fade={() => ({ duration: fadeMs, easing: cubicOut })}
   onclick={handleActivate}
 >
   <div class="app-splash__inner">

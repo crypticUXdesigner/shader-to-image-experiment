@@ -274,7 +274,7 @@ export function applyParameterDrag(
     node.parameters[state.interaction.draggingParameterName] = newBands;
     ctx.deps.nodeMetrics.delete(state.interaction.draggingParameterNodeId);
     ctx.deps.nodeRenderer.invalidateMetrics(state.interaction.draggingParameterNodeId);
-    ctx.flushParameterChangeAndRender(state.interaction.draggingParameterNodeId, state.interaction.draggingParameterName, newBands);
+    ctx.flushParameterChangeAndRender(state.interaction.draggingParameterNodeId, state.interaction.draggingParameterName, newBands, false);
     return;
   }
   if (node && spec) {
@@ -302,7 +302,7 @@ export function applyParameterDrag(
       node.parameters[state.interaction.draggingParameterName] = newValue;
       ctx.deps.nodeMetrics.delete(state.interaction.draggingParameterNodeId);
       ctx.deps.nodeRenderer.invalidateMetrics(state.interaction.draggingParameterNodeId);
-      ctx.flushParameterChangeAndRender(state.interaction.draggingParameterNodeId, state.interaction.draggingParameterName, newValue);
+      ctx.flushParameterChangeAndRender(state.interaction.draggingParameterNodeId, state.interaction.draggingParameterName, newValue, false);
     }
   }
 }
@@ -337,13 +337,13 @@ export function applyBezierDrag(ctx: MouseEventMoveContext, state: MouseEventFul
   if (state.interaction.draggingBezierControlIndex === 0) {
     node.parameters.x1 = newX;
     node.parameters.y1 = newY;
-    ctx.deps.onParameterChanged?.(state.interaction.draggingBezierNodeId, 'x1', newX);
-    ctx.deps.onParameterChanged?.(state.interaction.draggingBezierNodeId, 'y1', newY);
+    ctx.deps.onParameterChanged?.(state.interaction.draggingBezierNodeId, 'x1', newX, { recordUndo: false });
+    ctx.deps.onParameterChanged?.(state.interaction.draggingBezierNodeId, 'y1', newY, { recordUndo: false });
   } else if (state.interaction.draggingBezierControlIndex === 1) {
     node.parameters.x2 = newX;
     node.parameters.y2 = newY;
-    ctx.deps.onParameterChanged?.(state.interaction.draggingBezierNodeId, 'x2', newX);
-    ctx.deps.onParameterChanged?.(state.interaction.draggingBezierNodeId, 'y2', newY);
+    ctx.deps.onParameterChanged?.(state.interaction.draggingBezierNodeId, 'x2', newX, { recordUndo: false });
+    ctx.deps.onParameterChanged?.(state.interaction.draggingBezierNodeId, 'y2', newY, { recordUndo: false });
   }
   ctx.deps.handlerContext.render();
 }

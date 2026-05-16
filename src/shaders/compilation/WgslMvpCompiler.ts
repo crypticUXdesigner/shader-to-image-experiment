@@ -60,6 +60,7 @@ export const WGSL_SUPPORTED_NODE_TYPES = new Set([
   'look-at-camera',
   'rotate',
   'scale',
+  'transform',
   'polar-coordinates',
   'brick-tiling',
   'mirror-flip',
@@ -2344,7 +2345,15 @@ fn rotate2(p: vec2<f32>, angle: f32) -> vec2<f32> {
     if (link) {
       const src = resolveNodeOut(link.sourceNodeId, link.sourcePort);
       if (!src) return null;
-      return coerceToType(src, 'vec2<f32>');
+      const base = coerceToType(src, 'vec2<f32>');
+      if (!base) return null;
+      if (!fallbackParams) return base;
+      const h0 = paramConnByKey.has(`${nodeId}.${fallbackParams[0]}`);
+      const h1 = paramConnByKey.has(`${nodeId}.${fallbackParams[1]}`);
+      if (!h0 && !h1) return base;
+      const x = h0 ? paramSlotExprWired(paramLayout, nodeId, fallbackParams[0], 0) : `(${base.code}).x`;
+      const y = h1 ? paramSlotExprWired(paramLayout, nodeId, fallbackParams[1], 0) : `(${base.code}).y`;
+      return { type: 'vec2<f32>', code: `vec2<f32>(${x}, ${y})` };
     }
     if (fallbackParams) {
       const x = paramSlotExprWired(paramLayout, nodeId, fallbackParams[0], 0);
@@ -2408,7 +2417,16 @@ fn rotate2(p: vec2<f32>, angle: f32) -> vec2<f32> {
     if (link) {
       const src = resolveNodeOut(link.sourceNodeId, link.sourcePort);
       if (!src) return null;
-      return asVec3(src);
+      const base = asVec3(src);
+      if (!base) return null;
+      const h0 = paramConnByKey.has(`${nodeId}.${fallbackParams[0]}`);
+      const h1 = paramConnByKey.has(`${nodeId}.${fallbackParams[1]}`);
+      const h2 = paramConnByKey.has(`${nodeId}.${fallbackParams[2]}`);
+      if (!h0 && !h1 && !h2) return base;
+      const x = h0 ? paramSlotExprWired(paramLayout, nodeId, fallbackParams[0], 0) : `(${base.code}).x`;
+      const y = h1 ? paramSlotExprWired(paramLayout, nodeId, fallbackParams[1], 0) : `(${base.code}).y`;
+      const z = h2 ? paramSlotExprWired(paramLayout, nodeId, fallbackParams[2], 0) : `(${base.code}).z`;
+      return { type: 'vec3<f32>', code: `vec3<f32>(${x}, ${y}, ${z})` };
     }
     const x = paramSlotExprWired(paramLayout, nodeId, fallbackParams[0], 0);
     const y = paramSlotExprWired(paramLayout, nodeId, fallbackParams[1], 0);
@@ -2421,7 +2439,18 @@ fn rotate2(p: vec2<f32>, angle: f32) -> vec2<f32> {
     if (link) {
       const src = resolveNodeOut(link.sourceNodeId, link.sourcePort);
       if (!src) return null;
-      return asVec4(src);
+      const base = asVec4(src);
+      if (!base) return null;
+      const h0 = paramConnByKey.has(`${nodeId}.${fallbackParams[0]}`);
+      const h1 = paramConnByKey.has(`${nodeId}.${fallbackParams[1]}`);
+      const h2 = paramConnByKey.has(`${nodeId}.${fallbackParams[2]}`);
+      const h3 = paramConnByKey.has(`${nodeId}.${fallbackParams[3]}`);
+      if (!h0 && !h1 && !h2 && !h3) return base;
+      const x = h0 ? paramSlotExprWired(paramLayout, nodeId, fallbackParams[0], 0) : `(${base.code}).x`;
+      const y = h1 ? paramSlotExprWired(paramLayout, nodeId, fallbackParams[1], 0) : `(${base.code}).y`;
+      const z = h2 ? paramSlotExprWired(paramLayout, nodeId, fallbackParams[2], 0) : `(${base.code}).z`;
+      const w = h3 ? paramSlotExprWired(paramLayout, nodeId, fallbackParams[3], 0) : `(${base.code}).w`;
+      return { type: 'vec4<f32>', code: `vec4<f32>(${x}, ${y}, ${z}, ${w})` };
     }
     const x = paramSlotExprWired(paramLayout, nodeId, fallbackParams[0], 0);
     const y = paramSlotExprWired(paramLayout, nodeId, fallbackParams[1], 0);
@@ -2649,6 +2678,29 @@ fn rotate2(p: vec2<f32>, angle: f32) -> vec2<f32> {
         const center = `vec2<f32>(${cx}, ${cy})`;
         const s = `vec2<f32>(${sx}, ${sy})`;
         setNodeOut(nodeId, 'out', { type: 'vec2<f32>', code: `(${center} + (${v.code} - ${center}) * ${s})` });
+        break;
+      }
+      case 'transform': {
+        // Unified 2D transform: Flip → Scale → Rotate around pivot (matches `transform-2d` GLSL).
+        const v = resolveInputVec2(nodeId, 'in');
+        if (!v) break;
+        const pivotX = paramSlotExprWired(paramLayout, nodeId, 'pivotX', 0);
+        const pivotY = paramSlotExprWired(paramLayout, nodeId, 'pivotY', 0);
+        const flipX = paramSlotExprWired(paramLayout, nodeId, 'flipX', 0);
+        const flipY = paramSlotExprWired(paramLayout, nodeId, 'flipY', 0);
+        const scaleX = paramSlotExprWired(paramLayout, nodeId, 'scaleX', 0);
+        const scaleY = paramSlotExprWired(paramLayout, nodeId, 'scaleY', 0);
+        const angle = paramSlotExprWired(paramLayout, nodeId, 'angle', 0);
+        const C = `vec2<f32>(${pivotX}, ${pivotY})`;
+        const p0 = `(${v.code} - ${C})`;
+        const fx = `select(1.0, -1.0, ${flipX} > 0.5)`;
+        const fy = `select(1.0, -1.0, ${flipY} > 0.5)`;
+        const p1 = `vec2<f32>((${p0}).x * ${fx}, (${p0}).y * ${fy})`;
+        const p2 = `(${p1} * vec2<f32>(${scaleX}, ${scaleY}))`;
+        const c = `cos(radians(${angle}))`;
+        const s = `sin(radians(${angle}))`;
+        const p3 = `vec2<f32>((${p2}).x * ${c} - (${p2}).y * ${s}, (${p2}).x * ${s} + (${p2}).y * ${c})`;
+        setNodeOut(nodeId, 'out', { type: 'vec2<f32>', code: `(${C} + ${p3})` });
         break;
       }
       case 'polar-coordinates': {
@@ -7839,8 +7891,8 @@ fn applyLevels3(color: vec3<f32>, inMin: f32, inMax: f32, outMin: f32, outMax: f
         break;
       }
       case 'oklch-color-map-bezier': {
-        const inV = resolveInput(nodeId, 'in', 'in');
-        const v = inV ? (asF32(inV) ?? coerceToType(inV, 'f32')) : null;
+        // Match GLSL `generatePromotionCode`: vec2/vec3/vec4 → float uses `.x`.
+        const v = resolveInputF32(nodeId, 'in');
         if (!v) break;
 
         const startColor = resolveInputVec3WithFallback(nodeId, 'startColor', [
@@ -7922,8 +7974,7 @@ fn interpolateHue(startH: f32, endH: f32, t: f32, reverseHue: f32) -> f32 {
         break;
       }
       case 'oklch-color-map-threshold': {
-        const inV = resolveInput(nodeId, 'in', 'in');
-        const v = inV ? (asF32(inV) ?? coerceToType(inV, 'f32')) : null;
+        const v = resolveInputF32(nodeId, 'in');
         if (!v) break;
 
         // Match the GLSL node implementation: it uses *parameters* for start/end colors,

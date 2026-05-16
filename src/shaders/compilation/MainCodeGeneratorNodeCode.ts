@@ -1,11 +1,13 @@
 import type { NodeGraph, NodeInstance } from '../../data-model/types';
 import type { NodeSpec } from '../../types/nodeSpec';
 import { isVirtualNodeId } from '../../utils/virtualNodes';
-import { formatParamLiteralForGlsl, getInputDefaultValue } from './MainCodeGeneratorUtils';
+import { clampFloatExpressionGlsl, formatParamLiteralForGlsl, getInputDefaultValue } from './MainCodeGeneratorUtils';
+import { generateParameterCombination } from './NodeShaderCompilerHelpers';
 import { sanitizeAutomationLaneId } from './MainCodeGeneratorOutput';
 import { automationLaneHasEvaluableRegions } from '../../utils/automationEvaluator';
 import { replacePlaceholders, type PlaceholderContext } from './MainCodeGeneratorPlaceholders';
 import { resolveFloatParameterInputVarsFromConnections } from './resolveFloatParameterInputVarsFromConnections';
+import { arrangementNotesEvalStructName } from '../arrangement/packArrangementNotesForGlsl';
 
 export function generatePromotionCode(
   sourceVar: string,
@@ -31,6 +33,51 @@ export function generatePromotionCode(
   throw new Error(`Cannot convert ${sourceType} to ${targetType}`);
 }
 
+/**
+ * Float parameter driven by a wire: same semantics as `$param` in {@link replacePlaceholders}
+ * (override vs multiply/add/subtract with slider/uniform config, then clamp to param range).
+ */
+function buildGlslExprForDrivenFloatParameter(
+  node: NodeInstance,
+  nodeSpec: NodeSpec,
+  paramName: string,
+  wireExpr: string,
+  uniformNames: Map<string, string>
+): string {
+  const paramSpec = nodeSpec.parameters[paramName];
+  if (!paramSpec || paramSpec.type !== 'float') return wireExpr;
+
+  const inputMode =
+    node.parameterInputModes?.[paramName] || paramSpec.inputMode || 'override';
+
+  if (inputMode === 'override') {
+    return clampFloatExpressionGlsl(wireExpr, paramSpec);
+  }
+
+  const uniformName = uniformNames.get(`${node.id}.${paramName}`) || '';
+  let configValue: string;
+  if (uniformName) {
+    configValue = uniformName;
+  } else {
+    const paramValue = node.parameters[paramName];
+    const rawDefault =
+      paramSpec.default !== undefined && typeof paramSpec.default === 'number'
+        ? paramSpec.default
+        : 0.0;
+    const v =
+      paramValue !== undefined && typeof paramValue === 'number' ? paramValue : rawDefault;
+    configValue = formatParamLiteralForGlsl(v, paramSpec);
+  }
+
+  const combined = generateParameterCombination(
+    configValue,
+    wireExpr,
+    inputMode,
+    'float'
+  );
+  return clampFloatExpressionGlsl(combined, paramSpec);
+}
+
 export function getParameterComponentExpression(
   node: NodeInstance,
   nodeSpec: NodeSpec,
@@ -43,11 +90,22 @@ export function getParameterComponentExpression(
   if (graph?.automation?.lanes && paramSpec?.type === 'float') {
     const lane = graph.automation.lanes.find((l) => l.nodeId === node.id && l.paramName === paramName);
     if (lane && automationLaneHasEvaluableRegions(lane)) {
-      return `evalAutomation_${sanitizeAutomationLaneId(lane.id)}(uTimelineTime)`;
+      return clampFloatExpressionGlsl(
+        `evalAutomation_${sanitizeAutomationLaneId(lane.id)}(uTimelineTime)`,
+        paramSpec
+      );
     }
   }
   const paramInputVar = parameterInputVars.get(paramName);
-  if (paramInputVar) return paramInputVar;
+  if (paramInputVar) {
+    return buildGlslExprForDrivenFloatParameter(
+      node,
+      nodeSpec,
+      paramName,
+      paramInputVar,
+      uniformNames
+    );
+  }
   const uniformName = uniformNames.get(`${node.id}.${paramName}`);
   if (uniformName) return uniformName;
   const raw = node.parameters[paramName];
@@ -139,6 +197,7 @@ export function generateNodeCode(
   const inputVars = new Map<string, string>();
 
   for (const conn of graph.connections) {
+    if (conn.disabled) continue;
     if (conn.targetNodeId !== node.id || !conn.targetPort) continue;
     const targetInput = nodeSpec.inputs.find(i => i.name === conn.targetPort);
     if (!targetInput) continue;
@@ -176,7 +235,8 @@ export function generateNodeCode(
     executionOrder,
     variableNames,
     uniformNames,
-    ctx.nodeSpecs
+    ctx.nodeSpecs,
+    ctx.effectiveNodeSpecsById
   );
 
   const skipInputDefaults = nodeSpec.inputs.length === 0;
@@ -212,6 +272,108 @@ export function generateNodeCode(
         defaultValue = getInputDefaultValue(input.type);
       }
       inputVars.set(input.name, defaultValue);
+    }
+
+    // When a vec2/vec3/vec4 *port* is wired, we normally take the full vector from that edge.
+    // If individual floats are also wired via `targetParameter` (same logical vector as
+    // `fallbackParameter` lists), merge: use port swizzles for unwired components and the
+    // driven expression for wired ones — matches panel live values and fixes "hue param
+    // wire ignored when Start/End color ports are used" (e.g. oklch-color-map-bezier).
+    for (const input of nodeSpec.inputs) {
+      if (!input.fallbackParameter) continue;
+      const paramNames = input.fallbackParameter.split(',').map((s) => s.trim()).filter(Boolean);
+      const portVar = inputVars.get(input.name);
+      if (!portVar) continue;
+      const anyWiredAxis = paramNames.some((p) => parameterInputVars.has(p));
+      if (!anyWiredAxis) continue;
+      if (input.type === 'vec2' && paramNames.length === 2) {
+        const e0 = parameterInputVars.has(paramNames[0])
+          ? buildGlslExprForDrivenFloatParameter(
+              node,
+              nodeSpec,
+              paramNames[0],
+              parameterInputVars.get(paramNames[0])!,
+              uniformNames
+            )
+          : `${portVar}.x`;
+        const e1 = parameterInputVars.has(paramNames[1])
+          ? buildGlslExprForDrivenFloatParameter(
+              node,
+              nodeSpec,
+              paramNames[1],
+              parameterInputVars.get(paramNames[1])!,
+              uniformNames
+            )
+          : `${portVar}.y`;
+        inputVars.set(input.name, `vec2(${e0}, ${e1})`);
+      } else if (input.type === 'vec3' && paramNames.length === 3) {
+        const e0 = parameterInputVars.has(paramNames[0])
+          ? buildGlslExprForDrivenFloatParameter(
+              node,
+              nodeSpec,
+              paramNames[0],
+              parameterInputVars.get(paramNames[0])!,
+              uniformNames
+            )
+          : `${portVar}.x`;
+        const e1 = parameterInputVars.has(paramNames[1])
+          ? buildGlslExprForDrivenFloatParameter(
+              node,
+              nodeSpec,
+              paramNames[1],
+              parameterInputVars.get(paramNames[1])!,
+              uniformNames
+            )
+          : `${portVar}.y`;
+        const e2 = parameterInputVars.has(paramNames[2])
+          ? buildGlslExprForDrivenFloatParameter(
+              node,
+              nodeSpec,
+              paramNames[2],
+              parameterInputVars.get(paramNames[2])!,
+              uniformNames
+            )
+          : `${portVar}.z`;
+        inputVars.set(input.name, `vec3(${e0}, ${e1}, ${e2})`);
+      } else if (input.type === 'vec4' && paramNames.length === 4) {
+        const e0 = parameterInputVars.has(paramNames[0])
+          ? buildGlslExprForDrivenFloatParameter(
+              node,
+              nodeSpec,
+              paramNames[0],
+              parameterInputVars.get(paramNames[0])!,
+              uniformNames
+            )
+          : `${portVar}.x`;
+        const e1 = parameterInputVars.has(paramNames[1])
+          ? buildGlslExprForDrivenFloatParameter(
+              node,
+              nodeSpec,
+              paramNames[1],
+              parameterInputVars.get(paramNames[1])!,
+              uniformNames
+            )
+          : `${portVar}.y`;
+        const e2 = parameterInputVars.has(paramNames[2])
+          ? buildGlslExprForDrivenFloatParameter(
+              node,
+              nodeSpec,
+              paramNames[2],
+              parameterInputVars.get(paramNames[2])!,
+              uniformNames
+            )
+          : `${portVar}.z`;
+        const e3 = parameterInputVars.has(paramNames[3])
+          ? buildGlslExprForDrivenFloatParameter(
+              node,
+              nodeSpec,
+              paramNames[3],
+              parameterInputVars.get(paramNames[3])!,
+              uniformNames
+            )
+          : `${portVar}.w`;
+        inputVars.set(input.name, `vec4(${e0}, ${e1}, ${e2}, ${e3})`);
+      }
     }
   }
 
@@ -257,6 +419,13 @@ export function generateNodeCode(
     );
     nodeCode = nodeCode.replace(/\$sdf_call/g, replacements.sdfCall);
     nodeCode = nodeCode.replace(/\$displacement_at_p/g, replacements.displacementAtP);
+  }
+
+  if (nodeSpec.id === 'arrangement-notes') {
+    nodeCode = nodeCode.replace(
+      /\$arrNotesEvalStruct\b/g,
+      arrangementNotesEvalStructName(node.id)
+    );
   }
 
   code.push(nodeCode);

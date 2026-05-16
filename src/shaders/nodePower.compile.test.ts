@@ -35,7 +35,7 @@ function buildRuleAGraph(rotateBypassed: boolean): NodeGraph {
     version: '2.0',
     nodes: [
       { id: 'n-uv', type: 'uv-coordinates', position: { x: 0, y: 0 }, parameters: {} },
-      { id: 'n-rotate', type: 'rotate', position: { x: 0, y: 0 }, parameters: {}, bypassed: rotateBypassed },
+      { id: 'n-rotate', type: 'transform', position: { x: 0, y: 0 }, parameters: {}, bypassed: rotateBypassed },
       { id: 'n-noise', type: 'noise', position: { x: 0, y: 0 }, parameters: {} },
       { id: 'n-out', type: 'final-output', position: { x: 0, y: 0 }, parameters: {} },
     ],
@@ -119,8 +119,8 @@ describe('Node Power: Rule A (passthrough)', () => {
     expect(active.metadata.executionOrder).toContain('n-rotate');
     expect(bypassed.metadata.executionOrder).not.toContain('n-rotate');
 
-    expect(bypassed.shaderCode).not.toContain('// Node: Rotate');
-    expect(active.shaderCode).toContain('// Node: Rotate');
+    expect(bypassed.shaderCode).not.toContain('// Node: Transform');
+    expect(active.shaderCode).toContain('// Node: Transform');
 
     // After Rule A rewrite, noise reads its `in` from the rotate's primary upstream (uv) — not
     // from rotate's own output variable. Bypass output should NOT reference rotate's output.
@@ -241,7 +241,7 @@ describe('Node Power: invariants', () => {
       name: 'Rotate orphan',
       version: '2.0',
       nodes: [
-        { id: 'n-rotate', type: 'rotate', position: { x: 0, y: 0 }, parameters: {}, bypassed: true },
+        { id: 'n-rotate', type: 'transform', position: { x: 0, y: 0 }, parameters: {}, bypassed: true },
         { id: 'n-noise', type: 'noise', position: { x: 0, y: 0 }, parameters: {} },
         { id: 'n-out', type: 'final-output', position: { x: 0, y: 0 }, parameters: {} },
       ],
@@ -268,8 +268,8 @@ describe('Node Power: invariants', () => {
       version: '2.0',
       nodes: [
         { id: 'n-uv', type: 'uv-coordinates', position: { x: 0, y: 0 }, parameters: {} },
-        { id: 'n-rotate', type: 'rotate', position: { x: 0, y: 0 }, parameters: {}, bypassed: true },
-        { id: 'n-scale', type: 'scale', position: { x: 0, y: 0 }, parameters: {}, bypassed: true },
+        { id: 'n-rotate', type: 'transform', position: { x: 0, y: 0 }, parameters: {}, bypassed: true },
+        { id: 'n-scale', type: 'transform', position: { x: 0, y: 0 }, parameters: {}, bypassed: true },
         { id: 'n-noise', type: 'noise', position: { x: 0, y: 0 }, parameters: {} },
         { id: 'n-out', type: 'final-output', position: { x: 0, y: 0 }, parameters: {} },
       ],

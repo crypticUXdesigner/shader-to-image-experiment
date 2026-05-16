@@ -5,6 +5,9 @@
  */
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { buildArrangementSnapshot } from '../audiotool/arrangement/buildArrangementSnapshot';
+import type { RawArrangementEntities } from '../audiotool/arrangement/rawEntities';
+import spikeFixture from '../audiotool/arrangement/__fixtures__/spike-arrangement-raw.json';
 import type { NodeGraph } from '../data-model/types';
 import type { AudioSetup } from '../data-model/audioSetupTypes';
 import type { PreviewCompileUiSink } from './previewCompileUiSink';
@@ -300,6 +303,62 @@ describe('CompilationManager', () => {
       cm.onGraphStructureChange(true);
       vi.runAllTimers();
       expect(compiler.compile).toHaveBeenCalledTimes(2);
+    });
+
+    it('first compile after project load includes arrangement snapshot when audio is set before graph', () => {
+      const compiler = createMockCompiler();
+      const renderer = createMockRenderer();
+      const cm = createCompilationManager(compiler, renderer);
+      const snapshot = buildArrangementSnapshot(spikeFixture as RawArrangementEntities);
+      const g = minimalGraph();
+      const audioWithSnapshot: AudioSetup = {
+        files: [],
+        bands: [],
+        remappers: [],
+        primarySource: { type: 'playlist', trackId: snapshot.source.trackName },
+        arrangementSnapshot: snapshot,
+      };
+      const audioEmpty: AudioSetup = { files: [], bands: [], remappers: [] };
+
+      const snapshotAtCompile: unknown[] = [];
+      (compiler.compile as ReturnType<typeof vi.fn>).mockImplementation((_graph, audio) => {
+        snapshotAtCompile.push(audio?.arrangementSnapshot);
+        return minimalCompilationResult();
+      });
+
+      // Buggy hub load order: graph compile kick before audio setup is on CompilationManager.
+      cm.setGraph(g);
+      cm.onGraphStructureChange(true);
+      cm.setAudioSetup(audioEmpty);
+      vi.runAllTimers();
+      expect(snapshotAtCompile[0]).toBeUndefined();
+
+      snapshotAtCompile.length = 0;
+      (compiler.compile as ReturnType<typeof vi.fn>).mockClear();
+
+      // Fixed order: audio setup before graph, then forced full recompile (RuntimeManager.loadProject).
+      cm.setAudioSetup(audioWithSnapshot);
+      cm.setGraph(g);
+      cm.requestFullPreviewRecompile();
+      vi.runAllTimers();
+      expect(snapshotAtCompile[snapshotAtCompile.length - 1]).toEqual(snapshot);
+    });
+
+    it('requestFullPreviewRecompile runs even when graph reference is unchanged', () => {
+      const compiler = createMockCompiler();
+      const renderer = createMockRenderer();
+      const cm = createCompilationManager(compiler, renderer);
+      const g = minimalGraph();
+
+      cm.setGraph(g);
+      cm.onGraphStructureChange(true);
+      vi.runAllTimers();
+      expect(compiler.compile).toHaveBeenCalledTimes(1);
+
+      (compiler.compile as ReturnType<typeof vi.fn>).mockClear();
+      cm.requestFullPreviewRecompile();
+      vi.runAllTimers();
+      expect(compiler.compile).toHaveBeenCalledTimes(1);
     });
 
     it('skips recompilation when only disconnected nodes change', () => {

@@ -129,10 +129,10 @@ describe('eligibility for real specs', () => {
     return s;
   }
 
-  it('rotate is Rule A and supports power', () => {
-    const rotate = get('rotate');
-    expect(nodePowerRule(rotate)).toBe('A');
-    expect(nodeSupportsPower(rotate)).toBe(true);
+  it('transform is Rule A and supports power', () => {
+    const transform = get('transform');
+    expect(nodePowerRule(transform)).toBe('A');
+    expect(nodeSupportsPower(transform)).toBe(true);
   });
 
   it('noise is Rule B and supports power', () => {
@@ -239,7 +239,6 @@ describe('eligible node ids — snapshot regression guard', () => {
         "mandelbulb-sdf",
         "menger-sponge-sdf",
         "metaballs",
-        "mirror-flip",
         "mixed-wave-signal",
         "noise",
         "normal-mapping",
@@ -262,8 +261,6 @@ describe('eligible node ids — snapshot regression guard', () => {
         "rgb-separation",
         "rings",
         "ripple",
-        "rotate",
-        "scale",
         "scanlines",
         "shapes-2d",
         "sierpinski-tetra-sdf",
@@ -275,6 +272,7 @@ describe('eligible node ids — snapshot regression guard', () => {
         "stripes",
         "time",
         "tone-mapping",
+        "transform",
         "triangle-grid",
         "turbulence",
         "uv-band-shift",

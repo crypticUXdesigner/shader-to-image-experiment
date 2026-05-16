@@ -262,19 +262,32 @@ export function getParameterEnumMappings(
     };
   }
 
-  if (nodeId === 'arrangement-lanes' || nodeId === 'arrangement-notes') {
+  if (nodeId === 'arrangement-lanes') {
     if (paramName === 'uvInputMode') {
       return { 0: 'Normalized', 1: 'UV Coords' };
     }
     if (paramName === 'viewportMode') {
       return { 0: 'Follow', 1: 'Fixed' };
     }
-    if (paramName === 'trackFilterMode') {
-      return { 0: 'All tracks', 1: 'Track ids' };
+  }
+
+  if (nodeId === 'arrangement-notes') {
+    if (paramName === 'trackLayout') {
+      return { 0: 'Overlap', 1: 'Lanes' };
     }
-    if (nodeId === 'arrangement-lanes' && paramName === 'colorSource') {
-      return { 0: 'Palette', 1: 'DAW' };
+    if (paramName === 'layoutOrientation') {
+      return { 0: 'Horizontal', 1: 'Vertical' };
     }
+    if (paramName === 'playheadShow') {
+      return { 0: 'Off', 1: 'On' };
+    }
+    if (paramName === 'timelineAnchor') {
+      return { 0: 'Center', 1: 'Start' };
+    }
+  }
+
+  if (nodeId === 'arrangement-lanes' && paramName === 'colorSource') {
+    return { 0: 'Palette', 1: 'DAW' };
   }
 
   return null;

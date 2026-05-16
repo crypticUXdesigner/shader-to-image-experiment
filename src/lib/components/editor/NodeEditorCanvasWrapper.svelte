@@ -22,7 +22,7 @@
     type ConnectionValidationContext,
   } from '../../../data-model';
   import { wheelNonPassive } from '../../actions/wheelPassive';
-  import type { NodeGraph, Connection, NodeInstance, ParameterValue } from '../../../data-model/types';
+  import type { NodeGraph, Connection, NodeInstance, ParameterValue, GraphUndoRecordingOptions } from '../../../data-model/types';
   import type { NodeSpec, ParameterInputMode } from '../../../types/nodeSpec';
   import type { RenderBackendSelected } from '../../../runtime/renderBackends/renderBackendTypes';
   import { graphStore } from '../../stores';
@@ -544,9 +544,10 @@
     nodeId: string,
     paramName: string,
     value: ParameterValue,
-    canvas: NodeEditorCanvas | null
+    canvas: NodeEditorCanvas | null,
+    options?: GraphUndoRecordingOptions
   ): Promise<void> {
-    graphStore.updateNodeParameter(nodeId, paramName, value);
+    graphStore.updateNodeParameter(nodeId, paramName, value, options);
     await syncCanvasAfterParameterStoreUpdateThenRuntime({
       canvas,
       getGraph: () => graphStore.graph,
@@ -765,8 +766,11 @@
         callbacks.onConnectionRemoved?.(connectionId);
         notifyGraphChanged();
       },
-      onParameterChanged: (nodeId, paramName, value) => {
-        handleParameterChange(nodeId, paramName, value, canvas);
+      onParameterChanged: (nodeId, paramName, value, opts) => {
+        void handleParameterChange(nodeId, paramName, value, canvas, opts);
+      },
+      onParameterGestureCommit: () => {
+        graphStore.recordUndoSnapshot();
       },
       onFileParameterChanged: async (nodeId, paramName, file) => {
         try {
@@ -1092,9 +1096,10 @@
       canvasInstance?.requestRender?.();
       notifyGraphChanged();
     }}
-    onParameterChange={(nodeId, paramName, value) => {
-      void handleParameterChange(nodeId, paramName, value, canvasInstance);
+    onParameterChange={(nodeId, paramName, value, options) => {
+      void handleParameterChange(nodeId, paramName, value, canvasInstance, options);
     }}
+    onParameterGestureCommit={() => graphStore.recordUndoSnapshot()}
     onNodeContextMenu={(nodeId, clientX, clientY) => {
       const node = graph.nodes.find((n) => n.id === nodeId);
       if (node) callbacks.onNodeContextMenu?.(clientX, clientY, nodeId, node.type);

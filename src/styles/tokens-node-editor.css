@@ -22,12 +22,13 @@
 --canvas-grid-dot-radius: 2.5px;
 
 /* === 2. NODE — BOX (outer container, border, shadow) === */
+--node-selection-color: var(--color-blue-90);
 --node-bg: var(--color-gray-80);
 --node-bg-end: var(--color-gray-80);
---node-bg-selected: var(--color-blue-40);
---node-bg-selected-end: var(--color-blue-40);
+--node-bg-selected: color-mix(in srgb, var(--node-selection-color) 18%, var(--color-gray-80));
+--node-bg-selected-end: var(--node-bg-selected);
 --node-border: #ffffff4e;
---node-border-selected: #ffffff99;
+--node-border-selected: var(--node-selection-color);
 /* Patch tool: node chosen for insert — distinct from selection (next step: pick cable) */
 --node-border-patch-insert: var(--color-teal-110);
 --node-patch-insert-ring-width: 5px;
@@ -48,13 +49,13 @@
 --node-box-min-width: 400px;
 --node-box-border-radius: 36px;
 --node-box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
---node-box-shadow-selected: 0 4px 12px var(--color-blue-60);
+--node-box-shadow-selected: 0 4px 12px color-mix(in srgb, var(--node-selection-color) 50%, transparent);
 --node-shadow-color: rgba(0, 0, 0, 0.15);
---node-shadow-color-selected-rgba: rgba(68, 72, 191, 0.3);
+--node-shadow-color-selected-rgba: color-mix(in srgb, var(--node-selection-color) 30%, transparent);
 
 /*
  * Shiny (discovery accent): warm amber ring + glow — never reads like selection,
- * which is near-white rim + blue lift (--node-border-selected / --color-blue-60).
+ * which is blue rim + lift (--node-border-selected / --node-selection-color).
  * Patch-into cue stays teal (--node-border-patch-insert).
  */
 --node-shiny-ring-width: 3px;
@@ -240,7 +241,7 @@
 
 /* === 6. CONNECTIONS (ConnectionLayerRenderer, ParameterConnectionLayerRenderer) === */
 --connection-color: var(--color-gray-100);
---connection-color-selected: var(--color-blue-90);
+--connection-color-selected: var(--node-selection-color);
 --connection-width: 6px;
 --connection-width-selected: 12px;
 --connection-width-preview: 4px;
@@ -519,7 +520,8 @@
 --toggle-height: 24px;
 --toggle-bg-off: var(--color-gray-50);
 --toggle-bg-on: var(--color-blue-90);
---toggle-bg-hover: var(--color-gray-70);
+--toggle-bg-hover-off: var(--color-gray-80);
+--toggle-bg-hover-on: var(--color-blue-100);
 --toggle-border: 1px solid var(--color-gray-70);
 --toggle-border-radius: 12px;
 --toggle-slider-size: 20px;

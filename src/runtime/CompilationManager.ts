@@ -399,6 +399,21 @@ export class CompilationManager implements Disposable {
     this.audioSetup = audioSetup ?? null;
   }
 
+  /**
+   * Force a full preview recompile after project load (graph + audio setup applied together).
+   * Clears audio/graph compile dedupe so idle-skip cannot leave a stale program (e.g. arrangement
+   * snapshot baked on a prior compile kick).
+   */
+  requestFullPreviewRecompile(): void {
+    this.lastSuccessfulCompileAudioFingerprint = null;
+    this.lastGraphHash = '';
+    this.compileGraphIdentityRevision += 1;
+    this.clearPreviewParameterSurfaceCache();
+    if (!this.graph) return;
+    this.cancelPendingRecompile();
+    this.onGraphStructureChange(true);
+  }
+
   private computeAudioCompileFingerprint(): string {
     return this.audioSetup == null ? '' : JSON.stringify(this.audioSetup);
   }

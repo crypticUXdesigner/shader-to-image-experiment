@@ -21,6 +21,7 @@ export type {
 export { getPrimaryFileId } from './audioSetupTypes';
 export type {
   ParameterValue,
+  GraphUndoRecordingOptions,
   NodePosition,
   NodeInstance,
   Connection,
@@ -210,6 +211,10 @@ export {
 // Distort: translate + directional-displace -> displace (modes)
 export { migrateDisplace2dUnify, hasLegacyDisplace2dNodes } from './displace2dUnifyMigration';
 export { migrateDisplaceRemoveLegacyInputPorts } from './displaceRemoveLegacyInputPortsMigration';
+export {
+  migrateTransform2dUnify,
+  hasLegacyTransform2dNodes,
+} from './transform2dUnifyMigration';
 
 // Particle system: fold legacy UV scale into grid spacing
 export { migrateParticleSystemFoldScale } from './particleSystemGrainMigration';

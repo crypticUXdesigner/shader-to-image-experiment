@@ -112,6 +112,11 @@ export const AUDIO_SIGNAL_PICKER_COMPACT_CLAMP_BOX = { width: 440, height: 360 }
 export const TIMELINE_PANEL_FLOATING_CLAMP_BOX = { width: 1040, height: 640 } as const;
 
 /**
+ * Conservative outer box for the arrangement track filter floating panel on arrangement nodes.
+ */
+export const ARRANGEMENT_TRACK_FILTER_CLAMP_BOX = { width: 360, height: 520 } as const;
+
+/**
  * Clamp a fixed `Popover` / `FloatingPanel` center (`align="center"`, `alignY="center"`)
  * so the panel bounding box fits in the viewport with `inset` px margin.
  * Used when restoring stored coordinates that may be off-screen.

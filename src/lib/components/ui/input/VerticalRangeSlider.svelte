@@ -10,6 +10,7 @@
     allowInverted?: boolean;
     class?: string;
     onChange?: (payload: { low: number; high: number }) => void;
+    onCommit?: (payload: { low: number; high: number }) => void;
   }
 
   let {
@@ -21,12 +22,14 @@
     disabled = false,
     allowInverted = false,
     class: className = '',
-    onChange
+    onChange,
+    onCommit
   }: Props = $props();
 
   let draggingHandle = $state<'low' | 'high' | null>(null);
   let dragLow = $state(0);
   let dragHigh = $state(1);
+  let dragMoved = $state(false);
 
   const fromProps = $derived.by(() =>
     allowInverted
@@ -67,12 +70,14 @@
     draggingHandle = handle;
     dragLow = fromProps.low;
     dragHigh = fromProps.high;
+    dragMoved = false;
     (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
   }
 
   function handlePointerMove(e: PointerEvent) {
     if (draggingHandle === null) return;
     if (!trackEl) return;
+    dragMoved = true;
     const rect = trackEl.getBoundingClientRect();
     const rawValue = valueFromY(e.clientY, rect);
     const snapped = snapValue(rawValue);
@@ -89,8 +94,12 @@
   function handlePointerUp(e: PointerEvent) {
     if (draggingHandle !== null) {
       (e.currentTarget as HTMLElement).releasePointerCapture(e.pointerId);
+      if (dragMoved) {
+        onCommit?.({ low: dragLow, high: dragHigh });
+      }
     }
     draggingHandle = null;
+    dragMoved = false;
   }
 </script>
 

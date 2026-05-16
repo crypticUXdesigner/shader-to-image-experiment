@@ -7,6 +7,7 @@ import {
   buildArrangementLanesWgslNodeHelper,
   filterRegionsForNode,
   packArrangementRegionsForGlsl,
+  resolveVisibleTracks,
 } from './packArrangementRegionsForGlsl';
 import type { NodeInstance } from '../../data-model/types';
 
@@ -46,6 +47,19 @@ describe('packArrangementRegionsForGlsl', () => {
     expect(trackCount).toBe(2);
     expect(regions.every((r) => r.trackRow >= 0 && r.trackRow <= 1)).toBe(true);
     expect(regions).toHaveLength(2);
+  });
+
+  it('resolveVisibleTracks follows comma-separated order over project track order', () => {
+    const projectOrder = resolveVisibleTracks(snapshot, {
+      trackFilterMode: 1,
+      trackFilterList: 'track-note-1,track-audio-1',
+    }).map((t) => t.id);
+    const reversed = resolveVisibleTracks(snapshot, {
+      trackFilterMode: 1,
+      trackFilterList: 'track-audio-1,track-note-1',
+    }).map((t) => t.id);
+    expect(projectOrder).toEqual(['track-note-1', 'track-audio-1']);
+    expect(reversed).toEqual(['track-audio-1', 'track-note-1']);
   });
 
   it('returns empty pack without snapshot', () => {

@@ -5,6 +5,7 @@ Focused engineering notes for behavior that is **partially implemented**, **not 
 | Document | Topic |
 |----------|--------|
 | [graph-undo-redo.md](./graph-undo-redo.md) | Wire `UndoRedoManager` to keyboard/UI so undo/redo matches user goals |
+| [`undo-history-gestures/_OVERVIEW.md`](./undo-history-gestures/_OVERVIEW.md) | **Active:** Gesture-level undo — one snapshot per completed knob/slider drag (`recordUndo` + bookmark), not per step |
 | [node-panel-category-order.md](./node-panel-category-order.md) | Keep browse category order consistent between node panel and add picker |
 | [a11y-baseline.md](./a11y-baseline.md) | Accessibility baseline / scripted checks |
 | [node-port-labels-in-out-analysis.md](./node-port-labels-in-out-analysis.md) | Port labels: extended reference + audit tables (**canonical rules:** `shaders/node-standards.mdc` § port labels) |
@@ -20,6 +21,7 @@ Focused engineering notes for behavior that is **partially implemented**, **not 
 | [`graph-runtime-ui-seams/_OVERVIEW.md`](./graph-runtime-ui-seams/_OVERVIEW.md) | **Done (2026-05-14):** Graph / runtime / UI **seam hardening** — preview-compile UI sink, canvas parameter sync, `App` runtime bootstrap extract, WebGPU paste/add guards, worker message contract tests |
 | [`graph-runtime-ui-architecture-followup/_OVERVIEW.md`](./graph-runtime-ui-architecture-followup/_OVERVIEW.md) | **Active:** Post–`/review-architecture` follow-up — `App` orchestration shrink, render-backend façade, WebGPU/compile modularization, graph-diff ownership doc, runtime-only guardrails, `graphStore`↔toast decoupling, WebGPU wire validation phase 2, `lib`→`ui` barrel audit |
 | [`audiotool-arrangement/_OVERVIEW.md`](./audiotool-arrangement/_OVERVIEW.md) | **Active:** Audiotool **published-project snapshot** — foundation shipped (import + persist on `audioSetup`); region/note nodes + DAW automation bindings next |
+| [`transform-2d-unify/_OVERVIEW.md`](./transform-2d-unify/_OVERVIEW.md) | **Active:** Unify **Rotate**, **Scale**, **Flip** into **`transform`** (fixed order Flip→Scale→Rotate, shared pivot); **`displace`** unchanged; load migration for legacy types |
 
 New multi-step packages: add `docs/implementation/<slug>/_OVERVIEW.md` first, then link it here (see **`workpkg-hygiene.mdc`**).
 

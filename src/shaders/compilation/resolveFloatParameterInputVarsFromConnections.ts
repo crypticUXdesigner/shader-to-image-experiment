@@ -5,8 +5,9 @@ import { generateOutputVariableName } from './MainCodeGeneratorUtils';
 
 /**
  * Resolves float parameter → GLSL variable references from parameter connections.
- * Matches MainCodeGeneratorNodeCode: execution order, virtual audio uniforms, and
- * tie-break when multiple sources target the same float parameter.
+ * Matches MainCodeGeneratorNodeCode: execution order, virtual audio uniforms, tie-break when
+ * multiple sources target the same float parameter, and optional effective specs for polymorphic
+ * upstream nodes (e.g. `select`).
  */
 export function resolveFloatParameterInputVarsFromConnections(
   node: NodeInstance,
@@ -15,7 +16,8 @@ export function resolveFloatParameterInputVarsFromConnections(
   executionOrder: string[],
   variableNames: Map<string, Map<string, string>>,
   uniformNames: Map<string, string>,
-  nodeSpecs: Map<string, NodeSpec>
+  nodeSpecs: Map<string, NodeSpec>,
+  effectiveNodeSpecsById?: Map<string, NodeSpec>
 ): Map<string, string> {
   const parameterInputVars = new Map<string, string>();
   const paramSourceIndex = new Map<string, number>();
@@ -23,6 +25,7 @@ export function resolveFloatParameterInputVarsFromConnections(
   const effectiveTargetIndex = targetIndex < 0 ? executionOrder.length : targetIndex;
 
   for (const conn of graph.connections) {
+    if (conn.disabled) continue;
     if (conn.targetNodeId !== node.id || !conn.targetParameter) continue;
     const paramSpec = nodeSpec.parameters[conn.targetParameter];
     if (!paramSpec || paramSpec.type !== 'float') continue;
@@ -38,7 +41,8 @@ export function resolveFloatParameterInputVarsFromConnections(
 
     const sourceNode = graph.nodes.find((n) => n.id === conn.sourceNodeId);
     if (!sourceNode) continue;
-    const sourceSpec = nodeSpecs.get(sourceNode.type);
+    const sourceSpec =
+      effectiveNodeSpecsById?.get(sourceNode.id) ?? nodeSpecs.get(sourceNode.type);
     if (!sourceSpec) continue;
     const sourceOutput =
       sourceSpec.outputs.find((o) => o.name === conn.sourcePort) ?? sourceSpec.outputs[0];

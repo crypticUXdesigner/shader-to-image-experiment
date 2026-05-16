@@ -54,14 +54,16 @@
 <style>
   .top-bar-view-controls {
     display: flex;
-    flex: 1;
+    flex: 0 1 auto;
     align-items: center;
     justify-content: center;
     min-width: 0;
+    pointer-events: none;
   }
 
   :global(.top-bar-view-mode-group) {
     display: inline-flex;
     align-items: stretch;
+    pointer-events: auto;
   }
 </style>

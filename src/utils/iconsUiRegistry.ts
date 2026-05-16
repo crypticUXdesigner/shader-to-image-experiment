@@ -15,6 +15,7 @@ export type IconName =
   | 'eye'
   | 'eye-off'
   | 'power'
+  | 'chevron-up'
   | 'chevron-down'
   | 'chevron-right'
   | 'chevron-left'
@@ -102,6 +103,7 @@ export const iconNameMap: Record<IconName, string> = {
   'eye': 'eye',
   'eye-off': 'eye-slash',
   'power': 'power',
+  'chevron-up': 'caret-up',
   'chevron-down': 'caret-down',
   'chevron-right': 'caret-right',
   'chevron-left': 'caret-left',

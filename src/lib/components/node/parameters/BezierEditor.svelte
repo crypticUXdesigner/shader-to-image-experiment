@@ -11,6 +11,7 @@
     disabled?: boolean;
     class?: string;
     onChange?: (payload: { x1: number; y1: number; x2: number; y2: number }) => void;
+    onCommit?: () => void;
   }
 
   let {
@@ -21,6 +22,7 @@
     disabled = false,
     class: className = '',
     onChange,
+    onCommit,
   }: Props = $props();
 
   let containerEl = $state<HTMLDivElement | null>(null);
@@ -74,6 +76,7 @@
   function handlePointerUp(e: PointerEvent) {
     if (draggingIndex !== null) {
       (e.currentTarget as HTMLElement).releasePointerCapture(e.pointerId);
+      onCommit?.();
       draggingIndex = null;
       dragStart = null;
     }

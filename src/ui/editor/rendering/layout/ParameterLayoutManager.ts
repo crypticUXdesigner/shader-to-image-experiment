@@ -21,6 +21,7 @@ import { ColorPickerRowElementRenderer } from './elements/ColorPickerRowElement'
 import { ColorPickerRowWithPortsElementRenderer } from './elements/ColorPickerRowWithPortsElement';
 import { ColorMapPreviewElementRenderer } from './elements/ColorMapPreviewElement';
 import { CoordPadElementRenderer } from './elements/CoordPadElement';
+import { ArrangementTrackFilterElementRenderer } from './elements/ArrangementTrackFilterElement';
 import type { LayoutElementRenderer, ElementMetrics } from './LayoutElementRenderer';
 import { BodyFlexboxLayout } from '../BodyFlexboxLayout';
 
@@ -39,6 +40,9 @@ function getElementKey(element: LayoutElement, index: number): string {
   // For frequency-range, include bandIndex for uniqueness when multiple bands
   if (element.type === 'frequency-range') {
     return `${type}-${index}-${element.bandIndex ?? 0}`;
+  }
+  if (element.type === 'arrangement-track-filter') {
+    return `${type}-${index}`;
   }
   // For color-picker-row, color-picker-row-with-ports, color-map-preview and bezier-editor-row, type + index
   if (type === 'color-picker-row' || type === 'color-picker-row-with-ports' || type === 'color-map-preview' || type === 'bezier-editor-row') {
@@ -66,7 +70,8 @@ export class ParameterLayoutManager {
       new ColorPickerRowElementRenderer(ctx),
       new ColorPickerRowWithPortsElementRenderer(ctx),
       new ColorMapPreviewElementRenderer(ctx),
-      new CoordPadElementRenderer(ctx)
+      new CoordPadElementRenderer(ctx),
+      new ArrangementTrackFilterElementRenderer(ctx)
     ];
     
     this.bodyLayout = new BodyFlexboxLayout();

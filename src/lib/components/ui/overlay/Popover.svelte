@@ -264,7 +264,7 @@
     aria-modal="false"
     use:portal
     use:stampOpenedAt
-    transition:fade={{ duration: fadeMs }}
+    transition:fade={() => ({ duration: fadeMs })}
   >
     {@render children?.()}
   </div>

@@ -13,6 +13,8 @@ import { migrateDriveHomeLightsSkyGradient } from './driveHomeLightsSkyGradientM
 import { migrateKaleidoscopeSmooth } from './kaleidoscopeMergeMigration';
 import { migrateDisplace2dUnify } from './displace2dUnifyMigration';
 import { migrateDisplaceRemoveLegacyInputPorts } from './displaceRemoveLegacyInputPortsMigration';
+import { migrateTransform2dUnify } from './transform2dUnifyMigration';
+import { migrateTransformAngleToDegrees } from './transformAngleToDegreesMigration';
 import { migrateRingsNode } from './ringsNodeMigration';
 import { migrateDotsNodeParameterNames } from './dotsNodeMigration';
 import { migrateParticleSystemFoldScale } from './particleSystemGrainMigration';
@@ -28,6 +30,7 @@ import { migrateGlassShellColors } from './glassShellColorsMigration';
 import { migrateRadialRepeatSdfParameters } from './radialRepeatSdfMigration';
 import { migratePolarCoordinatesRemoveEnabled } from './polarCoordinatesRemoveEnabledMigration';
 import { migrateArrangementLanesParameters } from './arrangementLanesParametersMigration';
+import { migrateArrangementNotesParameters } from './arrangementNotesParametersMigration';
 
 export function migrateLegacyNodeGraph(graph: NodeGraph): NodeGraph {
   let g = migrateNoiseNodes(graph);
@@ -35,6 +38,8 @@ export function migrateLegacyNodeGraph(graph: NodeGraph): NodeGraph {
   g = migrateKaleidoscopeSmooth(g);
   g = migrateDisplace2dUnify(g);
   g = migrateDisplaceRemoveLegacyInputPorts(g);
+  g = migrateTransform2dUnify(g);
+  g = migrateTransformAngleToDegrees(g);
   g = migrateBloomSphereColors(g);
   g = migrateSkyDomeColors(g);
   g = migrateIridescentTunnelColors(g);
@@ -53,5 +58,6 @@ export function migrateLegacyNodeGraph(graph: NodeGraph): NodeGraph {
   g = migrateRadialRepeatSdfParameters(g);
   g = migrateUnifiedStripesPattern(g);
   g = migratePolarCoordinatesRemoveEnabled(g);
-  return migrateArrangementLanesParameters(g);
+  g = migrateArrangementLanesParameters(g);
+  return migrateArrangementNotesParameters(g);
 }
